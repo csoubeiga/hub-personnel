@@ -174,7 +174,8 @@ h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
     <button class="action-btn" id="btn-reset">🗑 Réinitialiser cette semaine</button>
     <button class="action-btn" style="border-color:#0369a1;color:#0369a1;" id="btn-export">⬇ Exporter JSON</button>
   </div>
-  <div class="footer-note">Données sauvegardées localement · ⚪ = note info · 🔷 = note flow</div>
+  <div class="footer-note">⚪ = note info · 🔷 = note flow</div>
+    <div id="fb-status" style="text-align:center;margin-top:6px;font-size:10px;min-height:16px;"></div>
 </div>
 
 <!-- Modal -->
@@ -305,16 +306,31 @@ function writeSlot(dk,i,cat,note,nt){
 }
 
 // ─── Persistence ─────────────────────────────────────────────────────────
-function persist(){ try{ localStorage.setItem('wl5', JSON.stringify({weekKey,db})); }catch(e){} }
-function hydrate(){
-  try{
-    const raw = localStorage.getItem('wl5');
-    if (!raw) return;
-    const p = JSON.parse(raw);
-    db = p.db||{}; weekKey = p.weekKey||getWeekKey(new Date());
-  }catch(e){}
+// ─── Firebase Persistence ─────────────────────────────────────────────────
+let _fbSaveTimeout = null;
+function persist(){
+  clearTimeout(_fbSaveTimeout);
+  _fbSaveTimeout = setTimeout(async () => {
+    try {
+      const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      await setDoc(doc(_db, 'week-logger', 'data'), { weekKey, db: JSON.stringify(db) });
+      setStatus('✓ Synchronisé', 'ok');
+      setTimeout(() => setStatus(''), 2000);
+    } catch(e) { setStatus('Erreur sync: ' + e.message); }
+  }, 300);
 }
-
+async function hydrate(){
+  try {
+    const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const snap = await getDoc(doc(_db, 'week-logger', 'data'));
+    if (snap.exists()) {
+      const d = snap.data();
+      db = JSON.parse(d.db || '{}');
+      weekKey = d.weekKey || getWeekKey(new Date());
+    }
+  } catch(e) { setStatus('Erreur chargement: ' + e.message); }
+}
+  
 // ─── Brush ────────────────────────────────────────────────────────────────
 function activateBrush(b){
   brush=b; renderLegend();
@@ -604,7 +620,28 @@ function render(){
   const ta = document.getElementById('week-notes-area');
   ta.value = (db[weekKey] && db[weekKey][notesKey]) ? db[weekKey][notesKey] : '';
 }
-hydrate(); render();
+function setStatus(msg, type=''){
+  const el = document.getElementById('fb-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = type==='ok' ? '#16a34a' : '#94a3b8';
+}
+let _db;
+import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js").then(({ initializeApp }) => {
+  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js").then(({ getFirestore }) => {
+    const app = initializeApp({
+      apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+      authDomain: "hub-personnel-firebase.firebaseapp.com",
+      projectId: "hub-personnel-firebase",
+      storageBucket: "hub-personnel-firebase.firebasestorage.app",
+      messagingSenderId: "394129070920",
+      appId: "1:394129070920:web:10f3303c22adcda47cf17d"
+    });
+    _db = getFirestore(app);
+    setStatus('Chargement…');
+    hydrate().then(() => render());
+  });
+});
 
 // Save week notes on input
 document.getElementById('week-notes-area').addEventListener('input', () => {
