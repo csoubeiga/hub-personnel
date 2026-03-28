@@ -354,104 +354,125 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
 .zoom-ev-note   { font-size: 11px; color: var(--text-muted); margin-left: 6px; }
 .zoom-ev-date   { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 
-/* ── Vue Grille (calendrier mensuel) ── */
-.zcal-wrap {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-  overflow: hidden; box-shadow: var(--shadow); margin: 20px 28px 0;
-}
+/* ── Vue Grille — design "Mon Calendrier" ── */
+#zoom-overlay.mode-grid #zoom-inner  { padding: 0 0 56px; }
+#zoom-overlay.mode-grid #zoom-header { padding: 14px 32px; }
 
-/* Nav bar intégrée à la grille */
-.zcal-nav {
+.zcal-container { max-width: 1000px; margin: 0 auto; padding: 2rem 2rem 0; }
+
+/* Titre + nav mois */
+.zcal-cal-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 28px 16px; border-bottom: 1px solid var(--border);
+  margin-bottom: 1.8rem;
 }
-.zcal-nav-title {
-  font-family: var(--font-serif); font-size: 20px; font-weight: normal;
-  letter-spacing: -.01em; color: var(--text);
+.zcal-cal-title {
+  font-family: var(--font-serif); font-size: 2rem; letter-spacing: -.02em; line-height: 1;
 }
-.zcal-nav-title em { font-style: italic; color: var(--accent); }
-.zcal-nav-btns { display: flex; gap: 8px; }
-.zcal-nav-btn {
-  width: 34px; height: 34px; border-radius: 50%;
-  border: 1px solid var(--border); background: var(--surface);
-  color: var(--text-muted); font-size: 16px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .12s, border-color .12s, color .12s;
+.zcal-cal-title em { font-style: italic; color: var(--accent); }
+.zcal-nav-month { display: flex; align-items: center; gap: 1rem; }
+.zcal-nav-month button {
+  width: 36px; height: 36px; border: 1px solid var(--border);
+  background: var(--surface); border-radius: 8px; cursor: pointer;
+  font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
+  color: var(--text); transition: background .15s;
 }
-.zcal-nav-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.zcal-nav-month button:hover { background: var(--border); }
+.zcal-month-label {
+  font-family: var(--font-serif); font-size: 1.1rem;
+  min-width: 160px; text-align: center; letter-spacing: -.01em;
+}
 
-/* DOW header */
-.zcal-dow { display: grid; grid-template-columns: repeat(7,1fr); border-bottom: 1px solid var(--border); }
-.zcal-dow-cell {
-  padding: 10px 0 8px; text-align: center;
-  font-family: var(--font-sans); font-size: 11px; font-weight: 500;
+/* Grille */
+.zcal-grid-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden;
+}
+.zcal-day-headers {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  border-bottom: 1px solid var(--border);
+}
+.zcal-day-header {
+  padding: .7rem; text-align: center;
+  font-family: var(--font-sans); font-size: .72rem; font-weight: 500;
   letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
 }
-.zcal-dow-cell.we { color: var(--weekend-tick); }
-
-/* Grille jours */
-.zcal-grid { display: grid; grid-template-columns: repeat(7,1fr); }
-.zcal-cell {
-  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
-  min-height: 110px; padding: 10px 10px 8px; background: var(--surface);
-  cursor: pointer; transition: background .1s; position: relative;
+.zcal-day-header.we { color: var(--weekend-tick); }
+.zcal-days-grid { display: grid; grid-template-columns: repeat(7,1fr); }
+.zcal-day-cell {
+  min-height: 90px; border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: .5rem; cursor: pointer; transition: background .12s; position: relative;
 }
-.zcal-cell:nth-child(7n) { border-right: none; }
-.zcal-cell:hover   { background: var(--bg); }
-.zcal-cell.empty   { background: #FAFAF8; cursor: default; pointer-events: none; }
-.zcal-cell.is-we   { background: #FAF8F3; }
-.zcal-cell.is-we:hover { background: #F5F1E8; }
-.zcal-cell.is-today{ background: #FFF8F5; }
-
-/* Numéro du jour */
-.zcal-num {
-  font-family: var(--font-serif); font-size: 18px; font-weight: normal;
-  line-height: 1; color: var(--text); margin-bottom: 6px;
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 28px; height: 28px;
-}
-.zcal-cell.empty .zcal-num    { color: var(--text-light); font-size: 15px; }
-.zcal-cell.is-we .zcal-num    { color: var(--weekend-tick); }
-.zcal-cell.is-today .zcal-num {
+.zcal-day-cell:nth-child(7n) { border-right: none; }
+.zcal-day-cell:hover { background: var(--bg); }
+.zcal-day-cell.other-month { opacity: .3; cursor: default; pointer-events: none; }
+.zcal-day-cell.is-today .zcal-day-num {
   background: var(--accent); color: #fff; border-radius: 50%;
-  width: 28px; font-size: 14px; font-weight: 400; font-family: var(--font-sans);
 }
+.zcal-day-cell.is-we { background: rgba(200,180,155,.05); }
+.zcal-day-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-sans); font-size: .82rem; font-weight: 500;
+  margin-bottom: .3rem; color: var(--text);
+}
+.zcal-day-cell.other-month .zcal-day-num { color: var(--text-muted); }
+.zcal-day-cell.is-we .zcal-day-num { color: var(--weekend-tick); }
 
-/* Chips événements */
-.zcal-ev {
-  display: flex; align-items: center; gap: 5px;
-  margin-bottom: 3px; border-radius: 5px;
-  font-family: var(--font-sans); font-size: 11px; font-weight: 400; line-height: 1.2;
-  padding: 3px 7px; cursor: pointer; transition: filter .1s;
+/* Event pills dans les cellules */
+.zcal-pill {
+  font-size: .7rem; font-weight: 500; font-family: var(--font-sans);
+  background: var(--accent-light); color: var(--accent);
+  border-radius: 4px; padding: .1rem .35rem; margin-bottom: .15rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer; display: block;
+  transition: background .12s, color .12s;
 }
-.zcal-ev:hover { filter: brightness(.93); }
-.zcal-ev.range { color: rgba(255,255,255,.95); font-weight: 500; font-size: 10px; }
-.zcal-ev.range.no-start { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -10px; padding-left: 6px; }
-.zcal-ev.range.no-end   { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: -10px; padding-right: 6px; }
-.zcal-ev.single { background: var(--accent-light); color: var(--text); }
-.zcal-ev-dot    { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.zcal-ev-lbl    { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.zcal-overflow  { font-family: var(--font-sans); font-size: 10px; color: var(--text-muted); padding: 2px 4px; cursor: default; }
+.zcal-pill:hover { background: var(--accent); color: #fff; }
+.zcal-pill.range {
+  background: var(--accent); color: rgba(255,255,255,.95);
+  border-radius: 3px;
+}
+.zcal-pill.range.no-start { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.zcal-pill.range.no-end   { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.zcal-pill.range:hover { filter: brightness(1.1); }
+.zcal-pill.more { background: #F3F4F6; color: var(--text-muted); }
+.zcal-pill.more:hover { background: var(--border); color: var(--text); }
 
-/* Liste événements sous la grille */
-.zcal-list-wrap { margin: 20px 28px 0; }
-.zcal-list-title {
-  font-family: var(--font-serif); font-size: 18px; font-weight: normal; font-style: italic;
-  color: var(--text); margin-bottom: 12px; letter-spacing: -.01em;
+/* Liste événements */
+.zcal-events-list { margin-top: 2rem; padding-bottom: 2rem; }
+.zcal-events-list h4 {
+  font-family: var(--font-serif); font-size: 1.1rem; font-weight: normal;
+  margin-bottom: 1rem; letter-spacing: -.01em;
 }
-.zcal-list-row {
-  display: flex; align-items: flex-start; gap: 14px;
-  padding: 12px 16px; background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  margin-bottom: 7px; cursor: pointer; transition: border-color .12s;
+.zcal-event-item {
+  display: flex; align-items: flex-start; gap: .8rem;
+  padding: .9rem 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 10px;
+  margin-bottom: .6rem; cursor: pointer; transition: border-color .15s;
 }
-.zcal-list-row:hover { border-color: var(--accent); background: var(--accent-light); }
-.zcal-list-swatch { width: 4px; align-self: stretch; border-radius: 2px; flex-shrink: 0; margin-top: 2px; }
-.zcal-list-date { font-family: var(--font-sans); font-size: 12px; font-weight: 500; color: var(--accent); flex-shrink: 0; min-width: 42px; }
-.zcal-list-body { flex: 1; min-width: 0; }
-.zcal-list-name { font-size: 14px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.zcal-list-note { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-weight: 300; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zcal-event-item:hover { border-color: var(--accent); }
+.zcal-event-swatch {
+  width: 3px; align-self: stretch; border-radius: 2px; flex-shrink: 0;
+}
+.zcal-event-date {
+  font-family: var(--font-sans); font-size: .75rem; font-weight: 500;
+  color: var(--accent); white-space: nowrap; margin-top: .1rem; flex-shrink: 0; min-width: 38px;
+}
+.zcal-event-body { flex: 1; min-width: 0; }
+.zcal-event-title { font-weight: 500; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zcal-event-note  { font-size: .8rem; color: var(--text-muted); margin-top: .2rem; font-weight: 300; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .zcal-container { padding: .8rem .8rem 0; }
+  .zcal-cal-header { flex-direction: column; align-items: flex-start; gap: .8rem; }
+  .zcal-day-cell { min-height: 60px; padding: .3rem; }
+  .zcal-pill { display: none; }
+  .zcal-day-cell.has-events::after {
+    content: ''; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
+  }
+}
 
 /* ══════════════════════════════════════
    RESPONSIVE + PRINT
@@ -1227,8 +1248,8 @@ function renderZoomGrid(y,m,inner){
   const {y:fy,m:fm,d:fd}=ymdParts(mFirst);
   const startDow=dowMon(fy,fm-1,fd);
 
-  /* Slot assignment */
-  const MAX_CHIPS=5,weekRowOcc={};
+  // Slot assignment for ranges (consistent across weeks)
+  const MAX_PILLS=3,weekRowOcc={};
   function getWeekKey(d){return Math.floor((startDow+d-1)/7);}
   const rangeSlots={};
   allEvs.filter(ev=>ev.type==='range').forEach(ev=>{
@@ -1237,7 +1258,7 @@ function renderZoomGrid(y,m,inner){
     const ds=ymdDay(bs),de=ymdDay(be);
     const wks=new Set(); for(let d=ds;d<=de;d++) wks.add(getWeekKey(d));
     let slot=0;
-    outer:for(let s=0;s<MAX_CHIPS;s++){
+    outer:for(let s=0;s<MAX_PILLS;s++){
       for(const wk of wks){
         if(!weekRowOcc[wk]) weekRowOcc[wk]=[];
         if(weekRowOcc[wk].some(o=>o.slot===s&&o.from<=de&&o.to>=ds)) continue outer;
@@ -1257,61 +1278,70 @@ function renderZoomGrid(y,m,inner){
     dayData[ymdDay(ev.start)].singles.push(ev);
   });
 
-  /* Wrapper */
-  const wrap=document.createElement('div'); wrap.className='zcal-wrap';
+  // ── Container
+  const container=document.createElement('div'); container.className='zcal-container';
 
-  /* Nav interne */
-  const nav=document.createElement('div'); nav.className='zcal-nav';
-  const navTitle=document.createElement('div'); navTitle.className='zcal-nav-title';
-  navTitle.innerHTML=`${MONTH_NAMES[m]} <em>${y}</em>`;
-  const navBtns=document.createElement('div'); navBtns.className='zcal-nav-btns';
-  const btnP=document.createElement('button'); btnP.className='zcal-nav-btn'; btnP.innerHTML='&#8249;'; btnP.title='Mois précédent';
-  const btnN=document.createElement('button'); btnN.className='zcal-nav-btn'; btnN.innerHTML='&#8250;'; btnN.title='Mois suivant';
+  // ── Header : "Mon Calendrier" + nav mois
+  const calHeader=document.createElement('div'); calHeader.className='zcal-cal-header';
+  const calTitle=document.createElement('div'); calTitle.className='zcal-cal-title';
+  calTitle.innerHTML='Mon <em>Calendrier</em>';
+  const navMonth=document.createElement('div'); navMonth.className='zcal-nav-month';
+  const btnP=document.createElement('button'); btnP.innerHTML='‹'; btnP.title='Mois précédent';
+  const monthLbl=document.createElement('span'); monthLbl.className='zcal-month-label';
+  monthLbl.textContent=`${MONTH_NAMES[m]} ${y}`;
+  const btnN=document.createElement('button'); btnN.innerHTML='›'; btnN.title='Mois suivant';
+
   function navTo(ny,nm){
     zoomCtx={y:ny,m:nm};
-    document.getElementById('zoom-month-name').textContent=MONTH_NAMES[nm];
-    document.getElementById('zoom-month-year').textContent=ny;
     const isCur=todayYMD()>=monthFirstYMD(ny,nm)&&todayYMD()<=monthLastYMD(ny,nm);
+    document.getElementById('zoom-month-name').textContent=MONTH_NAMES[nm];
     document.getElementById('zoom-month-name').className=isCur?'current-month':'';
+    document.getElementById('zoom-month-year').textContent=ny;
     inner.innerHTML=''; ov.classList.remove('mode-grid');
     renderZoomGrid(ny,nm,inner);
   }
   btnP.addEventListener('click',()=>{let nm=m-1,ny=y;if(nm<0){nm=11;ny--;}navTo(ny,nm);});
   btnN.addEventListener('click',()=>{let nm=m+1,ny=y;if(nm>11){nm=0;ny++;}navTo(ny,nm);});
-  navBtns.appendChild(btnP); navBtns.appendChild(btnN);
-  nav.appendChild(navTitle); nav.appendChild(navBtns);
-  wrap.appendChild(nav);
+  navMonth.appendChild(btnP); navMonth.appendChild(monthLbl); navMonth.appendChild(btnN);
+  calHeader.appendChild(calTitle); calHeader.appendChild(navMonth);
+  container.appendChild(calHeader);
 
-  /* DOW header */
+  // ── Grid card
+  const gridCard=document.createElement('div'); gridCard.className='zcal-grid-card';
+
+  // DOW headers
   const DOW_LONG=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-  const dowRow=document.createElement('div'); dowRow.className='zcal-dow';
+  const dayHeaders=document.createElement('div'); dayHeaders.className='zcal-day-headers';
   DOW_LONG.forEach((l,i)=>{
-    const c=document.createElement('div'); c.className='zcal-dow-cell'+(i>=5?' we':''); c.textContent=l; dowRow.appendChild(c);
+    const c=document.createElement('div'); c.className='zcal-day-header'+(i>=5?' we':''); c.textContent=l; dayHeaders.appendChild(c);
   });
-  wrap.appendChild(dowRow);
+  gridCard.appendChild(dayHeaders);
 
-  /* Grid */
-  const grid=document.createElement('div'); grid.className='zcal-grid';
+  // Days grid
+  const daysGrid=document.createElement('div'); daysGrid.className='zcal-days-grid';
 
-  /* Cellules du mois précédent */
+  // Previous month cells
   const prevM=m===0?11:m-1,prevY=m===0?y-1:y;
   const prevDays=daysInMonth(prevY,prevM);
   for(let e=0;e<startDow;e++){
-    const c=document.createElement('div'); c.className='zcal-cell empty';
-    const num=document.createElement('div'); num.className='zcal-num';
-    num.textContent=prevDays-(startDow-1-e); c.appendChild(num); grid.appendChild(c);
+    const c=document.createElement('div'); c.className='zcal-day-cell other-month';
+    const num=document.createElement('div'); num.className='zcal-day-num';
+    num.textContent=prevDays-(startDow-1-e); c.appendChild(num); daysGrid.appendChild(c);
   }
 
-  /* Jours du mois */
+  // Current month cells
   for(let d=1;d<=totalDays;d++){
     const ymd=`${y}-${pad(m+1)}-${pad(d)}`;
     const dow=dowMon(y,m,d),isToday=(ymd===today),isWE=(dow>=5);
+    const dayEvs=[...dayData[d].ranges,...dayData[d].singles];
     const cell=document.createElement('div');
-    cell.className='zcal-cell'+(isToday?' is-today':isWE?' is-we':'');
+    cell.className='zcal-day-cell'+(isToday?' is-today':isWE?' is-we':'')+(dayEvs.length?' has-events':'');
     cell.addEventListener('click',()=>{closeZoom();openModal(null,ymd);});
-    const num=document.createElement('div'); num.className='zcal-num'; num.textContent=d;
+
+    const num=document.createElement('div'); num.className='zcal-day-num'; num.textContent=d;
     cell.appendChild(num);
 
+    // Build slot-ordered chips
     const wk=getWeekKey(d);
     const slotsUsed=weekRowOcc[wk]||[];
     const maxSlot=slotsUsed.length?Math.max(...slotsUsed.map(o=>o.slot)):-1;
@@ -1322,64 +1352,72 @@ function renderZoomGrid(y,m,inner){
 
     let rendered=0;
     chips.forEach(ch=>{
-      if(!ch||rendered>=MAX_CHIPS) return; rendered++;
+      if(!ch||rendered>=MAX_PILLS) return; rendered++;
       const bs=ch.ev.start<mFirst?mFirst:ch.ev.start;
       const be=(ch.ev.end||ch.ev.start)>mLast?mLast:(ch.ev.end||ch.ev.start);
       const ds=ymdDay(bs),de=ymdDay(be);
-      const evEl=document.createElement('div');
+      const pill=document.createElement('div');
       if(ch.type==='single'){
-        evEl.className='zcal-ev single';
-        const dot=document.createElement('span'); dot.className='zcal-ev-dot'; dot.style.background=ch.ev.color;
-        const lbl=document.createElement('span'); lbl.className='zcal-ev-lbl'; lbl.textContent=ch.ev.title;
-        evEl.appendChild(dot); evEl.appendChild(lbl);
+        pill.className='zcal-pill';
+        // Use event color as tint if not default accent
+        pill.style.background=ch.ev.color+'22';
+        pill.style.color=ch.ev.color;
+        pill.textContent=ch.ev.title;
       } else {
         const isStart=(d===ds),isEnd=(d===de);
-        evEl.className='zcal-ev range'+(isStart?'':' no-start')+(isEnd?'':' no-end');
-        evEl.style.background=ch.ev.color;
-        evEl.textContent=(isStart||d===1)?ch.ev.title:'\u00a0';
+        pill.className='zcal-pill range'+(isStart?'':' no-start')+(isEnd?'':' no-end');
+        pill.style.background=ch.ev.color;
+        pill.textContent=(isStart||d===1)?ch.ev.title:'\u00a0';
       }
-      evEl.title=ch.ev.title+(ch.ev.notes?'\n'+ch.ev.notes:'');
-      evEl.addEventListener('click',e=>{e.stopPropagation();closeZoom();openDetail(ch.ev.id);});
-      cell.appendChild(evEl);
+      pill.title=ch.ev.title+(ch.ev.notes?'\n'+ch.ev.notes:'');
+      pill.addEventListener('click',e=>{e.stopPropagation();closeZoom();openDetail(ch.ev.id);});
+      cell.appendChild(pill);
     });
-    const total=chips.filter(Boolean).length;
-    if(total>MAX_CHIPS){
-      const more=document.createElement('div'); more.className='zcal-overflow';
-      more.textContent=`+${total-MAX_CHIPS}`; cell.appendChild(more);
+    const totalChips=chips.filter(Boolean).length;
+    if(totalChips>MAX_PILLS){
+      const more=document.createElement('div'); more.className='zcal-pill more';
+      more.textContent=`+${totalChips-MAX_PILLS}`;
+      more.addEventListener('click',e=>{e.stopPropagation();});
+      cell.appendChild(more);
     }
-    grid.appendChild(cell);
+    daysGrid.appendChild(cell);
   }
 
-  /* Cellules du mois suivant */
+  // Trailing cells
   const trailing=(7-(startDow+totalDays)%7)%7;
   for(let e=0;e<trailing;e++){
-    const c=document.createElement('div'); c.className='zcal-cell empty';
-    const num=document.createElement('div'); num.className='zcal-num'; num.textContent=e+1;
-    c.appendChild(num); grid.appendChild(c);
+    const c=document.createElement('div'); c.className='zcal-day-cell other-month';
+    const num=document.createElement('div'); num.className='zcal-day-num'; num.textContent=e+1;
+    c.appendChild(num); daysGrid.appendChild(c);
   }
-  wrap.appendChild(grid);
-  inner.appendChild(wrap);
+  gridCard.appendChild(daysGrid);
+  container.appendChild(gridCard);
 
-  /* Liste événements */
-  const listWrap=document.createElement('div'); listWrap.className='zcal-list-wrap';
-  if(sorted.length){
-    const listTitle=document.createElement('div'); listTitle.className='zcal-list-title';
-    listTitle.textContent='Événements du mois'; listWrap.appendChild(listTitle);
+  // ── Event list (style event-item de la référence)
+  const evList=document.createElement('div'); evList.className='zcal-events-list';
+  const h4=document.createElement('h4'); h4.textContent='Événements du mois';
+  evList.appendChild(h4);
+  if(!sorted.length){
+    const p=document.createElement('p');
+    p.style.cssText='color:var(--text-muted);font-size:.85rem;font-weight:300';
+    p.textContent='Aucun événement ce mois-ci.'; evList.appendChild(p);
+  } else {
     sorted.forEach(ev=>{
-      const row=document.createElement('div'); row.className='zcal-list-row';
-      const sw=document.createElement('div'); sw.className='zcal-list-swatch'; sw.style.background=ev.color;
-      const dateEl=document.createElement('div'); dateEl.className='zcal-list-date';
+      const item=document.createElement('div'); item.className='zcal-event-item';
+      const sw=document.createElement('div'); sw.className='zcal-event-swatch'; sw.style.background=ev.color;
+      const dateEl=document.createElement('div'); dateEl.className='zcal-event-date';
       dateEl.textContent=`${pad(ymdDay(ev.start))}/${pad(ymdMonth(ev.start))}`;
-      const body=document.createElement('div'); body.className='zcal-list-body';
-      const name=document.createElement('div'); name.className='zcal-list-name'; name.textContent=ev.title;
-      body.appendChild(name);
-      if(ev.notes){const note=document.createElement('div');note.className='zcal-list-note';note.textContent=ev.notes;body.appendChild(note);}
-      row.appendChild(sw); row.appendChild(dateEl); row.appendChild(body);
-      row.addEventListener('click',()=>{closeZoom();openDetail(ev.id);});
-      listWrap.appendChild(row);
+      const body=document.createElement('div'); body.className='zcal-event-body';
+      const title=document.createElement('div'); title.className='zcal-event-title'; title.textContent=ev.title;
+      body.appendChild(title);
+      if(ev.notes){const note=document.createElement('div');note.className='zcal-event-note';note.textContent=ev.notes;body.appendChild(note);}
+      item.appendChild(sw); item.appendChild(dateEl); item.appendChild(body);
+      item.addEventListener('click',()=>{closeZoom();openDetail(ev.id);});
+      evList.appendChild(item);
     });
   }
-  inner.appendChild(listWrap);
+  container.appendChild(evList);
+  inner.appendChild(container);
 }
 
 /* ══════════════════════════════════════
