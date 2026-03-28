@@ -529,6 +529,12 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
   <input id="search-input" type="search" placeholder="Rechercher…" aria-label="Rechercher">
   <button class="hbtn" id="btn-clear-search">Tout afficher</button>
   <button class="hbtn hbtn-danger" id="btn-reset">Réinitialiser</button>
+  <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></div>
+  <button class="hbtn" id="btn-export" title="Exporter les événements en JSON">↓ Export</button>
+  <label class="hbtn" id="btn-import-label" title="Importer des événements depuis un fichier JSON" style="cursor:pointer;">
+    ↑ Import
+    <input type="file" id="btn-import" accept=".json" style="display:none;">
+  </label>
   <div id="progress-wrap">
     <span id="progress-pct"></span>
     <div style="display:flex;flex-direction:column;gap:3px;">
@@ -1403,6 +1409,49 @@ function initZoom(){
 
 function refresh(){document.getElementById('year-input').value=currentYear;updateProgress();renderAll();}
 
+/* ── Export JSON ── */
+function exportJSON() {
+  const data = JSON.stringify(events, null, 2);
+  const blob = new Blob([data], {type: 'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href     = url;
+  a.download = `calendrier-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── Import JSON ── */
+function importJSON(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Accepte un tableau direct ou un objet plat {id: event}
+      const imported = Array.isArray(parsed)
+        ? parsed
+        : Object.values(parsed).filter(v => v && typeof v === 'object' && v.id);
+
+      if (!imported.length) { alert('Aucun événement trouvé dans ce fichier.'); return; }
+
+      const msg = `Importer ${imported.length} événement(s) ?\n\nChoisissez :\n• OK = fusionner avec les données existantes\n• Annuler = annuler l'import`;
+      if (!confirm(msg)) return;
+
+      // Fusion : les événements importés écrasent ceux avec le même id, les autres sont conservés
+      const existing = events.filter(ev => !imported.some(imp => imp.id === ev.id));
+      events = [...existing, ...imported];
+      saveAll();
+      renderAll();
+      setSync('ok', `✓ ${imported.length} événement(s) importé(s)`);
+    } catch(err) {
+      alert('Fichier JSON invalide : ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ── Boot asynchrone : Firebase d'abord, render ensuite ──
 // Le try/finally garantit que renderAll() s'exécute même si Firebase est bloqué
 (async () => {
@@ -1434,6 +1483,11 @@ function refresh(){document.getElementById('year-input').value=currentYear;updat
     si.value='';si.dispatchEvent(new Event('input'));renderAll();
   };
   document.getElementById('btn-reset').onclick=()=>{if(confirm('Réinitialiser tous les événements ?')){events=[];saveAll();renderAll();}};
+  document.getElementById('btn-export').onclick=exportJSON;
+  document.getElementById('btn-import').addEventListener('change', e => {
+    importJSON(e.target.files[0]);
+    e.target.value = ''; // reset input pour pouvoir réimporter le même fichier
+  });
   document.getElementById('type-single').onclick=()=>setType('single');
   document.getElementById('type-range').onclick=()=>setType('range');
   document.getElementById('modal-cancel').onclick=closeModal;
