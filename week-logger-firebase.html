@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week Logger</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --sleep:#1e293b; --break:#92400e; --family:#be185d; --fit:#15803d;
+  --labour:#1d4ed8; --free:#6d28d9; --other:#475569;
+  --empty:#f1f5f9; --border:#e2e8f0; --text:#0f172a; --sub:#64748b; --bg:#f8fafc;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px 12px 80px;}
+h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
+.sub-txt{font-size:11px;color:var(--sub);margin-top:3px;}
+
+/* Hub link */
+.hub-link{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--sub);text-decoration:none;margin-bottom:14px;padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);background:white;transition:all .15s;}
+.hub-link:hover{border-color:#0f172a;color:#0f172a;}
+
+/* Sync status */
+.sync-bar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--border);padding:6px 16px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;font-weight:600;color:var(--sub);z-index:600;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#94a3b8;flex-shrink:0;transition:background .3s;}
+.sync-dot.loading{background:#f59e0b;animation:pulse .8s infinite;}
+.sync-dot.ok{background:#16a34a;}
+.sync-dot.error{background:#dc2626;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:5px;margin:12px 0 10px;}
+.leg{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;border:1.5px solid transparent;cursor:pointer;font-size:11px;font-weight:600;background:white;transition:all .15s;user-select:none;}
+.leg .dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+.leg.selected{border-color:currentColor;}
+.leg[data-cat=sleep]{color:var(--sleep);}
+.leg[data-cat=break]{color:var(--break);}
+.leg[data-cat=family]{color:var(--family);}
+.leg[data-cat=fit]{color:var(--fit);}
+.leg[data-cat=labour]{color:var(--labour);}
+.leg[data-cat=free]{color:var(--free);}
+.leg[data-cat=other]{color:var(--other);}
+.leg[data-cat=erase]{color:#94a3b8;}
+
+/* Gantt */
+.gantt-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);background:white;}
+.gantt{padding:10px 8px 12px;}
+.hour-axis{display:flex;margin-bottom:5px;}
+.hour-tick{flex-shrink:0;font-size:8px;font-family:'JetBrains Mono',monospace;color:#94a3b8;padding-left:2px;}
+.day-row{display:flex;align-items:center;margin-bottom:4px;gap:6px;}
+.day-label{flex-shrink:0;}
+.day-label .name{font-size:11px;font-weight:700;}
+.day-label .type{font-size:8px;color:var(--sub);}
+.row-track{position:relative;flex-shrink:0;border-radius:7px;overflow:hidden;background:var(--empty);}
+.blocks-layer{position:absolute;inset:0;pointer-events:none;}
+.vblock{position:absolute;top:0;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.vblock.sleep {background:var(--sleep);}
+.vblock.break {background:var(--break);}
+.vblock.family{background:var(--family);}
+.vblock.fit   {background:var(--fit);}
+.vblock.labour{background:var(--labour);}
+.vblock.free  {background:var(--free);}
+.vblock.other {background:var(--other);}
+.vblock.empty {background:transparent;}
+.vblock.flow-stripe::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.07) 0,rgba(255,255,255,.07) 3px,transparent 3px,transparent 8px);}
+.vblock-label{font-size:8px;font-weight:600;color:rgba(255,255,255,.82);white-space:nowrap;pointer-events:none;padding:0 4px;position:relative;z-index:1;}
+.vblock .nd-info{position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.85);z-index:2;}
+.vblock .nd-flow{position:absolute;top:3px;right:3px;width:6px;height:6px;background:#f9a8d4;transform:rotate(45deg);z-index:2;}
+.slots-layer{position:absolute;inset:0;display:flex;}
+.slot30{flex-shrink:0;height:100%;cursor:pointer;position:relative;}
+.slot30:hover{background:rgba(255,255,255,.18);}
+.slot30.hour-start{border-left:1px solid rgba(0,0,0,.08);}
+.slot30.hour-start-major{border-left:1px solid rgba(0,0,0,.16);}
+
+/* Stats */
+.stats-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.stat-card{flex:1 1 120px;background:white;border-radius:10px;border:1px solid var(--border);padding:10px 12px;}
+.stat-card .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+.stat-card .val{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1.1;}
+.stat-card .det{font-size:9px;color:var(--sub);margin-top:2px;}
+.stacked-bar{margin-top:12px;background:white;border-radius:12px;border:1px solid var(--border);padding:12px 14px;}
+.sbar-title{font-size:9px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.bar-track{display:flex;height:20px;border-radius:5px;overflow:hidden;gap:1px;}
+.bar-seg{transition:flex .4s;}
+.bar-labels{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:7px;}
+.bar-lbl{display:flex;align-items:center;gap:4px;font-size:10px;color:#475569;}
+.bar-lbl .dot{width:7px;height:7px;border-radius:2px;flex-shrink:0;}
+.bar-lbl .hrs{font-family:'JetBrains Mono',monospace;color:#94a3b8;font-size:9px;}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(3px);}
+.modal{background:white;border-radius:16px;padding:18px;width:320px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+.modal h3{font-size:13px;font-weight:700;margin-bottom:4px;}
+.modal .tinfo{font-size:10px;color:var(--sub);margin-bottom:12px;font-family:'JetBrains Mono',monospace;}
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;}
+.cat-btn{padding:8px 7px;border-radius:9px;border:2px solid var(--border);font-size:10px;font-weight:600;cursor:pointer;background:white;font-family:'Inter',sans-serif;transition:all .15s;display:flex;align-items:center;gap:5px;}
+.cat-btn .sw{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+.cat-btn.active{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.12);}
+.note-section{margin-bottom:10px;}
+.note-tabs{display:flex;gap:5px;margin-bottom:6px;}
+.note-tab{padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);font-size:10px;font-weight:600;cursor:pointer;background:white;font-family:'Inter',sans-serif;color:var(--sub);transition:all .15s;}
+.note-tab.t-info{border-color:#0369a1;color:#0369a1;background:#eff6ff;}
+.note-tab.t-flow{border-color:#be185d;color:#be185d;background:#fdf2f8;}
+.dot-legend{display:flex;gap:10px;margin-bottom:8px;font-size:9px;color:var(--sub);align-items:center;}
+.dot-ex{display:inline-flex;align-items:center;gap:4px;}
+.nd-info-ex{width:7px;height:7px;border-radius:50%;background:#0369a1;display:inline-block;}
+.nd-flow-ex{width:7px;height:7px;background:#f9a8d4;transform:rotate(45deg);display:inline-block;}
+.note-area{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 9px;font-size:11px;font-family:'Inter',sans-serif;color:var(--text);resize:none;outline:none;height:52px;transition:border-color .15s;}
+.note-area:focus{border-color:#6d28d9;}
+.modal-actions{display:flex;gap:6px;margin-top:10px;}
+.btn{flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+.btn-primary{background:var(--text);color:white;}
+.btn-secondary{background:var(--empty);color:var(--sub);}
+.btn-danger{background:#fee2e2;color:#dc2626;}
+
+/* Brush bar */
+.brush-bar{position:fixed;bottom:36px;left:50%;transform:translateX(-50%);background:var(--text);color:white;border-radius:30px;padding:9px 18px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:500;}
+.brush-dot-el{width:11px;height:11px;border-radius:3px;}
+.brush-clear{background:rgba(255,255,255,.2);border:none;color:white;border-radius:20px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;}
+
+/* Week nav */
+.week-nav{display:flex;align-items:center;gap:8px;}
+.week-nav button{background:white;border:1.5px solid var(--border);border-radius:7px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;}
+.week-nav button:hover{border-color:#0f172a;}
+.week-lbl{font-size:12px;font-weight:600;color:var(--sub);font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.action-row{margin-top:10px;display:flex;gap:7px;flex-wrap:wrap;}
+.action-btn{padding:6px 12px;border-radius:7px;border:1.5px solid var(--border);background:white;font-size:10px;font-weight:600;color:var(--sub);cursor:pointer;font-family:'Inter',sans-serif;}
+.action-btn:hover{border-color:#0f172a;color:#0f172a;}
+.footer-note{text-align:center;margin-top:16px;margin-bottom:20px;font-size:9px;color:#cbd5e1;}
+
+/* Day comment */
+.day-comment{flex:1;min-width:80px;max-width:200px;}
+.day-comment textarea{width:100%;height:40px;border:1.5px solid var(--border);border-radius:7px;padding:5px 8px;font-size:10px;font-family:'Inter',sans-serif;color:var(--text);resize:none;outline:none;background:white;line-height:1.4;transition:border-color .15s;}
+.day-comment textarea:focus{border-color:#6d28d9;}
+.day-comment textarea::placeholder{color:#cbd5e1;}
+
+/* Week notes */
+.week-notes{margin-top:12px;background:white;border-radius:12px;border:1px solid var(--border);padding:12px 14px;}
+.week-notes .wn-title{font-size:9px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.week-notes textarea{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;font-size:12px;font-family:'Inter',sans-serif;color:var(--text);resize:vertical;outline:none;min-height:72px;line-height:1.6;transition:border-color .15s;}
+.week-notes textarea:focus{border-color:#6d28d9;}
+.week-notes textarea::placeholder{color:#cbd5e1;}
+</style>
+</head>
+<body>
+<div style="max-width:980px;margin:0 auto;">
+  <a href="index.html" class="hub-link">← Hub</a>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+    <div>
+      <h1>Week Logger</h1>
+      <div class="sub-txt">Sélectionne une catégorie → brosse rapide slot par slot · sans brosse = modal avec note</div>
+    </div>
+    <div class="week-nav">
+      <button id="btn-prev">◀ Préc.</button>
+      <span class="week-lbl" id="week-label">—</span>
+      <button id="btn-next">Suiv. ▶</button>
+    </div>
+  </div>
+  <div class="legend" id="legend"></div>
+  <div class="gantt-wrap">
+    <div class="gantt" id="gantt">
+      <div class="hour-axis" id="hour-axis"></div>
+      <div id="gantt-rows"></div>
+    </div>
+  </div>
+  <div class="stats-grid" id="stats-grid"></div>
+  <div class="stacked-bar" id="stacked-bar"></div>
+  <div class="week-notes">
+    <div class="wn-title">📝 Réflexions de la semaine</div>
+    <textarea id="week-notes-area" placeholder="Bilan, intentions, observations générales sur cette semaine…"></textarea>
+  </div>
+  <div class="action-row">
+    <button class="action-btn" id="btn-reset">🗑 Réinitialiser cette semaine</button>
+    <button class="action-btn" style="border-color:#0369a1;color:#0369a1;" id="btn-export">⬇ Exporter JSON</button>
+  </div>
+  <div class="footer-note">⚪ = note info · 🔷 = note 🧘 Flow · Synchronisé via Firebase</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" style="display:none;">
+  <div class="modal">
+    <h3>Catégoriser</h3>
+    <div class="tinfo" id="modal-time"></div>
+    <div class="cat-grid" id="modal-cats"></div>
+    <div class="note-section">
+      <div class="note-tabs">
+        <button class="note-tab" id="tab-info">📌 Info</button>
+        <button class="note-tab" id="tab-flow">🧘 Flow</button>
+      </div>
+      <div class="dot-legend">
+        <span class="dot-ex"><span class="nd-info-ex"></span> Note info</span>
+        <span class="dot-ex"><span class="nd-flow-ex"></span> Note flow</span>
+      </div>
+      <textarea class="note-area" id="modal-note" placeholder="Note optionnelle…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btn-clear-slot">Effacer</button>
+      <button class="btn btn-secondary" id="btn-cancel">Annuler</button>
+      <button class="btn btn-primary" id="btn-save-slot">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Brush bar -->
+<div class="brush-bar" id="brush-bar" style="display:none;">
+  <div class="brush-dot-el" id="brush-dot"></div>
+  <span id="brush-label">—</span>
+  <button class="brush-clear" id="btn-brush-clear">✕ désactiver</button>
+</div>
+
+<!-- Sync status bar -->
+<div class="sync-bar">
+  <div class="sync-dot" id="sync-dot"></div>
+  <span id="sync-label">Initialisation…</span>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ─── Firebase init ────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+  authDomain: "hub-personnel-firebase.firebaseapp.com",
+  projectId: "hub-personnel-firebase",
+  storageBucket: "hub-personnel-firebase.firebasestorage.app",
+  messagingSenderId: "394129070920",
+  appId: "1:394129070920:web:10f3303c22adcda47cf17d"
+};
+const app = initializeApp(firebaseConfig);
+const db_firebase = getFirestore(app);
+const DOC_PATH = 'week-logger/data';
+
+// ─── Sync status UI ───────────────────────────────────────────────────────
+function syncStatus(state, msg) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot ' + state;
+  lbl.textContent = msg;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────
+const SLOTS    = 48;
+const PX_PER_H = 32;
+const SLOT_W   = PX_PER_H / 2;
+const LABEL_W  = 72;
+
+const CATS = {
+  sleep:  {label:'Sleep Time',  emoji:'🌙', color:'#1e293b'},
+  break:  {label:'Break Time',  emoji:'🍽', color:'#92400e'},
+  family: {label:'Family Time', emoji:'❤️', color:'#be185d'},
+  fit:    {label:'Fit Time',    emoji:'💪', color:'#15803d'},
+  labour: {label:'Labour Time', emoji:'⚡', color:'#1d4ed8'},
+  free:   {label:'Free Time',   emoji:'🧠', color:'#6d28d9'},
+  other:  {label:'Autre',       emoji:'📖', color:'#475569'},
+};
+
+const DAYS = [
+  {key:'mon', label:'Lundi',    sub:'Présentiel'},
+  {key:'tue', label:'Mardi',    sub:'Télétravail'},
+  {key:'wed', label:'Mercredi', sub:'Télétravail'},
+  {key:'thu', label:'Jeudi',    sub:'Présentiel'},
+  {key:'fri', label:'Vendredi', sub:'Télétravail'},
+  {key:'sat', label:'Samedi',   sub:'Week-end'},
+  {key:'sun', label:'Dimanche', sub:'Week-end'},
+];
+
+// ─── Presets ──────────────────────────────────────────────────────────────
+function preset(dk, idx) {
+  const h = idx * 0.5;
+  const earlyWake = (dk === 'mon' || dk === 'thu');
+  const wakeH = earlyWake ? 6 : 8;
+  if (h < wakeH)  return 'sleep';
+  if (idx >= 46)  return 'sleep';
+  if (h >= wakeH && h < wakeH + 1) return 'break';
+  const fitDays = ['tue','fri','sun'];
+  if (fitDays.includes(dk) && h >= 11.5 && h < 12.5) return 'fit';
+  const lunchStart = fitDays.includes(dk) ? 12.5 : 12;
+  if (h >= lunchStart && h < 14) return 'break';
+  if (h >= 20 && h < 21) return 'break';
+  return null;
+}
+
+// ─── State ────────────────────────────────────────────────────────────────
+let weekKey = getWeekKey(new Date());
+let db = {};
+let brush = null;
+let modal = null;
+let noteTabState = 'info';
+let saveTimer = null;
+
+function getWeekKey(date) {
+  const d = new Date(date); d.setHours(12,0,0,0);
+  const dow = d.getDay();
+  d.setDate(d.getDate() + (dow===0 ? -6 : 1-dow));
+  return d.toISOString().slice(0,10);
+}
+function weekLabel(wk) {
+  const s = new Date(wk+'T12:00:00'), e = new Date(wk+'T12:00:00');
+  e.setDate(e.getDate()+6);
+  const f = d => d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+  return f(s)+' – '+f(e);
+}
+function changeWeek(dir) {
+  const d = new Date(weekKey+'T12:00:00');
+  d.setDate(d.getDate() + dir*7);
+  weekKey = getWeekKey(d);
+  render();
+}
+
+function sk(dk,i){ return dk+'-'+i; }
+function resolve(dk,i){
+  const s = (db[weekKey]||{})[sk(dk,i)];
+  if (s) return s.erased ? null : s;
+  const p = preset(dk,i);
+  return p ? {cat:p, note:'', noteType:'info'} : null;
+}
+function writeSlot(dk,i,cat,note,nt){
+  if (!db[weekKey]) db[weekKey]={};
+  db[weekKey][sk(dk,i)] = cat===null ? {erased:true} : {cat, note:note||'', noteType:nt||'info'};
+  scheduleSave();
+}
+
+// ─── Firebase persistence ─────────────────────────────────────────────────
+async function loadFromFirebase() {
+  syncStatus('loading', 'Chargement…');
+  try {
+    const ref = doc(db_firebase, DOC_PATH);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
+      db = data.db || {};
+      weekKey = data.weekKey || getWeekKey(new Date());
+    }
+    syncStatus('ok', '✓ Synchronisé');
+  } catch(e) {
+    syncStatus('error', '⚠ Hors ligne — données locales');
+    // fallback to localStorage
+    try {
+      const raw = localStorage.getItem('wl5_fallback');
+      if (raw) { const p = JSON.parse(raw); db = p.db||{}; weekKey = p.weekKey||getWeekKey(new Date()); }
+    } catch(_) {}
+  }
+  render();
+}
+
+async function saveToFirebase() {
+  syncStatus('loading', 'Sauvegarde…');
+  try {
+    const ref = doc(db_firebase, DOC_PATH);
+    await setDoc(ref, { db, weekKey });
+    syncStatus('ok', '✓ Synchronisé');
+    // also keep local fallback
+    try { localStorage.setItem('wl5_fallback', JSON.stringify({db, weekKey})); } catch(_) {}
+  } catch(e) {
+    syncStatus('error', '⚠ Erreur sync — réessai dans 5s');
+    setTimeout(() => saveToFirebase(), 5000);
+  }
+}
+
+// Debounce saves — wait 1.2s after last change before writing to Firestore
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  syncStatus('loading', 'Modification…');
+  saveTimer = setTimeout(() => saveToFirebase(), 1200);
+}
+
+// ─── Brush ────────────────────────────────────────────────────────────────
+function activateBrush(b){
+  brush=b; renderLegend();
+  const bar=document.getElementById('brush-bar');
+  if (!b){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  if (b==='__erase'){
+    document.getElementById('brush-dot').style.background='#e2e8f0';
+    document.getElementById('brush-label').textContent='✕ Mode effacer actif';
+  } else {
+    document.getElementById('brush-dot').style.background=CATS[b].color;
+    document.getElementById('brush-label').textContent=CATS[b].emoji+' '+CATS[b].label+' actif';
+  }
+}
+
+// ─── Merged visual blocks ─────────────────────────────────────────────────
+function buildBlocks(dk){
+  const out=[];
+  let i=0;
+  while(i<SLOTS){
+    const r=resolve(dk,i);
+    const cat=r?.cat||null, note=r?.note||'', nt=r?.noteType||'info';
+    let j=i+1;
+    while(j<SLOTS){
+      const r2=resolve(dk,j);
+      if ((r2?.cat||null)===cat && (r2?.note||'')===note && (r2?.noteType||'info')===nt) j++;
+      else break;
+    }
+    out.push({s:i, e:j, cat, note, nt});
+    i=j;
+  }
+  return out;
+}
+
+// ─── Slot click ───────────────────────────────────────────────────────────
+function handleSlotClick(dk,idx){
+  if (brush==='__erase'){
+    writeSlot(dk,idx,null,'','info');
+    renderGantt(); renderStats();
+  } else if (brush){
+    writeSlot(dk,idx,brush,'','info');
+    renderGantt(); renderStats();
+  } else {
+    openModal(dk,idx);
+  }
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────
+function fmtSlot(i){ const h=i*.5; return String(Math.floor(h)).padStart(2,'0')+':'+(h%1===.5?'30':'00'); }
+
+function openModal(dk,idx){
+  const r=resolve(dk,idx);
+  modal={dk, idx, selCat:r?.cat||null};
+  noteTabState = r?.noteType||'info';
+  document.getElementById('modal-note').value=r?.note||'';
+  setNoteTab(noteTabState);
+  document.getElementById('modal-time').textContent =
+    DAYS.find(d=>d.key===dk).label+' · '+fmtSlot(idx)+' – '+fmtSlot(idx+1)+' (30 min)';
+  const grid=document.getElementById('modal-cats'); grid.innerHTML='';
+  Object.entries(CATS).forEach(([k,v])=>{
+    const btn=document.createElement('button');
+    btn.className='cat-btn'+(modal.selCat===k?' active':'');
+    if(modal.selCat===k){btn.style.borderColor=v.color;btn.style.background=v.color+'18';}
+    btn.innerHTML=`<span class="sw" style="background:${v.color}"></span>${v.emoji} ${v.label}`;
+    btn.addEventListener('click',()=>{
+      grid.querySelectorAll('.cat-btn').forEach(b=>{b.classList.remove('active');b.style.borderColor='';b.style.background='';});
+      btn.classList.add('active'); btn.style.borderColor=v.color; btn.style.background=v.color+'18';
+      modal.selCat=k;
+    });
+    grid.appendChild(btn);
+  });
+  document.getElementById('modal').style.display='flex';
+}
+function closeModal(){ document.getElementById('modal').style.display='none'; modal=null; }
+
+function setNoteTab(t){
+  noteTabState=t;
+  document.getElementById('tab-info').className='note-tab'+(t==='info'?' t-info':'');
+  document.getElementById('tab-flow').className='note-tab'+(t==='flow'?' t-flow':'');
+}
+
+// ─── Render: Legend ───────────────────────────────────────────────────────
+function renderLegend(){
+  const el=document.getElementById('legend'); el.innerHTML='';
+  Object.entries(CATS).forEach(([k,v])=>{
+    const d=document.createElement('div');
+    d.className='leg'+(brush===k?' selected':''); d.dataset.cat=k;
+    d.innerHTML=`<span class="dot" style="background:${v.color}"></span>${v.emoji} ${v.label}`;
+    d.addEventListener('click',()=>activateBrush(brush===k?null:k));
+    el.appendChild(d);
+  });
+  const er=document.createElement('div');
+  er.className='leg'+(brush==='__erase'?' selected':''); er.dataset.cat='erase';
+  er.innerHTML=`<span class="dot" style="background:#e2e8f0"></span>✕ Effacer`;
+  er.addEventListener('click',()=>activateBrush(brush==='__erase'?null:'__erase'));
+  el.appendChild(er);
+}
+
+// ─── Render: Hour axis ────────────────────────────────────────────────────
+function renderAxis(){
+  const el=document.getElementById('hour-axis');
+  el.style.marginLeft=LABEL_W+'px'; el.innerHTML='';
+  for(let h=0;h<=24;h++){
+    const t=document.createElement('div');
+    t.className='hour-tick'; t.style.width=PX_PER_H+'px'; t.style.flexShrink='0';
+    if(h%3===0) t.textContent=String(h).padStart(2,'0')+'h';
+    el.appendChild(t);
+  }
+}
+
+// ─── Render: Gantt ────────────────────────────────────────────────────────
+function renderGantt(){
+  const container=document.getElementById('gantt-rows'); container.innerHTML='';
+  const totalW=24*PX_PER_H;
+
+  DAYS.forEach(day=>{
+    const row=document.createElement('div'); row.className='day-row';
+
+    const lbl=document.createElement('div'); lbl.className='day-label';
+    lbl.style.width=LABEL_W+'px';
+    lbl.innerHTML=`<div class="name">${day.label}</div><div class="type">${day.sub}</div>`;
+    row.appendChild(lbl);
+
+    const track=document.createElement('div'); track.className='row-track';
+    track.style.width=totalW+'px'; track.style.height='40px';
+
+    // Layer 1 — visual merged blocks
+    const blocksLayer=document.createElement('div'); blocksLayer.className='blocks-layer';
+    buildBlocks(day.key).forEach(b=>{
+      if(!b.cat) return;
+      const vb=document.createElement('div');
+      vb.className='vblock '+b.cat+(b.nt==='flow'?' flow-stripe':'');
+      vb.style.left=(b.s*SLOT_W)+'px';
+      vb.style.width=((b.e-b.s)*SLOT_W-1)+'px';
+      const w=(b.e-b.s)*SLOT_W;
+      if(w>28){
+        const durH=(b.e-b.s)*.5;
+        const durStr=durH>=1?durH+'h':(durH*60)+'min';
+        const cat=CATS[b.cat];
+        const lbl2=document.createElement('span'); lbl2.className='vblock-label';
+        lbl2.textContent=(w>52&&cat?cat.emoji+' ':'')+durStr;
+        vb.appendChild(lbl2);
+      }
+      if(b.note){
+        const nd=document.createElement('div');
+        nd.className = b.nt==='flow' ? 'nd-flow' : 'nd-info';
+        vb.appendChild(nd);
+      }
+      blocksLayer.appendChild(vb);
+    });
+    track.appendChild(blocksLayer);
+
+    // Layer 2 — invisible 30-min slots
+    const slotsLayer=document.createElement('div'); slotsLayer.className='slots-layer';
+    for(let i=0;i<SLOTS;i++){
+      const sl=document.createElement('div');
+      sl.className='slot30';
+      if(i>0 && i%2===0) sl.classList.add(i%12===0?'hour-start-major':'hour-start');
+      sl.style.width=SLOT_W+'px';
+      const r=resolve(day.key,i);
+      const cat=r?.cat?CATS[r.cat]:null;
+      sl.title=[
+        fmtSlot(i)+' – '+fmtSlot(i+1),
+        cat?cat.label:'Non catégorisé',
+        r?.note?(r.noteType==='flow'?'🧘 ':'')+r.note:''
+      ].filter(Boolean).join('  ·  ');
+      sl.addEventListener('click',()=>handleSlotClick(day.key,i));
+      slotsLayer.appendChild(sl);
+    }
+    track.appendChild(slotsLayer);
+    row.appendChild(track);
+
+    // Day comment
+    const cmtWrap=document.createElement('div'); cmtWrap.className='day-comment';
+    const cmtTa=document.createElement('textarea');
+    cmtTa.placeholder='Commentaire…';
+    const cmtKey=weekKey+':comment:'+day.key;
+    cmtTa.value=(db[weekKey]&&db[weekKey][cmtKey])||'';
+    cmtTa.addEventListener('input',()=>{
+      if(!db[weekKey]) db[weekKey]={};
+      db[weekKey][cmtKey]=cmtTa.value;
+      scheduleSave();
+    });
+    cmtWrap.appendChild(cmtTa);
+    row.appendChild(cmtWrap);
+
+    container.appendChild(row);
+  });
+}
+
+// ─── Render: Stats ────────────────────────────────────────────────────────
+function renderStats(){
+  const totals={};
+  Object.keys(CATS).forEach(k=>totals[k]=0);
+  let totalFilled=0;
+  DAYS.forEach(day=>{
+    for(let i=0;i<SLOTS;i++){
+      const r=resolve(day.key,i);
+      if(r?.cat){ totals[r.cat]=(totals[r.cat]||0)+.5; totalFilled+=.5; }
+    }
+  });
+  const freeH=totals.free||0, labourH=totals.labour||0, familyH=totals.family||0;
+  const fitH=totals.fit||0, sleepH=totals.sleep||0, breakH=totals.break||0;
+  const alloc=freeH+labourH;
+  const active=totalFilled-sleepH-breakH;
+
+  const statsEl=document.getElementById('stats-grid'); statsEl.innerHTML='';
+  [
+    {lbl:'Free Time',       val:freeH+'h',                   det:`moy. ${(freeH/7).toFixed(1)}h/j · projets, CGP, DJ…`, color:'#6d28d9', bg:'#f5f3ff'},
+    {lbl:'Labour Time',     val:labourH+'h',                 det:`moy. ${(labourH/7).toFixed(1)}h/j · boulot effectif`,  color:'#1d4ed8', bg:'#eff6ff'},
+    {lbl:'Family Time',     val:familyH+'h',                 det:`moy. ${(familyH/7).toFixed(1)}h/j`,                    color:'#be185d', bg:'#fdf2f8'},
+    {lbl:'Fit Time',        val:fitH+'h',                    det:`${Math.round(fitH)} séance(s) · moy. ${(fitH/7).toFixed(1)}h/j`, color:'#15803d', bg:'#f0fdf4'},
+    {lbl:'Sleep',           val:(sleepH/7).toFixed(1)+'h/j', det:`${sleepH}h total semaine`,                             color:'#1e293b', bg:'#f1f5f9'},
+    {lbl:'Focus allouable', val:alloc+'h',                   det:`1% ≈ ${(alloc/100).toFixed(1)}h · moy. ${(alloc/7).toFixed(1)}h/j`, color:'#0f172a', bg:'#fefce8'},
+  ].forEach(c=>{
+    const card=document.createElement('div'); card.className='stat-card'; card.style.background=c.bg;
+    card.innerHTML=`<div class="lbl" style="color:${c.color}">${c.lbl}</div><div class="val" style="color:${c.color}">${c.val}</div><div class="det">${c.det}</div>`;
+    statsEl.appendChild(card);
+  });
+
+  const TOTAL=168;
+  const entries=Object.entries(CATS).map(([k,v])=>({k,v,h:totals[k]||0}));
+  const usedH=entries.reduce((s,e)=>s+e.h,0), emptyH=TOTAL-usedH;
+  document.getElementById('stacked-bar').innerHTML=`
+    <div class="sbar-title">168h / sem · ${(usedH/TOTAL*100).toFixed(0)}% catégorisé · actif (hors sleep+break): ${active.toFixed(1)}h · moy. ${(active/7).toFixed(1)}h/j</div>
+    <div class="bar-track">
+      ${entries.filter(e=>e.h>0).map(e=>`<div class="bar-seg" style="flex:${e.h};background:${e.v.color}" title="${e.v.label}: ${e.h}h (${(e.h/TOTAL*100).toFixed(0)}%)"></div>`).join('')}
+      ${emptyH>0?`<div class="bar-seg" style="flex:${emptyH};background:#f1f5f9"></div>`:''}
+    </div>
+    <div class="bar-labels">
+      ${entries.filter(e=>e.h>0).map(e=>`<div class="bar-lbl"><div class="dot" style="background:${e.v.color}"></div>${e.v.emoji} ${e.v.label}<span class="hrs">${e.h}h · ${(e.h/TOTAL*100).toFixed(0)}%</span></div>`).join('')}
+      ${emptyH>0?`<div class="bar-lbl"><div class="dot" style="background:#e2e8f0"></div>Non catégorisé<span class="hrs">${emptyH}h</span></div>`:''}
+    </div>`;
+}
+
+// ─── Wire buttons ─────────────────────────────────────────────────────────
+document.getElementById('btn-prev').addEventListener('click',()=>changeWeek(-1));
+document.getElementById('btn-next').addEventListener('click',()=>changeWeek(1));
+document.getElementById('btn-reset').addEventListener('click',()=>{
+  if(confirm('Réinitialiser tous les slots manuels de cette semaine ?')){
+    delete db[weekKey]; scheduleSave(); renderGantt(); renderStats();
+  }
+});
+document.getElementById('btn-export').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='week-logger-'+weekKey+'.json'; a.click();
+});
+document.getElementById('btn-cancel').addEventListener('click',closeModal);
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
+document.getElementById('btn-save-slot').addEventListener('click',()=>{
+  if(!modal) return;
+  writeSlot(modal.dk, modal.idx, modal.selCat, document.getElementById('modal-note').value.trim(), noteTabState);
+  closeModal(); renderGantt(); renderStats();
+});
+document.getElementById('btn-clear-slot').addEventListener('click',()=>{
+  if(!modal) return;
+  writeSlot(modal.dk, modal.idx, null,'','info');
+  closeModal(); renderGantt(); renderStats();
+});
+document.getElementById('btn-brush-clear').addEventListener('click',()=>activateBrush(null));
+document.getElementById('tab-info').addEventListener('click',()=>setNoteTab('info'));
+document.getElementById('tab-flow').addEventListener('click',()=>setNoteTab('flow'));
+document.getElementById('week-notes-area').addEventListener('input',()=>{
+  if(!db[weekKey]) db[weekKey]={};
+  db[weekKey][weekKey+':notes']=document.getElementById('week-notes-area').value;
+  scheduleSave();
+});
+
+// ─── Full render ──────────────────────────────────────────────────────────
+function render(){
+  document.getElementById('week-label').textContent=weekLabel(weekKey);
+  renderLegend(); renderAxis(); renderGantt(); renderStats();
+  const ta=document.getElementById('week-notes-area');
+  ta.value=(db[weekKey]&&db[weekKey][weekKey+':notes'])||'';
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────
+loadFromFirebase();
+</script>
+</body>
+</html>
