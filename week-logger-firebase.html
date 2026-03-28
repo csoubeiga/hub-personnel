@@ -6,29 +6,19 @@
 <title>Week Logger</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-:root {
-  --sleep:#1e293b; --break:#92400e; --family:#be185d; --fit:#15803d;
-  --labour:#1d4ed8; --free:#6d28d9; --other:#475569;
-  --empty:#f1f5f9; --border:#e2e8f0; --text:#0f172a; --sub:#64748b; --bg:#f8fafc;
-}
+:root{--sleep:#1e293b;--break:#92400e;--family:#be185d;--fit:#15803d;--labour:#1d4ed8;--free:#6d28d9;--other:#475569;--empty:#f1f5f9;--border:#e2e8f0;--text:#0f172a;--sub:#64748b;--bg:#f8fafc;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px 12px 80px;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px 12px 60px;}
 h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
 .sub-txt{font-size:11px;color:var(--sub);margin-top:3px;}
-
-/* Hub link */
 .hub-link{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--sub);text-decoration:none;margin-bottom:14px;padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);background:white;transition:all .15s;}
 .hub-link:hover{border-color:#0f172a;color:#0f172a;}
-
-/* Sync status */
-.sync-bar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--border);padding:6px 16px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;font-weight:600;color:var(--sub);z-index:600;}
+.sync-bar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--border);padding:5px 16px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:10px;font-weight:600;color:var(--sub);z-index:600;}
 .sync-dot{width:7px;height:7px;border-radius:50%;background:#94a3b8;flex-shrink:0;transition:background .3s;}
 .sync-dot.loading{background:#f59e0b;animation:pulse .8s infinite;}
 .sync-dot.ok{background:#16a34a;}
 .sync-dot.error{background:#dc2626;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
-
-/* Legend */
 .legend{display:flex;flex-wrap:wrap;gap:5px;margin:12px 0 10px;}
 .leg{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;border:1.5px solid transparent;cursor:pointer;font-size:11px;font-weight:600;background:white;transition:all .15s;user-select:none;}
 .leg .dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
@@ -41,8 +31,6 @@ h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
 .leg[data-cat=free]{color:var(--free);}
 .leg[data-cat=other]{color:var(--other);}
 .leg[data-cat=erase]{color:#94a3b8;}
-
-/* Gantt */
 .gantt-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);background:white;}
 .gantt{padding:10px 8px 12px;}
 .hour-axis{display:flex;margin-bottom:5px;}
@@ -54,25 +42,22 @@ h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
 .row-track{position:relative;flex-shrink:0;border-radius:7px;overflow:hidden;background:var(--empty);}
 .blocks-layer{position:absolute;inset:0;pointer-events:none;}
 .vblock{position:absolute;top:0;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.vblock.sleep {background:var(--sleep);}
-.vblock.break {background:var(--break);}
+.vblock.sleep{background:var(--sleep);}
+.vblock.break{background:var(--break);}
 .vblock.family{background:var(--family);}
-.vblock.fit   {background:var(--fit);}
+.vblock.fit{background:var(--fit);}
 .vblock.labour{background:var(--labour);}
-.vblock.free  {background:var(--free);}
-.vblock.other {background:var(--other);}
-.vblock.empty {background:transparent;}
+.vblock.free{background:var(--free);}
+.vblock.other{background:var(--other);}
 .vblock.flow-stripe::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.07) 0,rgba(255,255,255,.07) 3px,transparent 3px,transparent 8px);}
 .vblock-label{font-size:8px;font-weight:600;color:rgba(255,255,255,.82);white-space:nowrap;pointer-events:none;padding:0 4px;position:relative;z-index:1;}
 .vblock .nd-info{position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.85);z-index:2;}
 .vblock .nd-flow{position:absolute;top:3px;right:3px;width:6px;height:6px;background:#f9a8d4;transform:rotate(45deg);z-index:2;}
 .slots-layer{position:absolute;inset:0;display:flex;}
 .slot30{flex-shrink:0;height:100%;cursor:pointer;position:relative;}
-.slot30:hover{background:rgba(255,255,255,.18);}
+.slot30:hover{background:rgba(255,255,255,.22);}
 .slot30.hour-start{border-left:1px solid rgba(0,0,0,.08);}
 .slot30.hour-start-major{border-left:1px solid rgba(0,0,0,.16);}
-
-/* Stats */
 .stats-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
 .stat-card{flex:1 1 120px;background:white;border-radius:10px;border:1px solid var(--border);padding:10px 12px;}
 .stat-card .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
@@ -86,8 +71,6 @@ h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
 .bar-lbl{display:flex;align-items:center;gap:4px;font-size:10px;color:#475569;}
 .bar-lbl .dot{width:7px;height:7px;border-radius:2px;flex-shrink:0;}
 .bar-lbl .hrs{font-family:'JetBrains Mono',monospace;color:#94a3b8;font-size:9px;}
-
-/* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(3px);}
 .modal{background:white;border-radius:16px;padding:18px;width:320px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2);}
 .modal h3{font-size:13px;font-weight:700;margin-bottom:4px;}
@@ -112,13 +95,9 @@ h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
 .btn-primary{background:var(--text);color:white;}
 .btn-secondary{background:var(--empty);color:var(--sub);}
 .btn-danger{background:#fee2e2;color:#dc2626;}
-
-/* Brush bar */
-.brush-bar{position:fixed;bottom:36px;left:50%;transform:translateX(-50%);background:var(--text);color:white;border-radius:30px;padding:9px 18px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:500;}
+.brush-bar{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:var(--text);color:white;border-radius:30px;padding:9px 18px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:500;}
 .brush-dot-el{width:11px;height:11px;border-radius:3px;}
 .brush-clear{background:rgba(255,255,255,.2);border:none;color:white;border-radius:20px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;}
-
-/* Week nav */
 .week-nav{display:flex;align-items:center;gap:8px;}
 .week-nav button{background:white;border:1.5px solid var(--border);border-radius:7px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;}
 .week-nav button:hover{border-color:#0f172a;}
@@ -126,20 +105,16 @@ h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
 .action-row{margin-top:10px;display:flex;gap:7px;flex-wrap:wrap;}
 .action-btn{padding:6px 12px;border-radius:7px;border:1.5px solid var(--border);background:white;font-size:10px;font-weight:600;color:var(--sub);cursor:pointer;font-family:'Inter',sans-serif;}
 .action-btn:hover{border-color:#0f172a;color:#0f172a;}
-.footer-note{text-align:center;margin-top:16px;margin-bottom:20px;font-size:9px;color:#cbd5e1;}
-
-/* Day comment */
 .day-comment{flex:1;min-width:80px;max-width:200px;}
 .day-comment textarea{width:100%;height:40px;border:1.5px solid var(--border);border-radius:7px;padding:5px 8px;font-size:10px;font-family:'Inter',sans-serif;color:var(--text);resize:none;outline:none;background:white;line-height:1.4;transition:border-color .15s;}
 .day-comment textarea:focus{border-color:#6d28d9;}
 .day-comment textarea::placeholder{color:#cbd5e1;}
-
-/* Week notes */
 .week-notes{margin-top:12px;background:white;border-radius:12px;border:1px solid var(--border);padding:12px 14px;}
 .week-notes .wn-title{font-size:9px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
 .week-notes textarea{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;font-size:12px;font-family:'Inter',sans-serif;color:var(--text);resize:vertical;outline:none;min-height:72px;line-height:1.6;transition:border-color .15s;}
 .week-notes textarea:focus{border-color:#6d28d9;}
 .week-notes textarea::placeholder{color:#cbd5e1;}
+.footer-note{text-align:center;margin-top:16px;margin-bottom:8px;font-size:9px;color:#cbd5e1;}
 </style>
 </head>
 <body>
@@ -148,7 +123,7 @@ h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
   <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
     <div>
       <h1>Week Logger</h1>
-      <div class="sub-txt">Sélectionne une catégorie → brosse rapide slot par slot · sans brosse = modal avec note</div>
+      <div class="sub-txt">Sélectionne une catégorie → brosse rapide · sans brosse = modal + note</div>
     </div>
     <div class="week-nav">
       <button id="btn-prev">◀ Préc.</button>
@@ -157,23 +132,21 @@ h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
     </div>
   </div>
   <div class="legend" id="legend"></div>
-  <div class="gantt-wrap">
-    <div class="gantt" id="gantt">
-      <div class="hour-axis" id="hour-axis"></div>
-      <div id="gantt-rows"></div>
-    </div>
-  </div>
+  <div class="gantt-wrap"><div class="gantt" id="gantt">
+    <div class="hour-axis" id="hour-axis"></div>
+    <div id="gantt-rows"></div>
+  </div></div>
   <div class="stats-grid" id="stats-grid"></div>
   <div class="stacked-bar" id="stacked-bar"></div>
   <div class="week-notes">
     <div class="wn-title">📝 Réflexions de la semaine</div>
-    <textarea id="week-notes-area" placeholder="Bilan, intentions, observations générales sur cette semaine…"></textarea>
+    <textarea id="week-notes-area" placeholder="Bilan, intentions, observations générales…"></textarea>
   </div>
   <div class="action-row">
     <button class="action-btn" id="btn-reset">🗑 Réinitialiser cette semaine</button>
     <button class="action-btn" style="border-color:#0369a1;color:#0369a1;" id="btn-export">⬇ Exporter JSON</button>
   </div>
-  <div class="footer-note">⚪ = note info · 🔷 = note 🧘 Flow · Synchronisé via Firebase</div>
+  <div class="footer-note">⚪ note info · 🔷 note 🧘 Flow · Synchronisé via Firebase</div>
 </div>
 
 <!-- Modal -->
@@ -201,301 +174,280 @@ h1{font-size:19px;font-weight:700;letter-spacing:-.4px;}
   </div>
 </div>
 
-<!-- Brush bar -->
 <div class="brush-bar" id="brush-bar" style="display:none;">
   <div class="brush-dot-el" id="brush-dot"></div>
   <span id="brush-label">—</span>
   <button class="brush-clear" id="btn-brush-clear">✕ désactiver</button>
 </div>
 
-<!-- Sync status bar -->
 <div class="sync-bar">
   <div class="sync-dot" id="sync-dot"></div>
   <span id="sync-label">Initialisation…</span>
 </div>
 
-<!-- Firebase SDK -->
+<!-- Firebase (module) -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-// ─── Firebase init ────────────────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
-  authDomain: "hub-personnel-firebase.firebaseapp.com",
-  projectId: "hub-personnel-firebase",
-  storageBucket: "hub-personnel-firebase.firebasestorage.app",
-  messagingSenderId: "394129070920",
-  appId: "1:394129070920:web:10f3303c22adcda47cf17d"
+const FB_CONFIG = {
+  apiKey:"AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+  authDomain:"hub-personnel-firebase.firebaseapp.com",
+  projectId:"hub-personnel-firebase",
+  storageBucket:"hub-personnel-firebase.firebasestorage.app",
+  messagingSenderId:"394129070920",
+  appId:"1:394129070920:web:10f3303c22adcda47cf17d"
 };
-const app = initializeApp(firebaseConfig);
-const db_firebase = getFirestore(app);
-const DOC_PATH = 'week-logger/data';
+const fbApp  = initializeApp(FB_CONFIG);
+const fsDb   = getFirestore(fbApp);
+const FS_DOC = 'week-logger/data';
 
-// ─── Sync status UI ───────────────────────────────────────────────────────
-function syncStatus(state, msg) {
-  const dot = document.getElementById('sync-dot');
-  const lbl = document.getElementById('sync-label');
-  dot.className = 'sync-dot ' + state;
-  lbl.textContent = msg;
+// ── Sync UI ───────────────────────────────────────────────
+function syncUI(state, msg){
+  document.getElementById('sync-dot').className='sync-dot '+state;
+  document.getElementById('sync-label').textContent=msg;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────
-const SLOTS    = 48;
-const PX_PER_H = 32;
-const SLOT_W   = PX_PER_H / 2;
-const LABEL_W  = 72;
+// ── Constants ─────────────────────────────────────────────
+const SLOTS=48, PX_PER_H=32, SLOT_W=16, LABEL_W=72;
 
-const CATS = {
-  sleep:  {label:'Sleep Time',  emoji:'🌙', color:'#1e293b'},
-  break:  {label:'Break Time',  emoji:'🍽', color:'#92400e'},
-  family: {label:'Family Time', emoji:'❤️', color:'#be185d'},
-  fit:    {label:'Fit Time',    emoji:'💪', color:'#15803d'},
-  labour: {label:'Labour Time', emoji:'⚡', color:'#1d4ed8'},
-  free:   {label:'Free Time',   emoji:'🧠', color:'#6d28d9'},
-  other:  {label:'Autre',       emoji:'📖', color:'#475569'},
+const CATS={
+  sleep: {label:'Sleep Time', emoji:'🌙',color:'#1e293b'},
+  break: {label:'Break Time', emoji:'🍽',color:'#92400e'},
+  family:{label:'Family Time',emoji:'❤️',color:'#be185d'},
+  fit:   {label:'Fit Time',   emoji:'💪',color:'#15803d'},
+  labour:{label:'Labour Time',emoji:'⚡',color:'#1d4ed8'},
+  free:  {label:'Free Time',  emoji:'🧠',color:'#6d28d9'},
+  other: {label:'Autre',      emoji:'📖',color:'#475569'},
 };
 
-const DAYS = [
-  {key:'mon', label:'Lundi',    sub:'Présentiel'},
-  {key:'tue', label:'Mardi',    sub:'Télétravail'},
-  {key:'wed', label:'Mercredi', sub:'Télétravail'},
-  {key:'thu', label:'Jeudi',    sub:'Présentiel'},
-  {key:'fri', label:'Vendredi', sub:'Télétravail'},
-  {key:'sat', label:'Samedi',   sub:'Week-end'},
-  {key:'sun', label:'Dimanche', sub:'Week-end'},
+const DAYS=[
+  {key:'mon',label:'Lundi',   sub:'Présentiel'},
+  {key:'tue',label:'Mardi',   sub:'Télétravail'},
+  {key:'wed',label:'Mercredi',sub:'Télétravail'},
+  {key:'thu',label:'Jeudi',   sub:'Présentiel'},
+  {key:'fri',label:'Vendredi',sub:'Télétravail'},
+  {key:'sat',label:'Samedi',  sub:'Week-end'},
+  {key:'sun',label:'Dimanche',sub:'Week-end'},
 ];
 
-// ─── Presets ──────────────────────────────────────────────────────────────
-function preset(dk, idx) {
-  const h = idx * 0.5;
-  const earlyWake = (dk === 'mon' || dk === 'thu');
-  const wakeH = earlyWake ? 6 : 8;
-  if (h < wakeH)  return 'sleep';
-  if (idx >= 46)  return 'sleep';
-  if (h >= wakeH && h < wakeH + 1) return 'break';
-  const fitDays = ['tue','fri','sun'];
-  if (fitDays.includes(dk) && h >= 11.5 && h < 12.5) return 'fit';
-  const lunchStart = fitDays.includes(dk) ? 12.5 : 12;
-  if (h >= lunchStart && h < 14) return 'break';
-  if (h >= 20 && h < 21) return 'break';
+// ── Presets ────────────────────────────────────────────────
+function preset(dk,idx){
+  const h=idx*.5;
+  const wakeH=(dk==='mon'||dk==='thu')?6:8;
+  if(h<wakeH) return 'sleep';
+  if(idx>=46)  return 'sleep';
+  if(h>=wakeH && h<wakeH+1) return 'break';
+  const fitDays=['tue','fri','sun'];
+  if(fitDays.includes(dk) && h>=11.5 && h<12.5) return 'fit';
+  const lunchStart=fitDays.includes(dk)?12.5:12;
+  if(h>=lunchStart && h<14) return 'break';
+  if(h>=20 && h<21) return 'break';
   return null;
 }
 
-// ─── State ────────────────────────────────────────────────────────────────
-let weekKey = getWeekKey(new Date());
-let db = {};
-let brush = null;
-let modal = null;
-let noteTabState = 'info';
-let saveTimer = null;
+// ── State ──────────────────────────────────────────────────
+// Flat storage: slots[weekKey+'|'+dk+'|'+idx] = {cat,note,noteType} or {erased:true}
+// meta[weekKey+':notes'] = string
+// meta[weekKey+':comment:'+dk] = string
+let slots={}, meta={};
+let weekKey=getWeekKey(new Date());
+let brush=null, modalState=null, noteTabState='info', saveTimer=null;
 
-function getWeekKey(date) {
-  const d = new Date(date); d.setHours(12,0,0,0);
-  const dow = d.getDay();
-  d.setDate(d.getDate() + (dow===0 ? -6 : 1-dow));
+function getWeekKey(date){
+  const d=new Date(date); d.setHours(12,0,0,0);
+  const dow=d.getDay();
+  d.setDate(d.getDate()+(dow===0?-6:1-dow));
   return d.toISOString().slice(0,10);
 }
-function weekLabel(wk) {
-  const s = new Date(wk+'T12:00:00'), e = new Date(wk+'T12:00:00');
+function weekLabel(wk){
+  const s=new Date(wk+'T12:00:00'),e=new Date(wk+'T12:00:00');
   e.setDate(e.getDate()+6);
-  const f = d => d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+  const f=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
   return f(s)+' – '+f(e);
 }
-function changeWeek(dir) {
-  const d = new Date(weekKey+'T12:00:00');
-  d.setDate(d.getDate() + dir*7);
-  weekKey = getWeekKey(d);
-  render();
+function slotKey(dk,i){ return weekKey+'|'+dk+'|'+i; }
+
+function resolve(dk,i){
+  const s=slots[slotKey(dk,i)];
+  if(s){ return s.erased?null:s; }
+  const p=preset(dk,i);
+  return p?{cat:p,note:'',noteType:'info'}:null;
 }
 
-function sk(dk,i){ return dk+'-'+i; }
-function resolve(dk,i){
-  const s = (db[weekKey]||{})[sk(dk,i)];
-  if (s) return s.erased ? null : s;
-  const p = preset(dk,i);
-  return p ? {cat:p, note:'', noteType:'info'} : null;
-}
 function writeSlot(dk,i,cat,note,nt){
-  if (!db[weekKey]) db[weekKey]={};
-  db[weekKey][sk(dk,i)] = cat===null ? {erased:true} : {cat, note:note||'', noteType:nt||'info'};
+  const k=slotKey(dk,i);
+  if(cat===null){ slots[k]={erased:true}; }
+  else { slots[k]={cat,note:note||'',noteType:nt||'info'}; }
   scheduleSave();
 }
 
-// ─── Firebase persistence ─────────────────────────────────────────────────
-async function loadFromFirebase() {
-  syncStatus('loading', 'Chargement…');
-  try {
-    const ref = doc(db_firebase, DOC_PATH);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      const data = snap.data();
-      db = data.db || {};
-      weekKey = data.weekKey || getWeekKey(new Date());
+// ── Firebase ───────────────────────────────────────────────
+async function loadData(){
+  syncUI('loading','Chargement…');
+  try{
+    const snap=await getDoc(doc(fsDb,FS_DOC));
+    if(snap.exists()){
+      const d=snap.data();
+      slots=d.slots||{};
+      meta=d.meta||{};
+      if(d.weekKey) weekKey=d.weekKey;
     }
-    syncStatus('ok', '✓ Synchronisé');
-  } catch(e) {
-    syncStatus('error', '⚠ Hors ligne — données locales');
-    // fallback to localStorage
-    try {
-      const raw = localStorage.getItem('wl5_fallback');
-      if (raw) { const p = JSON.parse(raw); db = p.db||{}; weekKey = p.weekKey||getWeekKey(new Date()); }
-    } catch(_) {}
+    syncUI('ok','✓ Synchronisé');
+  }catch(e){
+    syncUI('error','⚠ Hors ligne — données locales');
+    try{
+      const raw=localStorage.getItem('wl6');
+      if(raw){const p=JSON.parse(raw);slots=p.slots||{};meta=p.meta||{};if(p.weekKey)weekKey=p.weekKey;}
+    }catch(_){}
   }
   render();
 }
 
-async function saveToFirebase() {
-  syncStatus('loading', 'Sauvegarde…');
-  try {
-    const ref = doc(db_firebase, DOC_PATH);
-    await setDoc(ref, { db, weekKey });
-    syncStatus('ok', '✓ Synchronisé');
-    // also keep local fallback
-    try { localStorage.setItem('wl5_fallback', JSON.stringify({db, weekKey})); } catch(_) {}
-  } catch(e) {
-    syncStatus('error', '⚠ Erreur sync — réessai dans 5s');
-    setTimeout(() => saveToFirebase(), 5000);
+async function saveData(){
+  syncUI('loading','Sauvegarde…');
+  const payload={slots,meta,weekKey};
+  try{
+    await setDoc(doc(fsDb,FS_DOC),payload);
+    syncUI('ok','✓ Synchronisé');
+    try{localStorage.setItem('wl6',JSON.stringify(payload));}catch(_){}
+  }catch(e){
+    syncUI('error','⚠ Erreur sync — réessai 5s');
+    setTimeout(saveData,5000);
   }
 }
 
-// Debounce saves — wait 1.2s after last change before writing to Firestore
-function scheduleSave() {
+function scheduleSave(){
   clearTimeout(saveTimer);
-  syncStatus('loading', 'Modification…');
-  saveTimer = setTimeout(() => saveToFirebase(), 1200);
+  syncUI('loading','Modification…');
+  saveTimer=setTimeout(saveData,1200);
 }
 
-// ─── Brush ────────────────────────────────────────────────────────────────
+// ── Brush ──────────────────────────────────────────────────
 function activateBrush(b){
   brush=b; renderLegend();
   const bar=document.getElementById('brush-bar');
-  if (!b){ bar.style.display='none'; return; }
+  if(!b){bar.style.display='none';return;}
   bar.style.display='flex';
-  if (b==='__erase'){
+  if(b==='__erase'){
     document.getElementById('brush-dot').style.background='#e2e8f0';
     document.getElementById('brush-label').textContent='✕ Mode effacer actif';
-  } else {
+  }else{
     document.getElementById('brush-dot').style.background=CATS[b].color;
     document.getElementById('brush-label').textContent=CATS[b].emoji+' '+CATS[b].label+' actif';
   }
 }
 
-// ─── Merged visual blocks ─────────────────────────────────────────────────
+// ── Block merge for visuals ────────────────────────────────
 function buildBlocks(dk){
-  const out=[];
-  let i=0;
+  const out=[];let i=0;
   while(i<SLOTS){
     const r=resolve(dk,i);
-    const cat=r?.cat||null, note=r?.note||'', nt=r?.noteType||'info';
+    const cat=r?.cat||null,note=r?.note||'',nt=r?.noteType||'info';
     let j=i+1;
     while(j<SLOTS){
       const r2=resolve(dk,j);
-      if ((r2?.cat||null)===cat && (r2?.note||'')===note && (r2?.noteType||'info')===nt) j++;
+      if((r2?.cat||null)===cat&&(r2?.note||'')===note&&(r2?.noteType||'info')===nt)j++;
       else break;
     }
-    out.push({s:i, e:j, cat, note, nt});
-    i=j;
+    out.push({s:i,e:j,cat,note,nt});i=j;
   }
   return out;
 }
 
-// ─── Slot click ───────────────────────────────────────────────────────────
+// ── Slot click ─────────────────────────────────────────────
 function handleSlotClick(dk,idx){
-  if (brush==='__erase'){
+  if(brush==='__erase'){
     writeSlot(dk,idx,null,'','info');
-    renderGantt(); renderStats();
-  } else if (brush){
+    renderGantt();renderStats();
+  }else if(brush){
     writeSlot(dk,idx,brush,'','info');
-    renderGantt(); renderStats();
-  } else {
+    renderGantt();renderStats();
+  }else{
     openModal(dk,idx);
   }
 }
 
-// ─── Modal ────────────────────────────────────────────────────────────────
-function fmtSlot(i){ const h=i*.5; return String(Math.floor(h)).padStart(2,'0')+':'+(h%1===.5?'30':'00'); }
+// ── Modal ──────────────────────────────────────────────────
+function fmtSlot(i){const h=i*.5;return String(Math.floor(h)).padStart(2,'0')+':'+(h%1===.5?'30':'00');}
 
 function openModal(dk,idx){
   const r=resolve(dk,idx);
-  modal={dk, idx, selCat:r?.cat||null};
-  noteTabState = r?.noteType||'info';
+  modalState={dk,idx,selCat:r?.cat||null};
+  noteTabState=r?.noteType||'info';
   document.getElementById('modal-note').value=r?.note||'';
   setNoteTab(noteTabState);
-  document.getElementById('modal-time').textContent =
+  document.getElementById('modal-time').textContent=
     DAYS.find(d=>d.key===dk).label+' · '+fmtSlot(idx)+' – '+fmtSlot(idx+1)+' (30 min)';
-  const grid=document.getElementById('modal-cats'); grid.innerHTML='';
+  const grid=document.getElementById('modal-cats');grid.innerHTML='';
   Object.entries(CATS).forEach(([k,v])=>{
     const btn=document.createElement('button');
-    btn.className='cat-btn'+(modal.selCat===k?' active':'');
-    if(modal.selCat===k){btn.style.borderColor=v.color;btn.style.background=v.color+'18';}
+    btn.className='cat-btn'+(modalState.selCat===k?' active':'');
+    if(modalState.selCat===k){btn.style.borderColor=v.color;btn.style.background=v.color+'18';}
     btn.innerHTML=`<span class="sw" style="background:${v.color}"></span>${v.emoji} ${v.label}`;
-    btn.addEventListener('click',()=>{
+    btn.onclick=()=>{
       grid.querySelectorAll('.cat-btn').forEach(b=>{b.classList.remove('active');b.style.borderColor='';b.style.background='';});
-      btn.classList.add('active'); btn.style.borderColor=v.color; btn.style.background=v.color+'18';
-      modal.selCat=k;
-    });
+      btn.classList.add('active');btn.style.borderColor=v.color;btn.style.background=v.color+'18';
+      modalState.selCat=k;
+    };
     grid.appendChild(btn);
   });
   document.getElementById('modal').style.display='flex';
 }
-function closeModal(){ document.getElementById('modal').style.display='none'; modal=null; }
-
+function closeModal(){document.getElementById('modal').style.display='none';modalState=null;}
 function setNoteTab(t){
   noteTabState=t;
   document.getElementById('tab-info').className='note-tab'+(t==='info'?' t-info':'');
   document.getElementById('tab-flow').className='note-tab'+(t==='flow'?' t-flow':'');
 }
 
-// ─── Render: Legend ───────────────────────────────────────────────────────
+// ── Render legend ──────────────────────────────────────────
 function renderLegend(){
-  const el=document.getElementById('legend'); el.innerHTML='';
+  const el=document.getElementById('legend');el.innerHTML='';
   Object.entries(CATS).forEach(([k,v])=>{
     const d=document.createElement('div');
-    d.className='leg'+(brush===k?' selected':''); d.dataset.cat=k;
+    d.className='leg'+(brush===k?' selected':'');d.dataset.cat=k;
     d.innerHTML=`<span class="dot" style="background:${v.color}"></span>${v.emoji} ${v.label}`;
-    d.addEventListener('click',()=>activateBrush(brush===k?null:k));
+    d.onclick=()=>activateBrush(brush===k?null:k);
     el.appendChild(d);
   });
   const er=document.createElement('div');
-  er.className='leg'+(brush==='__erase'?' selected':''); er.dataset.cat='erase';
+  er.className='leg'+(brush==='__erase'?' selected':'');er.dataset.cat='erase';
   er.innerHTML=`<span class="dot" style="background:#e2e8f0"></span>✕ Effacer`;
-  er.addEventListener('click',()=>activateBrush(brush==='__erase'?null:'__erase'));
+  er.onclick=()=>activateBrush(brush==='__erase'?null:'__erase');
   el.appendChild(er);
 }
 
-// ─── Render: Hour axis ────────────────────────────────────────────────────
+// ── Render axis ────────────────────────────────────────────
 function renderAxis(){
   const el=document.getElementById('hour-axis');
-  el.style.marginLeft=LABEL_W+'px'; el.innerHTML='';
+  el.style.marginLeft=LABEL_W+'px';el.innerHTML='';
   for(let h=0;h<=24;h++){
     const t=document.createElement('div');
-    t.className='hour-tick'; t.style.width=PX_PER_H+'px'; t.style.flexShrink='0';
-    if(h%3===0) t.textContent=String(h).padStart(2,'0')+'h';
+    t.className='hour-tick';t.style.width=PX_PER_H+'px';t.style.flexShrink='0';
+    if(h%3===0)t.textContent=String(h).padStart(2,'0')+'h';
     el.appendChild(t);
   }
 }
 
-// ─── Render: Gantt ────────────────────────────────────────────────────────
+// ── Render gantt ───────────────────────────────────────────
 function renderGantt(){
-  const container=document.getElementById('gantt-rows'); container.innerHTML='';
+  const container=document.getElementById('gantt-rows');container.innerHTML='';
   const totalW=24*PX_PER_H;
 
   DAYS.forEach(day=>{
-    const row=document.createElement('div'); row.className='day-row';
-
-    const lbl=document.createElement('div'); lbl.className='day-label';
-    lbl.style.width=LABEL_W+'px';
+    const row=document.createElement('div');row.className='day-row';
+    const lbl=document.createElement('div');lbl.className='day-label';lbl.style.width=LABEL_W+'px';
     lbl.innerHTML=`<div class="name">${day.label}</div><div class="type">${day.sub}</div>`;
     row.appendChild(lbl);
 
-    const track=document.createElement('div'); track.className='row-track';
-    track.style.width=totalW+'px'; track.style.height='40px';
+    const track=document.createElement('div');track.className='row-track';
+    track.style.width=totalW+'px';track.style.height='40px';
 
-    // Layer 1 — visual merged blocks
-    const blocksLayer=document.createElement('div'); blocksLayer.className='blocks-layer';
+    // Layer 1 — merged visual blocks (no pointer events)
+    const bl=document.createElement('div');bl.className='blocks-layer';
     buildBlocks(day.key).forEach(b=>{
-      if(!b.cat) return;
+      if(!b.cat)return;
       const vb=document.createElement('div');
       vb.className='vblock '+b.cat+(b.nt==='flow'?' flow-stripe':'');
       vb.style.left=(b.s*SLOT_W)+'px';
@@ -504,147 +456,136 @@ function renderGantt(){
       if(w>28){
         const durH=(b.e-b.s)*.5;
         const durStr=durH>=1?durH+'h':(durH*60)+'min';
-        const cat=CATS[b.cat];
-        const lbl2=document.createElement('span'); lbl2.className='vblock-label';
-        lbl2.textContent=(w>52&&cat?cat.emoji+' ':'')+durStr;
-        vb.appendChild(lbl2);
+        const c=CATS[b.cat];
+        const sp=document.createElement('span');sp.className='vblock-label';
+        sp.textContent=(w>52&&c?c.emoji+' ':'')+durStr;
+        vb.appendChild(sp);
       }
       if(b.note){
         const nd=document.createElement('div');
-        nd.className = b.nt==='flow' ? 'nd-flow' : 'nd-info';
+        nd.className=b.nt==='flow'?'nd-flow':'nd-info';
         vb.appendChild(nd);
       }
-      blocksLayer.appendChild(vb);
+      bl.appendChild(vb);
     });
-    track.appendChild(blocksLayer);
+    track.appendChild(bl);
 
-    // Layer 2 — invisible 30-min slots
-    const slotsLayer=document.createElement('div'); slotsLayer.className='slots-layer';
+    // Layer 2 — 30-min clickable slots (transparent, on top)
+    const sl=document.createElement('div');sl.className='slots-layer';
     for(let i=0;i<SLOTS;i++){
-      const sl=document.createElement('div');
-      sl.className='slot30';
-      if(i>0 && i%2===0) sl.classList.add(i%12===0?'hour-start-major':'hour-start');
-      sl.style.width=SLOT_W+'px';
+      const s=document.createElement('div');
+      s.className='slot30';
+      if(i>0&&i%2===0)s.classList.add(i%12===0?'hour-start-major':'hour-start');
+      s.style.width=SLOT_W+'px';
       const r=resolve(day.key,i);
-      const cat=r?.cat?CATS[r.cat]:null;
-      sl.title=[
-        fmtSlot(i)+' – '+fmtSlot(i+1),
-        cat?cat.label:'Non catégorisé',
-        r?.note?(r.noteType==='flow'?'🧘 ':'')+r.note:''
-      ].filter(Boolean).join('  ·  ');
-      sl.addEventListener('click',()=>handleSlotClick(day.key,i));
-      slotsLayer.appendChild(sl);
+      const c=r?.cat?CATS[r.cat]:null;
+      s.title=[fmtSlot(i)+' – '+fmtSlot(i+1),c?c.label:'Non catégorisé',r?.note?(r.noteType==='flow'?'🧘 ':'')+r.note:''].filter(Boolean).join(' · ');
+      // Use closure-safe idx
+      (function(dk,idx){s.onclick=()=>handleSlotClick(dk,idx);})(day.key,i);
+      sl.appendChild(s);
     }
-    track.appendChild(slotsLayer);
+    track.appendChild(sl);
     row.appendChild(track);
 
     // Day comment
-    const cmtWrap=document.createElement('div'); cmtWrap.className='day-comment';
-    const cmtTa=document.createElement('textarea');
-    cmtTa.placeholder='Commentaire…';
-    const cmtKey=weekKey+':comment:'+day.key;
-    cmtTa.value=(db[weekKey]&&db[weekKey][cmtKey])||'';
-    cmtTa.addEventListener('input',()=>{
-      if(!db[weekKey]) db[weekKey]={};
-      db[weekKey][cmtKey]=cmtTa.value;
-      scheduleSave();
-    });
-    cmtWrap.appendChild(cmtTa);
-    row.appendChild(cmtWrap);
-
+    const cw=document.createElement('div');cw.className='day-comment';
+    const ct=document.createElement('textarea');ct.placeholder='Commentaire…';
+    const ck='comment:'+weekKey+':'+day.key;
+    ct.value=meta[ck]||'';
+    ct.oninput=()=>{meta[ck]=ct.value;scheduleSave();};
+    cw.appendChild(ct);row.appendChild(cw);
     container.appendChild(row);
   });
 }
 
-// ─── Render: Stats ────────────────────────────────────────────────────────
+// ── Render stats ───────────────────────────────────────────
 function renderStats(){
-  const totals={};
-  Object.keys(CATS).forEach(k=>totals[k]=0);
-  let totalFilled=0;
+  const totals={};Object.keys(CATS).forEach(k=>totals[k]=0);
+  let filled=0;
   DAYS.forEach(day=>{
     for(let i=0;i<SLOTS;i++){
       const r=resolve(day.key,i);
-      if(r?.cat){ totals[r.cat]=(totals[r.cat]||0)+.5; totalFilled+=.5; }
+      if(r?.cat){totals[r.cat]=(totals[r.cat]||0)+.5;filled+=.5;}
     }
   });
-  const freeH=totals.free||0, labourH=totals.labour||0, familyH=totals.family||0;
-  const fitH=totals.fit||0, sleepH=totals.sleep||0, breakH=totals.break||0;
-  const alloc=freeH+labourH;
-  const active=totalFilled-sleepH-breakH;
-
-  const statsEl=document.getElementById('stats-grid'); statsEl.innerHTML='';
+  const fH=totals.free||0,lH=totals.labour||0,faH=totals.family||0;
+  const fiH=totals.fit||0,slH=totals.sleep||0,brH=totals.break||0;
+  const alloc=fH+lH, active=filled-slH-brH;
+  const statsEl=document.getElementById('stats-grid');statsEl.innerHTML='';
   [
-    {lbl:'Free Time',       val:freeH+'h',                   det:`moy. ${(freeH/7).toFixed(1)}h/j · projets, CGP, DJ…`, color:'#6d28d9', bg:'#f5f3ff'},
-    {lbl:'Labour Time',     val:labourH+'h',                 det:`moy. ${(labourH/7).toFixed(1)}h/j · boulot effectif`,  color:'#1d4ed8', bg:'#eff6ff'},
-    {lbl:'Family Time',     val:familyH+'h',                 det:`moy. ${(familyH/7).toFixed(1)}h/j`,                    color:'#be185d', bg:'#fdf2f8'},
-    {lbl:'Fit Time',        val:fitH+'h',                    det:`${Math.round(fitH)} séance(s) · moy. ${(fitH/7).toFixed(1)}h/j`, color:'#15803d', bg:'#f0fdf4'},
-    {lbl:'Sleep',           val:(sleepH/7).toFixed(1)+'h/j', det:`${sleepH}h total semaine`,                             color:'#1e293b', bg:'#f1f5f9'},
-    {lbl:'Focus allouable', val:alloc+'h',                   det:`1% ≈ ${(alloc/100).toFixed(1)}h · moy. ${(alloc/7).toFixed(1)}h/j`, color:'#0f172a', bg:'#fefce8'},
+    {lbl:'Free Time',      val:fH+'h',              det:`moy. ${(fH/7).toFixed(1)}h/j · projets, CGP, DJ…`,color:'#6d28d9',bg:'#f5f3ff'},
+    {lbl:'Labour Time',    val:lH+'h',              det:`moy. ${(lH/7).toFixed(1)}h/j · boulot effectif`, color:'#1d4ed8',bg:'#eff6ff'},
+    {lbl:'Family Time',    val:faH+'h',             det:`moy. ${(faH/7).toFixed(1)}h/j`,                  color:'#be185d',bg:'#fdf2f8'},
+    {lbl:'Fit Time',       val:fiH+'h',             det:`${Math.round(fiH)} séance(s) · moy. ${(fiH/7).toFixed(1)}h/j`,color:'#15803d',bg:'#f0fdf4'},
+    {lbl:'Sleep',          val:(slH/7).toFixed(1)+'h/j',det:`${slH}h total`,                            color:'#1e293b',bg:'#f1f5f9'},
+    {lbl:'Focus allouable',val:alloc+'h',           det:`1%≈${(alloc/100).toFixed(1)}h · moy. ${(alloc/7).toFixed(1)}h/j`,color:'#0f172a',bg:'#fefce8'},
   ].forEach(c=>{
-    const card=document.createElement('div'); card.className='stat-card'; card.style.background=c.bg;
+    const card=document.createElement('div');card.className='stat-card';card.style.background=c.bg;
     card.innerHTML=`<div class="lbl" style="color:${c.color}">${c.lbl}</div><div class="val" style="color:${c.color}">${c.val}</div><div class="det">${c.det}</div>`;
     statsEl.appendChild(card);
   });
-
-  const TOTAL=168;
-  const entries=Object.entries(CATS).map(([k,v])=>({k,v,h:totals[k]||0}));
-  const usedH=entries.reduce((s,e)=>s+e.h,0), emptyH=TOTAL-usedH;
+  const T=168,entries=Object.entries(CATS).map(([k,v])=>({k,v,h:totals[k]||0}));
+  const usedH=entries.reduce((s,e)=>s+e.h,0),emptyH=T-usedH;
   document.getElementById('stacked-bar').innerHTML=`
-    <div class="sbar-title">168h / sem · ${(usedH/TOTAL*100).toFixed(0)}% catégorisé · actif (hors sleep+break): ${active.toFixed(1)}h · moy. ${(active/7).toFixed(1)}h/j</div>
+    <div class="sbar-title">168h/sem · ${(usedH/T*100).toFixed(0)}% catégorisé · actif: ${active.toFixed(1)}h · moy. ${(active/7).toFixed(1)}h/j</div>
     <div class="bar-track">
-      ${entries.filter(e=>e.h>0).map(e=>`<div class="bar-seg" style="flex:${e.h};background:${e.v.color}" title="${e.v.label}: ${e.h}h (${(e.h/TOTAL*100).toFixed(0)}%)"></div>`).join('')}
+      ${entries.filter(e=>e.h>0).map(e=>`<div class="bar-seg" style="flex:${e.h};background:${e.v.color}" title="${e.v.label}: ${e.h}h"></div>`).join('')}
       ${emptyH>0?`<div class="bar-seg" style="flex:${emptyH};background:#f1f5f9"></div>`:''}
     </div>
     <div class="bar-labels">
-      ${entries.filter(e=>e.h>0).map(e=>`<div class="bar-lbl"><div class="dot" style="background:${e.v.color}"></div>${e.v.emoji} ${e.v.label}<span class="hrs">${e.h}h · ${(e.h/TOTAL*100).toFixed(0)}%</span></div>`).join('')}
+      ${entries.filter(e=>e.h>0).map(e=>`<div class="bar-lbl"><div class="dot" style="background:${e.v.color}"></div>${e.v.emoji} ${e.v.label}<span class="hrs">${e.h}h · ${(e.h/T*100).toFixed(0)}%</span></div>`).join('')}
       ${emptyH>0?`<div class="bar-lbl"><div class="dot" style="background:#e2e8f0"></div>Non catégorisé<span class="hrs">${emptyH}h</span></div>`:''}
     </div>`;
 }
 
-// ─── Wire buttons ─────────────────────────────────────────────────────────
-document.getElementById('btn-prev').addEventListener('click',()=>changeWeek(-1));
-document.getElementById('btn-next').addEventListener('click',()=>changeWeek(1));
-document.getElementById('btn-reset').addEventListener('click',()=>{
-  if(confirm('Réinitialiser tous les slots manuels de cette semaine ?')){
-    delete db[weekKey]; scheduleSave(); renderGantt(); renderStats();
-  }
-});
-document.getElementById('btn-export').addEventListener('click',()=>{
-  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='week-logger-'+weekKey+'.json'; a.click();
-});
-document.getElementById('btn-cancel').addEventListener('click',closeModal);
-document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
-document.getElementById('btn-save-slot').addEventListener('click',()=>{
-  if(!modal) return;
-  writeSlot(modal.dk, modal.idx, modal.selCat, document.getElementById('modal-note').value.trim(), noteTabState);
-  closeModal(); renderGantt(); renderStats();
-});
-document.getElementById('btn-clear-slot').addEventListener('click',()=>{
-  if(!modal) return;
-  writeSlot(modal.dk, modal.idx, null,'','info');
-  closeModal(); renderGantt(); renderStats();
-});
-document.getElementById('btn-brush-clear').addEventListener('click',()=>activateBrush(null));
-document.getElementById('tab-info').addEventListener('click',()=>setNoteTab('info'));
-document.getElementById('tab-flow').addEventListener('click',()=>setNoteTab('flow'));
-document.getElementById('week-notes-area').addEventListener('input',()=>{
-  if(!db[weekKey]) db[weekKey]={};
-  db[weekKey][weekKey+':notes']=document.getElementById('week-notes-area').value;
-  scheduleSave();
-});
-
-// ─── Full render ──────────────────────────────────────────────────────────
+// ── Full render ────────────────────────────────────────────
 function render(){
   document.getElementById('week-label').textContent=weekLabel(weekKey);
-  renderLegend(); renderAxis(); renderGantt(); renderStats();
-  const ta=document.getElementById('week-notes-area');
-  ta.value=(db[weekKey]&&db[weekKey][weekKey+':notes'])||'';
+  renderLegend();renderAxis();renderGantt();renderStats();
+  document.getElementById('week-notes-area').value=meta['notes:'+weekKey]||'';
 }
 
-// ─── Boot ─────────────────────────────────────────────────────────────────
-loadFromFirebase();
+// ── Wire DOM buttons ───────────────────────────────────────
+document.getElementById('btn-prev').onclick=()=>{
+  const d=new Date(weekKey+'T12:00:00');d.setDate(d.getDate()-7);weekKey=getWeekKey(d);render();
+};
+document.getElementById('btn-next').onclick=()=>{
+  const d=new Date(weekKey+'T12:00:00');d.setDate(d.getDate()+7);weekKey=getWeekKey(d);render();
+};
+document.getElementById('btn-reset').onclick=()=>{
+  if(!confirm('Réinitialiser les slots manuels de cette semaine ?'))return;
+  // Remove all keys for current weekKey
+  Object.keys(slots).forEach(k=>{if(k.startsWith(weekKey+'|'))delete slots[k];});
+  Object.keys(meta).forEach(k=>{if(k.includes(weekKey))delete meta[k];});
+  scheduleSave();renderGantt();renderStats();
+  document.getElementById('week-notes-area').value='';
+};
+document.getElementById('btn-export').onclick=()=>{
+  const blob=new Blob([JSON.stringify({slots,meta},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='week-logger-'+weekKey+'.json';a.click();
+};
+document.getElementById('btn-cancel').onclick=closeModal;
+document.getElementById('modal').onclick=e=>{if(e.target===document.getElementById('modal'))closeModal();};
+document.getElementById('btn-save-slot').onclick=()=>{
+  if(!modalState)return;
+  writeSlot(modalState.dk,modalState.idx,modalState.selCat,document.getElementById('modal-note').value.trim(),noteTabState);
+  closeModal();renderGantt();renderStats();
+};
+document.getElementById('btn-clear-slot').onclick=()=>{
+  if(!modalState)return;
+  writeSlot(modalState.dk,modalState.idx,null,'','info');
+  closeModal();renderGantt();renderStats();
+};
+document.getElementById('btn-brush-clear').onclick=()=>activateBrush(null);
+document.getElementById('tab-info').onclick=()=>setNoteTab('info');
+document.getElementById('tab-flow').onclick=()=>setNoteTab('flow');
+document.getElementById('week-notes-area').oninput=()=>{
+  meta['notes:'+weekKey]=document.getElementById('week-notes-area').value;
+  scheduleSave();
+};
+
+// ── Boot ───────────────────────────────────────────────────
+loadData();
 </script>
 </body>
 </html>
