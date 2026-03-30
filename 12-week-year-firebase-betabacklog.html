@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>12 Week Year — Pilotage Annuel 2026</title>
+<style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f3ef;
+  --surface: #ffffff;
+  --surface2: #faf9f7;
+  --border: #e8e4de;
+  --border2: #d4cfc8;
+  --text: #1a1816;
+  --text2: #5a554e;
+  --text3: #9a948c;
+  --accent: #c4581a;
+  --accent-light: #fdf0e8;
+
+  --green: #2e7d52;
+  --green-light: #e8f5ee;
+  --orange: #c47b1a;
+  --orange-light: #fdf5e0;
+  --red: #b0352a;
+  --red-light: #fdecea;
+
+  --st-not-started-bg: #f0efed; --st-not-started-fg: #7a7570; --st-not-started-bd: #d4cfc8;
+  --st-on-track-bg: #e8f0fb;    --st-on-track-fg: #2a5faa;    --st-on-track-bd: #a8c4f0;
+  --st-completed-bg: #e8f5ee;   --st-completed-fg: #2e7d52;   --st-completed-bd: #aedfc5;
+  --st-at-risk-bg: #fdecea;     --st-at-risk-fg: #b0352a;     --st-at-risk-bd: #f0b0aa;
+  --st-off-track-bg: #1a1816;   --st-off-track-fg: #ffffff;   --st-off-track-bd: #1a1816;
+
+  --week-active: #fff8f3;
+  --buffer-bg: #f7f5f2;
+  --shadow: 0 2px 8px rgba(0,0,0,0.07);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --font-display: 'Georgia', 'Times New Roman', serif;
+  --font-ui: -apple-system, 'Helvetica Neue', 'Segoe UI', sans-serif;
+  --transition: 0.18s ease;
+}
+
+body { font-family: var(--font-ui); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
+
+/* ===== HEADER ===== */
+.app-header {
+  background: var(--text); color: white; padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+}
+.app-logo { font-family: var(--font-display); font-size: 18px; font-weight: normal; display: flex; align-items: center; gap: 10px; }
+.app-logo .badge { background: var(--accent); color: white; font-family: var(--font-ui); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; padding: 2px 7px; border-radius: 3px; text-transform: uppercase; }
+.header-right { display: flex; align-items: center; gap: 14px; }
+.save-indicator { font-size: 11px; color: rgba(255,255,255,0.4); transition: var(--transition); }
+.save-indicator.saving { color: rgba(255,255,255,0.75); }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.btn-icon { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); padding: 5px 11px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; font-family: var(--font-ui); transition: var(--transition); display: flex; align-items: center; gap: 5px; }
+.btn-icon:hover { background: rgba(255,255,255,0.2); color: white; }
+.btn-icon.danger:hover { background: var(--red); border-color: var(--red); }
+.hub-link { font-size: 12px; color: rgba(255,255,255,0.5); text-decoration: none; transition: var(--transition); }
+.hub-link:hover { color: rgba(255,255,255,0.85); }
+
+/* ===== SYNC STATUS BAR ===== */
+.sync-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 32px; background: #1a1816; color: rgba(255,255,255,0.6);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; z-index: 200; border-top: 1px solid #333;
+  gap: 8px;
+}
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+.sync-bar.loading .sync-dot { background: var(--orange); animation: pulse 1s infinite; }
+.sync-bar.synced  .sync-dot { background: var(--green); }
+.sync-bar.error   .sync-dot { background: var(--red); }
+.sync-bar.saving  .sync-dot { background: var(--orange); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ===== CYCLE BAR ===== */
+.cycle-bar {
+  background: #242220; padding: 0 32px;
+  display: flex; align-items: center; gap: 4px;
+  position: sticky; top: 56px; z-index: 98;
+  border-bottom: 1px solid #333; overflow-x: auto;
+}
+.cycle-bar-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.25); margin-right: 8px; padding-right: 12px; border-right: 1px solid #333; white-space: nowrap; flex-shrink: 0; }
+.cycle-tab { padding: 10px 16px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.4); cursor: pointer; border-bottom: 2px solid transparent; transition: var(--transition); white-space: nowrap; flex-shrink: 0; }
+.cycle-tab:hover { color: rgba(255,255,255,0.75); }
+.cycle-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.buffer-tab { padding: 10px 10px; font-size: 10px; color: rgba(255,255,255,0.2); white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
+.buffer-tab.active-buffer { color: rgba(255,200,100,0.7); }
+
+/* ===== NAV BAR ===== */
+.nav-bar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 32px; display: flex; position: sticky; top: 96px; z-index: 97; overflow-x: auto;
+}
+.nav-tab { padding: 12px 18px; font-size: 13px; font-weight: 500; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; transition: var(--transition); white-space: nowrap; }
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ===== MAIN ===== */
+.main { max-width: 1200px; margin: 0 auto; padding: 24px; padding-bottom: 52px; }
+.section { display: none; }
+.section.active { display: block; }
+
+/* ===== BUFFER NOTICE ===== */
+.buffer-notice {
+  background: linear-gradient(135deg, #2a2420, #3a2e20); color: white;
+  border-radius: var(--radius); padding: 20px 24px; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 16px;
+}
+.buffer-notice .bn-icon { font-size: 24px; flex-shrink: 0; }
+.buffer-notice h3 { font-family: var(--font-display); font-size: 17px; font-weight: normal; margin-bottom: 4px; }
+.buffer-notice p { font-size: 13px; opacity: 0.7; }
+.buffer-notice .bn-dates { font-size: 12px; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 99px; margin-left: auto; white-space: nowrap; flex-shrink: 0; }
+
+/* ===== CARDS ===== */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+.card-title { font-family: var(--font-display); font-size: 17px; font-weight: normal; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.card-subtitle { font-size: 12px; color: var(--text3); font-weight: normal; margin-left: auto; }
+
+/* ===== STATS ===== */
+.dashboard-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
+.stat-value { font-family: var(--font-display); font-size: 32px; font-weight: normal; color: var(--text); line-height: 1; }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-top: 5px; }
+.stat-card.accent .stat-value { color: var(--accent); }
+.stat-card.green  .stat-value { color: var(--green); }
+.stat-card.blue   .stat-value { color: #2a5faa; }
+
+/* ===== PROGRESS ===== */
+.progress-container { margin-bottom: 14px; }
+.progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-bottom: 5px; }
+.progress-bar { height: 7px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+.progress-fill.green  { background: var(--green); }
+.progress-fill.orange { background: #e0941a; }
+.progress-fill.red    { background: var(--red); }
+.progress-fill.accent { background: var(--accent); }
+
+/* ===== MINI GRID ===== */
+.weeks-mini-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; margin-top: 16px; }
+.week-mini { border-radius: 5px; padding: 8px 4px; text-align: center; font-size: 10px; cursor: pointer; transition: var(--transition); border: 1px solid transparent; }
+.week-mini:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.week-mini .wnum  { font-size: 10px; color: var(--text2); }
+.week-mini .wscore { font-size: 11px; font-weight: 700; margin-top: 2px; }
+.wm-future  { background: var(--surface2); border-color: var(--border); }
+.wm-future .wscore { color: var(--text3); }
+.wm-current { background: var(--week-active); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.wm-green   { background: var(--green-light); border-color: #aedfc5; }
+.wm-green .wscore  { color: var(--green); }
+.wm-orange  { background: var(--orange-light); border-color: #f0d080; }
+.wm-orange .wscore { color: var(--orange); }
+.wm-red     { background: var(--red-light); border-color: #f0b0aa; }
+.wm-red .wscore    { color: var(--red); }
+
+/* ===== TARGET BADGE ===== */
+.target-badge { display: inline-flex; align-items: center; gap: 5px; background: var(--green-light); border: 1px solid #aedfc5; border-radius: 99px; padding: 3px 10px; font-size: 11px; font-weight: 600; color: var(--green); }
+
+/* ===== STATUS PILLS ===== */
+.status-pill { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid transparent; }
+.status-pill.not-started { background: var(--st-not-started-bg); color: var(--st-not-started-fg); border-color: var(--st-not-started-bd); }
+.status-pill.on-track    { background: var(--st-on-track-bg);    color: var(--st-on-track-fg);    border-color: var(--st-on-track-bd); }
+.status-pill.completed   { background: var(--st-completed-bg);   color: var(--st-completed-fg);   border-color: var(--st-completed-bd); }
+.status-pill.at-risk     { background: var(--st-at-risk-bg);     color: var(--st-at-risk-fg);     border-color: var(--st-at-risk-bd); }
+.status-pill.off-track   { background: var(--st-off-track-bg);   color: var(--st-off-track-fg);   border-color: var(--st-off-track-bd); }
+
+/* ===== OBJECTIVES ===== */
+.objectives-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.objective-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+.obj-number { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 12px; }
+.field-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; margin-top: 10px; }
+.field-label:first-of-type { margin-top: 0; }
+
+input[type="text"], textarea {
+  width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 10px; font-family: var(--font-ui); font-size: 13px; color: var(--text);
+  background: var(--surface2); transition: var(--transition); resize: none; outline: none;
+}
+input[type="text"]:focus, textarea:focus { border-color: var(--accent); background: white; box-shadow: 0 0 0 2px var(--accent-light); }
+
+.status-select {
+  width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 10px; font-family: var(--font-ui); font-size: 13px; color: var(--text);
+  background: var(--surface2); cursor: pointer; outline: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a948c'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; margin-bottom: 6px;
+}
+
+/* ===== SECTION HEADERS ===== */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.section-title { font-family: var(--font-display); font-size: 20px; font-weight: normal; }
+.section-description { font-size: 13px; color: var(--text3); margin-bottom: 18px; line-height: 1.6; }
+
+/* ===== CYCLE INFO ROW ===== */
+.cycle-info-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 18px; margin-bottom: 18px; box-shadow: var(--shadow); flex-wrap: wrap; }
+.cir-item { font-size: 13px; color: var(--text2); }
+.cir-item strong { color: var(--text); }
+.cir-sep { color: var(--border2); }
+
+/* ===== WEEKS ACCORDION ===== */
+.week-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; box-shadow: var(--shadow); overflow: hidden; }
+.week-block.current-week { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+.week-block.past-week { opacity: 0.88; }
+
+.week-header { display: flex; align-items: center; padding: 12px 18px; cursor: pointer; gap: 12px; transition: var(--transition); user-select: none; }
+.week-header:hover { background: var(--surface2); }
+.week-header.wh-current { background: var(--week-active); }
+.week-header.wh-buffer  { background: var(--buffer-bg); cursor: default; }
+
+.week-num { font-family: var(--font-display); font-size: 19px; width: 44px; flex-shrink: 0; }
+.wn-label { font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--text3); display: block; }
+.week-dates { font-size: 12px; color: var(--text3); flex: 1; }
+.week-current-badge { background: var(--accent); color: white; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.06em; }
+.week-buffer-badge  { background: #e8e0d4; color: #7a6a58; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.week-score-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; min-width: 50px; text-align: center; }
+.sc-green  { background: var(--green-light); color: var(--green); }
+.sc-orange { background: var(--orange-light); color: var(--orange); }
+.sc-red    { background: var(--red-light); color: var(--red); }
+.sc-none   { background: var(--border); color: var(--text3); }
+
+.chevron { color: var(--text3); transition: transform var(--transition); font-size: 11px; flex-shrink: 0; }
+.week-block.open .chevron { transform: rotate(90deg); }
+.week-body { display: none; padding: 4px 18px 18px; border-top: 1px solid var(--border); }
+.week-block.open .week-body { display: block; }
+
+/* ===== ACTIONS ===== */
+.obj-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin: 14px 0 6px; display: flex; align-items: center; gap: 8px; }
+.obj-color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-1 { background: #c4581a; }
+.dot-2 { background: #2a5faa; }
+.dot-3 { background: #2e7d52; }
+
+.action-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.action-checkbox { width: 16px; height: 16px; border: 2px solid var(--border2); border-radius: 4px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: var(--transition); background: white; }
+.action-checkbox.checked { background: var(--green); border-color: var(--green); color: white; }
+.action-checkbox.checked::after { content: '✓'; font-size: 9px; }
+.action-text { flex: 1; border: none; background: transparent; font-size: 13px; color: var(--text); padding: 3px 0; outline: none; font-family: var(--font-ui); }
+.action-text:focus { background: var(--accent-light); padding: 3px 6px; border-radius: var(--radius-sm); }
+.action-text.done { text-decoration: line-through; color: var(--text3); }
+.btn-remove { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; padding: 2px 4px; border-radius: 3px; transition: var(--transition); }
+.btn-remove:hover { color: var(--red); background: var(--red-light); }
+
+.btn-add { background: none; border: 1px dashed var(--border2); border-radius: var(--radius-sm); color: var(--text3); padding: 6px 12px; font-size: 12px; cursor: pointer; width: 100%; text-align: left; margin-top: 8px; transition: var(--transition); font-family: var(--font-ui); }
+.btn-add:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-light); }
+
+.week-score-summary { margin-top: 12px; padding: 10px 12px; background: var(--surface2); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.wss-item { font-size: 12px; color: var(--text2); }
+.wss-item strong { color: var(--text); }
+
+.review-note { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.review-note textarea { min-height: 56px; background: var(--surface2); }
+
+/* ===== BUFFER WEEK BODY ===== */
+.buffer-body { padding: 16px 18px; background: var(--buffer-bg); border-top: 1px solid var(--border); }
+.buffer-checklist { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.buffer-checklist li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); }
+.buffer-checklist .bck { width: 16px; height: 16px; border: 2px solid var(--border2); border-radius: 4px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: var(--transition); background: white; }
+.buffer-checklist .bck.checked { background: var(--orange); border-color: var(--orange); color: white; }
+.buffer-checklist .bck.checked::after { content: '✓'; font-size: 9px; }
+
+/* ===== PARKING ===== */
+.parking-list { list-style: none; }
+.parking-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.parking-item:last-child { border-bottom: none; }
+.parking-item textarea { flex: 1; background: transparent; border: none; padding: 2px 0; font-size: 13px; line-height: 1.5; resize: none; min-height: 32px; }
+.parking-item textarea:focus { background: var(--accent-light); padding: 4px 6px; border-radius: var(--radius-sm); box-shadow: none; border: none; }
+
+/* ===== ANNUAL VIEW ===== */
+.year-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.year-cycle-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; background: var(--surface); box-shadow: var(--shadow); cursor: pointer; transition: var(--transition); }
+.year-cycle-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.year-cycle-card.yc-active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+.year-cycle-card.yc-future { opacity: 0.5; }
+.yc-label  { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); margin-bottom: 6px; }
+.yc-dates  { font-size: 12px; color: var(--text3); margin-bottom: 10px; }
+.yc-score  { font-family: var(--font-display); font-size: 28px; color: var(--text); line-height: 1; }
+.yc-score-label { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.yc-mini-weeks  { display: flex; gap: 3px; margin-top: 10px; flex-wrap: wrap; }
+.yc-dot { width: 14px; height: 14px; border-radius: 3px; background: var(--border); }
+.yd-green  { background: var(--green-light);  border: 1px solid #aedfc5; }
+.yd-orange { background: var(--orange-light); border: 1px solid #f0d080; }
+.yd-red    { background: var(--red-light);    border: 1px solid #f0b0aa; }
+.yd-current { background: var(--week-active); border: 1px solid var(--accent); }
+.yd-buffer  { background: #e8e0d4;            border: 1px solid #ccc4b8; }
+
+/* ===== BUTTONS ===== */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; transition: var(--transition); border: 1px solid transparent; font-family: var(--font-ui); }
+.btn-primary   { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-primary:hover { background: #a84515; }
+.btn-secondary { background: white; color: var(--text); border-color: var(--border2); }
+.btn-secondary:hover { border-color: var(--text2); }
+
+/* ===== MODAL ===== */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: var(--radius); padding: 28px; max-width: 480px; width: 90%; box-shadow: var(--shadow-lg); }
+.modal h3 { font-family: var(--font-display); font-size: 19px; font-weight: normal; margin-bottom: 10px; }
+.modal p  { color: var(--text2); font-size: 13px; margin-bottom: 18px; line-height: 1.6; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ===== TOAST ===== */
+.toast { position: fixed; bottom: 40px; right: 24px; background: var(--text); color: white; padding: 10px 18px; border-radius: var(--radius-sm); font-size: 13px; box-shadow: var(--shadow-lg); opacity: 0; transform: translateY(8px); transition: 0.25s ease; pointer-events: none; z-index: 9999; }
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 960px) {
+  .dashboard-grid { grid-template-columns: 1fr 1fr; }
+  .objectives-grid { grid-template-columns: 1fr; }
+  .year-grid { grid-template-columns: 1fr 1fr; }
+  .weeks-mini-grid { grid-template-columns: repeat(6, 1fr); }
+  .buffer-checklist { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .main { padding: 14px 12px 52px; }
+  .dashboard-grid { grid-template-columns: 1fr 1fr; }
+  .app-header, .nav-bar { padding: 0 12px; }
+  .cycle-bar { padding: 0 12px; }
+  .header-actions .btn-icon span { display: none; }
+}
+
+/* ===== BACKLOG ===== */
+.backlog-section { margin-top: 18px; padding-top: 16px; border-top: 2px dashed var(--border); }
+.backlog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.backlog-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); display: flex; align-items: center; gap: 6px; }
+.backlog-count { background: var(--border); color: var(--text3); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; }
+
+.backlog-list { list-style: none; }
+.backlog-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.backlog-item:last-child { border-bottom: none; }
+.backlog-item input[type="text"] { flex: 1; border: none; background: transparent; padding: 2px 0; font-size: 13px; }
+.backlog-item input[type="text"]:focus { background: var(--accent-light); padding: 2px 6px; border-radius: var(--radius-sm); border: none; box-shadow: none; }
+.backlog-item.bl-done input[type="text"] { text-decoration: line-through; color: var(--text3); }
+
+.bl-status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; cursor: pointer; border: 2px solid var(--border2); background: white; transition: var(--transition); }
+.bl-status-dot.pending  { background: white; border-color: var(--border2); }
+.bl-status-dot.planned  { background: #2a5faa; border-color: #2a5faa; }
+.bl-status-dot.done     { background: var(--green); border-color: var(--green); }
+
+/* Backlog picker modal */
+.bl-picker-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: flex-end; justify-content: center; }
+.bl-picker-overlay.open { display: flex; }
+.bl-picker { background: white; border-radius: var(--radius) var(--radius) 0 0; width: 100%; max-width: 680px; max-height: 70vh; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
+.bl-picker-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.bl-picker-header h3 { font-family: var(--font-display); font-size: 17px; font-weight: normal; }
+.bl-picker-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text3); line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.bl-picker-close:hover { background: var(--border); color: var(--text); }
+.bl-picker-body { overflow-y: auto; padding: 12px 20px 20px; flex: 1; }
+.bl-picker-obj-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin: 14px 0 8px; display: flex; align-items: center; gap: 6px; }
+.bl-picker-obj-title:first-child { margin-top: 0; }
+.bl-picker-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: var(--transition); border: 1px solid transparent; margin-bottom: 4px; }
+.bl-picker-item:hover { background: var(--surface2); border-color: var(--border); }
+.bl-picker-item.already-planned { opacity: 0.4; cursor: default; pointer-events: none; }
+.bl-picker-item .bl-pick-check { width: 18px; height: 18px; border: 2px solid var(--border2); border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
+.bl-picker-item.selected .bl-pick-check { background: var(--accent); border-color: var(--accent); color: white; }
+.bl-picker-item.selected .bl-pick-check::after { content: "✓"; font-size: 10px; }
+.bl-picker-item .bl-pick-text { font-size: 13px; color: var(--text); flex: 1; }
+.bl-picker-item .bl-pick-badge { font-size: 10px; color: var(--text3); background: var(--border); padding: 1px 6px; border-radius: 99px; flex-shrink: 0; }
+.bl-picker-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--surface2); }
+.bl-picker-hint { font-size: 12px; color: var(--text3); }
+.bl-empty { font-size: 12px; color: var(--text3); font-style: italic; padding: 8px 0; }
+
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="app-logo">
+    <a href="index.html" class="hub-link">← Hub</a>
+    &nbsp;/&nbsp;
+    12 Week Year
+    <span class="badge">2026</span>
+  </div>
+  <div class="header-right">
+    <div class="header-actions">
+      <button class="btn-icon" onclick="exportData()">⬇ <span>Export</span></button>
+      <button class="btn-icon" onclick="triggerImport()">⬆ <span>Import</span></button>
+      <button class="btn-icon danger" onclick="openResetModal()">⚠ <span>Reset</span></button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+  </div>
+</header>
+
+<!-- CYCLE BAR -->
+<div class="cycle-bar" id="cycleBar">
+  <span class="cycle-bar-label">2026</span>
+</div>
+
+<!-- SECTION NAV -->
+<nav class="nav-bar">
+  <div class="nav-tab active" onclick="switchSection('dashboard', this)">📊 Tableau de bord</div>
+  <div class="nav-tab" onclick="switchSection('objectives', this)">🎯 Objectifs</div>
+  <div class="nav-tab" onclick="switchSection('weeks', this)">📅 Semaines</div>
+  <div class="nav-tab" onclick="switchSection('parking', this)">🗂 Parking</div>
+  <div class="nav-tab" onclick="switchSection('annual', this)">🗓 Vue annuelle</div>
+  <div class="nav-tab" onclick="switchSection('backlog', this)">📋 Backlog</div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <section id="section-dashboard" class="section active">
+    <div id="bufferNotice" style="display:none"></div>
+    <div class="cycle-info-row" id="cycleInfoRow"></div>
+    <div class="dashboard-grid" id="dashboardStats"></div>
+    <div class="card">
+      <div class="card-title">
+        <span>📈</span> Progression du cycle
+        <span class="card-subtitle"><span class="target-badge">🎯 Cible : 85% d'exécution</span></span>
+      </div>
+      <div id="progressBars"></div>
+      <div class="weeks-mini-grid" id="weeksMiniGrid"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span>🎯</span> Objectifs du cycle</div>
+      <div id="dashboardObjectives" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
+    </div>
+  </section>
+
+  <!-- OBJECTIFS -->
+  <section id="section-objectives" class="section">
+    <div class="section-header"><div class="section-title">Objectifs du cycle</div></div>
+    <p class="section-description">
+      Ces 3 objectifs sont les <strong>priorités absolues</strong> du cycle. Rien d'autre ne peut les concurrencer.
+      Définissez une métrique binaire ou mesurable — vous saurez à la fin si c'est atteint ou non.
+    </p>
+    <div class="objectives-grid" id="objectivesGrid"></div>
+  </section>
+
+  <!-- SEMAINES -->
+  <section id="section-weeks" class="section">
+    <div class="section-header">
+      <div class="section-title">Actions hebdomadaires</div>
+      <span class="target-badge">🎯 Cible : 85% / semaine</span>
+    </div>
+    <p class="section-description">
+      2 à 3 actions concrètes par objectif et par semaine, du lundi au dimanche.
+      La semaine tampon en fin de cycle est dédiée au bilan et à la préparation du cycle suivant.
+    </p>
+    <div id="weeksAccordion"></div>
+  </section>
+
+  <!-- PARKING -->
+  <section id="section-parking" class="section">
+    <div class="section-header"><div class="section-title">Parking stratégique</div></div>
+    <p class="section-description">
+      Tout ce qui n'est <strong>pas</strong> un objectif de ce cycle : idées, projets secondaires, envies, sujets à retraiter plus tard.
+    </p>
+    <div class="card">
+      <div class="card-title"><span>🗂</span> Idées & objectifs secondaires <span class="card-subtitle" id="parkingCount">0 éléments</span></div>
+      <ul class="parking-list" id="parkingList"></ul>
+      <button class="btn-add" onclick="addParkingItem()">+ Ajouter un élément</button>
+    </div>
+  </section>
+
+  <!-- BACKLOG -->
+  <section id="section-backlog" class="section">
+    <div class="section-header"><div class="section-title">Backlog des actions</div></div>
+    <p class="section-description">
+      Toutes les actions possibles par objectif, à plat. En début de semaine, pioche ici sans friction ce qui est le plus impactant.
+      <strong>Pending</strong> = non planifié · <span style="color:#2a5faa;font-weight:600">Bleu</span> = déjà dans une semaine · <span style="color:var(--green);font-weight:600">Vert</span> = réalisé
+    </p>
+    <div id="backlogContent"></div>
+  </section>
+
+  <!-- VUE ANNUELLE -->
+  <section id="section-annual" class="section">
+    <div class="section-header"><div class="section-title">Vue annuelle — 4 cycles 2026</div></div>
+    <p class="section-description">
+      4 cycles de 12 semaines (lun→dim), séparés par une semaine tampon de bilan. Démarrage le 5 janvier 2026.
+    </p>
+    <div class="year-grid" id="yearGrid"></div>
+  </section>
+
+</main>
+
+<!-- BACKLOG PICKER -->
+<div class="bl-picker-overlay" id="blPickerOverlay">
+  <div class="bl-picker">
+    <div class="bl-picker-header">
+      <h3 id="blPickerTitle">Choisir depuis le backlog</h3>
+      <button class="bl-picker-close" onclick="closeBacklogPicker()">✕</button>
+    </div>
+    <div class="bl-picker-body" id="blPickerBody"></div>
+    <div class="bl-picker-footer">
+      <span class="bl-picker-hint" id="blPickerHint">Sélectionnez les actions à ajouter à cette semaine</span>
+      <button class="btn btn-primary" onclick="confirmBacklogPick()">Ajouter à la semaine</button>
+    </div>
+  </div>
+</div>
+
+<!-- SYNC STATUS BAR -->
+<div class="sync-bar loading" id="syncBar">
+  <div class="sync-dot"></div>
+  <span id="syncText">Chargement…</span>
+</div>
+
+<!-- MODAL RESET -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal">
+    <h3>⚠ Réinitialiser les données</h3>
+    <p>Toutes vos données (objectifs, actions, notes, parking) seront supprimées sur tous les cycles et sur Firestore.<br>Action irréversible. Pensez à exporter avant.</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeResetModal()">Annuler</button>
+      <button class="btn btn-primary" style="background:var(--red);border-color:var(--red)" onclick="resetData()">Réinitialiser tout</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* =====================================================================
+   12 WEEK YEAR — Firebase Edition
+   ─────────────────────────────────────────────────────────────────────
+   CALENDRIER 2026 (vérifié) :
+   C1 : lun 5 jan → dim 29 mar  |  Tampon : 30 mar → 5 avr
+   C2 : lun 6 avr → dim 28 jun  |  Tampon : 29 jun → 5 jul
+   C3 : lun 6 jul → dim 27 sep  |  Tampon : 28 sep → 4 oct
+   C4 : lun 5 oct → dim 27 déc  |  Tampon : 28 déc → 3 jan 2027
+   ===================================================================== */
+
+// ── FIREBASE ────────────────────────────────────────────────────────
+import { initializeApp }              from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const FB_CONFIG = {
+  apiKey:            "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+  authDomain:        "hub-personnel-firebase.firebaseapp.com",
+  projectId:         "hub-personnel-firebase",
+  storageBucket:     "hub-personnel-firebase.firebasestorage.app",
+  messagingSenderId: "394129070920",
+  appId:             "1:394129070920:web:10f3303c22adcda47cf17d"
+};
+
+const app = initializeApp(FB_CONFIG);
+const db  = getFirestore(app);
+const DOC_REF = doc(db, '12-week-year', 'data');
+
+// ── CONFIG MÉTIER ───────────────────────────────────────────────────
+// Premier lundi du cycle 1 (5 janvier 2026 — calculé et vérifié)
+const ANCHOR_DATE  = new Date(2026, 0, 5);
+const CYCLE_WEEKS  = 12;
+const BUFFER_WEEKS = 1;
+const PERIOD       = CYCLE_WEEKS + BUFFER_WEEKS; // 13 semaines par bloc
+const NUM_CYCLES   = 4;
+const TARGET_PCT   = 85;
+const LS_KEY       = '12wy_v3_fallback'; // localStorage fallback uniquement
+
+const OBJ_LABELS = ['Objectif 1', 'Objectif 2', 'Objectif 3'];
+
+const BUFFER_CHECKLIST_ITEMS = [
+  'Revoir le score d\'exécution global',
+  'Analyser les semaines sous 85%',
+  'Célébrer les victoires du cycle',
+  'Identifier les obstacles récurrents',
+  'Rédiger le bilan du cycle',
+  'Définir les 3 objectifs du prochain cycle',
+];
+
+// ── DATE MATH ────────────────────────────────────────────────────────
+function cycleStartDate(ci)  { const d = new Date(ANCHOR_DATE); d.setDate(d.getDate() + ci * PERIOD * 7); return d; }
+function cycleEndDate(ci)    { const d = cycleStartDate(ci); d.setDate(d.getDate() + CYCLE_WEEKS * 7 - 1); return d; }
+function bufferStartDate(ci) { const d = cycleEndDate(ci); d.setDate(d.getDate() + 1); return d; }
+function bufferEndDate(ci)   { const d = bufferStartDate(ci); d.setDate(d.getDate() + 6); return d; }
+function weekStartDate(ci, wi) { const d = cycleStartDate(ci); d.setDate(d.getDate() + wi * 7); return d; }
+function weekEndDate(ci, wi)   { const d = weekStartDate(ci, wi); d.setDate(d.getDate() + 6); return d; }
+
+function getCurrentPosition() {
+  const today  = new Date(); today.setHours(0,0,0,0);
+  const anchor = new Date(ANCHOR_DATE); anchor.setHours(0,0,0,0);
+  if (today < anchor) return { phase: 'before', cycle: 0, week: -1 };
+  const totalDays  = Math.floor((today - anchor) / 86400000);
+  const totalWeeks = Math.floor(totalDays / 7);
+  const periodIdx  = Math.floor(totalWeeks / PERIOD);
+  if (periodIdx >= NUM_CYCLES) return { phase: 'after', cycle: NUM_CYCLES - 1, week: CYCLE_WEEKS - 1 };
+  const weekInPeriod = totalWeeks - periodIdx * PERIOD;
+  if (weekInPeriod < CYCLE_WEEKS) return { phase: 'cycle', cycle: periodIdx, week: weekInPeriod };
+  return { phase: 'buffer', cycle: periodIdx, week: -1 };
+}
+
+function isCyclePast(ci)    { const p = getCurrentPosition(); return ci < p.cycle || p.phase === 'after'; }
+function isCycleCurrent(ci) { const p = getCurrentPosition(); return p.phase === 'cycle'  && p.cycle === ci; }
+function isBufferCurrent(ci){ const p = getCurrentPosition(); return p.phase === 'buffer' && p.cycle === ci; }
+
+// ── STATE ─────────────────────────────────────────────────────────────
+function defaultCycleState() {
+  return {
+    objectives: [
+      { title: '', description: '', metric: '', status: 'not-started', backlog: [] },
+      { title: '', description: '', metric: '', status: 'not-started', backlog: [] },
+      { title: '', description: '', metric: '', status: 'not-started', backlog: [] }
+    ],
+    weeks: Array.from({ length: CYCLE_WEEKS }, (_, i) => ({
+      weekIndex: i, reviewNote: '', actions: [[], [], []]
+    })),
+    buffer: { reviewNote: '', checklist: Array(BUFFER_CHECKLIST_ITEMS.length).fill(false) },
+    parking: []
+  };
+}
+
+function defaultState() {
+  return { cycles: Array.from({ length: NUM_CYCLES }, () => defaultCycleState()) };
+}
+
+// ── FLAT FIRESTORE STRUCTURE ─────────────────────────────────────────
+// Convention hub : structure plate, pas d'objets imbriqués avec clés dynamiques.
+// On sérialise l'état complet en JSON dans une seule clé "payload".
+// Cela respecte la contrainte tout en restant simple pour un document unique.
+function serialize(s) {
+  return { payload: JSON.stringify(s), updatedAt: Date.now() };
+}
+
+function deserialize(docData) {
+  if (!docData || !docData.payload) return null;
+  try { return JSON.parse(docData.payload); } catch { return null; }
+}
+
+// ── SYNC STATE ────────────────────────────────────────────────────────
+let state          = defaultState();
+let activeCycleIdx = 0;
+let activeSectionId = 'dashboard';
+let saveTimer      = null;
+let retryTimer     = null;
+let lastSaveOk     = true;
+
+function setSyncStatus(status, text) {
+  const bar = document.getElementById('syncBar');
+  const txt = document.getElementById('syncText');
+  bar.className = 'sync-bar ' + status;
+  txt.textContent = text;
+}
+
+// ── FIREBASE LOAD / SAVE ─────────────────────────────────────────────
+async function loadData() {
+  setSyncStatus('loading', 'Chargement…');
+  try {
+    const snap = await getDoc(DOC_REF);
+    if (snap.exists()) {
+      const parsed = deserialize(snap.data());
+      if (parsed) state = deepMerge(defaultState(), parsed);
+    }
+    // Sync localStorage fallback
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
+    setSyncStatus('synced', '✓ Synchronisé');
+    lastSaveOk = true;
+  } catch(e) {
+    console.warn('Firebase load error, falling back to localStorage', e);
+    // Fallback localStorage
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) state = deepMerge(defaultState(), JSON.parse(raw));
+    } catch {}
+    setSyncStatus('error', '⚠ Hors ligne — données locales');
+    lastSaveOk = false;
+  }
+  // Render after data loaded
+  activeCycleIdx = Math.max(0, Math.min(getCurrentPosition().cycle, NUM_CYCLES - 1));
+  renderCycleBar();
+  renderDashboard();
+}
+
+async function saveData() {
+  setSyncStatus('saving', 'Sauvegarde…');
+  try {
+    await setDoc(DOC_REF, serialize(state));
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
+    setSyncStatus('synced', '✓ Synchronisé — ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
+    lastSaveOk = true;
+    if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+  } catch(e) {
+    console.warn('Firebase save error', e);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
+    setSyncStatus('error', '⚠ Erreur sync — données sauvegardées localement');
+    lastSaveOk = false;
+    // Retry toutes les 5s
+    if (!retryTimer) {
+      retryTimer = setInterval(async () => {
+        try {
+          await setDoc(DOC_REF, serialize(state));
+          try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
+          setSyncStatus('synced', '✓ Synchronisé (reprise)');
+          lastSaveOk = true;
+          clearInterval(retryTimer); retryTimer = null;
+        } catch {}
+      }, 5000);
+    }
+  }
+}
+
+function scheduleAutoSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveData, 1200); // debounce 1200ms (convention hub)
+}
+
+// ── DEEP MERGE ────────────────────────────────────────────────────────
+function deepMerge(target, source) {
+  if (Array.isArray(target) && Array.isArray(source)) {
+    if (source.length !== target.length) return source;
+    return source.map((s, i) => (typeof s === 'object' && s !== null) ? deepMerge(target[i] ?? {}, s) : s);
+  }
+  if (typeof target === 'object' && target !== null && typeof source === 'object' && source !== null) {
+    const r = { ...target };
+    for (const k of Object.keys(source)) {
+      r[k] = (typeof source[k] === 'object' && source[k] !== null) ? deepMerge(target[k], source[k]) : source[k];
+    }
+    return r;
+  }
+  return source ?? target;
+}
+
+// ── SCORING ───────────────────────────────────────────────────────────
+function weekScore(weekData) {
+  let total = 0, done = 0;
+  for (const arr of weekData.actions) { total += arr.length; done += arr.filter(a => a.done).length; }
+  return { total, done, pct: total === 0 ? null : Math.round((done / total) * 100) };
+}
+
+function cycleScore(ci) {
+  let total = 0, done = 0;
+  for (const w of state.cycles[ci].weeks) { const s = weekScore(w); total += s.total; done += s.done; }
+  return { total, done, pct: total === 0 ? null : Math.round((done / total) * 100) };
+}
+
+function scoreClass(pct) {
+  if (pct === null) return 'sc-none';
+  return pct >= TARGET_PCT ? 'sc-green' : pct >= TARGET_PCT - 15 ? 'sc-orange' : 'sc-red';
+}
+
+function weekMiniClass(pct, isCurrent) {
+  if (isCurrent) return 'wm-current';
+  if (pct === null) return 'wm-future';
+  return pct >= TARGET_PCT ? 'wm-green' : pct >= TARGET_PCT - 15 ? 'wm-orange' : 'wm-red';
+}
+
+function statusLabel(s) {
+  return { 'not-started':'Non démarré','on-track':'En bonne voie','at-risk':'En risque','off-track':'Hors trajectoire','completed':'Atteint' }[s] || s;
+}
+
+// ── FORMAT ────────────────────────────────────────────────────────────
+function fmt(d) { return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
+function esc(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── CYCLE BAR ─────────────────────────────────────────────────────────
+function renderCycleBar() {
+  const bar = document.getElementById('cycleBar');
+  bar.innerHTML = '<span class="cycle-bar-label">2026</span>';
+  for (let ci = 0; ci < NUM_CYCLES; ci++) {
+    const tab = document.createElement('div');
+    tab.className = 'cycle-tab' + (ci === activeCycleIdx ? ' active' : '');
+    tab.textContent = `C${ci+1} — ${fmt(cycleStartDate(ci))} › ${fmt(cycleEndDate(ci))}`;
+    tab.onclick = () => { activeCycleIdx = ci; renderCycleBar(); renderCurrentSection(); };
+    bar.appendChild(tab);
+    const isActiveBuf = isBufferCurrent(ci);
+    const bufTab = document.createElement('div');
+    bufTab.className = 'buffer-tab' + (isActiveBuf ? ' active-buffer' : '');
+    bufTab.innerHTML = `⟳ <span>${fmt(bufferStartDate(ci))}›${fmt(bufferEndDate(ci))}</span>`;
+    bufTab.title = `Semaine tampon C${ci+1} : bilan et préparation`;
+    bar.appendChild(bufTab);
+  }
+}
+
+// ── SECTION SWITCHING ─────────────────────────────────────────────────
+window.switchSection = function(id, el) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('section-' + id).classList.add('active');
+  activeSectionId = id;
+  renderCurrentSection();
+};
+
+function renderCurrentSection() {
+  if (activeSectionId === 'dashboard')  renderDashboard();
+  if (activeSectionId === 'objectives') renderObjectives();
+  if (activeSectionId === 'weeks')      renderWeeks();
+  if (activeSectionId === 'parking')    renderParking();
+  if (activeSectionId === 'annual')     renderAnnual();
+  if (activeSectionId === 'backlog')    renderBacklog();
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────
+function renderDashboard() {
+  const ci  = activeCycleIdx;
+  const pos = getCurrentPosition();
+  const cs  = cycleScore(ci);
+  const cStart = cycleStartDate(ci);
+  const cEnd   = cycleEndDate(ci);
+  const bStart = bufferStartDate(ci);
+  const bEnd   = bufferEndDate(ci);
+  const isCurrent = isCycleCurrent(ci);
+  const isBuffer  = isBufferCurrent(ci);
+  const isPast    = isCyclePast(ci) && !isCurrent && !isBuffer;
+  const isFuture  = ci > pos.cycle && pos.phase !== 'after';
+
+  const bufNotice = document.getElementById('bufferNotice');
+  if (isBuffer) {
+    bufNotice.style.display = 'flex';
+    bufNotice.className = 'buffer-notice';
+    bufNotice.innerHTML = `
+      <div class="bn-icon">⟳</div>
+      <div><h3>Semaine tampon — Bilan & Préparation</h3>
+      <p>Analysez le cycle terminé avant de démarrer le suivant.</p></div>
+      <div class="bn-dates">${fmt(bStart)} → ${fmt(bEnd)}</div>
+    `;
+  } else { bufNotice.style.display = 'none'; }
+
+  const weekInCycle = isCurrent ? pos.week : (isPast || isBuffer ? CYCLE_WEEKS : 0);
+  document.getElementById('cycleInfoRow').innerHTML = `
+    <span class="cir-item">📅 <strong>Cycle ${ci+1}</strong></span>
+    <span class="cir-sep">|</span>
+    <span class="cir-item">Début : <strong>${fmt(cStart)}</strong></span>
+    <span class="cir-sep">|</span>
+    <span class="cir-item">Fin : <strong>${fmt(cEnd)}</strong></span>
+    <span class="cir-sep">|</span>
+    <span class="cir-item">Tampon : <strong>${fmt(bStart)} → ${fmt(bEnd)}</strong></span>
+    ${isFuture ? '<span class="cir-sep">|</span><span class="cir-item" style="color:var(--text3)">Cycle à venir</span>' : ''}
+    ${isBuffer ? '<span class="cir-sep">|</span><span class="cir-item" style="color:var(--orange);font-weight:600">⟳ Tampon en cours</span>' : ''}
+  `;
+
+  const weekDisplay = isFuture ? '—' : (isBuffer ? '✓ 12/12' : (isCurrent ? `S${weekInCycle + 1}` : '✓ 12/12'));
+  document.getElementById('dashboardStats').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${weekDisplay}</div><div class="stat-label">Semaine en cours</div></div>
+    <div class="stat-card accent"><div class="stat-value">${cs.pct !== null ? cs.pct + '%' : '—'}</div><div class="stat-label">Score global cycle</div></div>
+    <div class="stat-card green"><div class="stat-value">${cs.total > 0 ? cs.done+'/'+cs.total : '0/0'}</div><div class="stat-label">Actions réalisées</div></div>
+    <div class="stat-card blue"><div class="stat-value">${TARGET_PCT}%</div><div class="stat-label">Cible d'exécution</div></div>
+  `;
+
+  const timePct = isFuture ? 0 : (isPast || isBuffer ? 100 : Math.round((weekInCycle / CYCLE_WEEKS) * 100));
+  const execPct = cs.pct ?? 0;
+  const execFill = cs.pct !== null ? (cs.pct >= TARGET_PCT ? 'green' : cs.pct >= TARGET_PCT - 15 ? 'orange' : 'red') : 'green';
+  document.getElementById('progressBars').innerHTML = `
+    <div class="progress-container">
+      <div class="progress-label"><span>Avancement temporel</span><span>${timePct}%</span></div>
+      <div class="progress-bar"><div class="progress-fill accent" style="width:${timePct}%"></div></div>
+    </div>
+    <div class="progress-container">
+      <div class="progress-label"><span>Score d'exécution</span><span>${cs.pct !== null ? cs.pct+'%' : '—'}</span></div>
+      <div class="progress-bar"><div class="progress-fill ${execFill}" style="width:${execPct}%"></div></div>
+    </div>
+  `;
+
+  const grid = document.getElementById('weeksMiniGrid');
+  grid.innerHTML = '';
+  for (let wi = 0; wi < CYCLE_WEEKS; wi++) {
+    const s   = weekScore(state.cycles[ci].weeks[wi]);
+    const isCW = isCurrent && wi === pos.week;
+    const isPW = isCurrent ? wi < pos.week : (isPast || isBuffer);
+    const cls  = isCW ? 'wm-current' : (isPW ? weekMiniClass(s.pct, false) : 'wm-future');
+    const score = (isPW || isCW) && s.pct !== null ? s.pct+'%' : '—';
+    const div = document.createElement('div');
+    div.className = 'week-mini ' + cls;
+    div.title = `S${wi+1} — ${fmt(weekStartDate(ci, wi))} (lun) → ${fmt(weekEndDate(ci, wi))} (dim)`;
+    div.innerHTML = `<div class="wnum">S${wi+1}</div><div class="wscore">${score}</div>`;
+    div.onclick = () => jumpToWeek(wi);
+    grid.appendChild(div);
+  }
+
+  const container = document.getElementById('dashboardObjectives');
+  container.innerHTML = '';
+  state.cycles[ci].objectives.forEach((obj, i) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;background:var(--surface2)';
+    div.innerHTML = `
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:6px">${OBJ_LABELS[i]}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">${obj.title || '<em style="color:var(--text3)">Non défini</em>'}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px">${obj.metric || ''}</div>
+      <span class="status-pill ${obj.status}">${statusLabel(obj.status)}</span>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function jumpToWeek(wi) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab')[2].classList.add('active');
+  document.getElementById('section-weeks').classList.add('active');
+  activeSectionId = 'weeks';
+  renderWeeks();
+  setTimeout(() => {
+    const block = document.querySelector(`.week-block[data-week="${wi}"]`);
+    if (block) { if (!block.classList.contains('open')) block.querySelector('.week-header').click(); block.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  }, 60);
+}
+
+// ── OBJECTIVES ─────────────────────────────────────────────────────────
+function renderObjectives() {
+  const ci = activeCycleIdx;
+  const grid = document.getElementById('objectivesGrid');
+  grid.innerHTML = '';
+  state.cycles[ci].objectives.forEach((obj, i) => {
+    const card = document.createElement('div');
+    card.className = 'objective-card';
+    card.innerHTML = `
+      <div class="obj-number">${OBJ_LABELS[i]}</div>
+      <div class="field-label">Titre</div>
+      <input type="text" placeholder="Ex: Lancer la formation Mister IA" value="${esc(obj.title)}" oninput="updateObj(${i},'title',this.value)">
+      <div class="field-label">Description</div>
+      <textarea rows="2" placeholder="Pourquoi cet objectif est crucial ce cycle…" oninput="updateObj(${i},'description',this.value)">${esc(obj.description)}</textarea>
+      <div class="field-label">Indicateur de succès</div>
+      <input type="text" placeholder="Ex: 10 clients signés avant le 28 juin" value="${esc(obj.metric)}" oninput="updateObj(${i},'metric',this.value)">
+      <div class="field-label">Statut</div>
+      <select class="status-select" onchange="updateObj(${i},'status',this.value)">
+        <option value="not-started" ${obj.status==='not-started'?'selected':''}>Non démarré</option>
+        <option value="on-track"    ${obj.status==='on-track'?'selected':''}>En bonne voie</option>
+        <option value="at-risk"     ${obj.status==='at-risk'?'selected':''}>En risque</option>
+        <option value="off-track"   ${obj.status==='off-track'?'selected':''}>Hors trajectoire</option>
+        <option value="completed"   ${obj.status==='completed'?'selected':''}>Atteint ✓</option>
+      </select>
+      <span class="status-pill ${obj.status}" id="spill-${i}">${statusLabel(obj.status)}</span>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+window.updateObj = function(i, field, val) {
+  state.cycles[activeCycleIdx].objectives[i][field] = val;
+  if (field === 'status') {
+    const pill = document.getElementById('spill-' + i);
+    if (pill) { pill.className = 'status-pill ' + val; pill.textContent = statusLabel(val); }
+  }
+  scheduleAutoSave();
+};
+
+// ── WEEKS ──────────────────────────────────────────────────────────────
+function renderWeeks() {
+  ensureBacklogs();
+  const ci  = activeCycleIdx;
+  const pos = getCurrentPosition();
+  const container = document.getElementById('weeksAccordion');
+  container.innerHTML = '';
+
+  for (let wi = 0; wi < CYCLE_WEEKS; wi++) {
+    const weekData = state.cycles[ci].weeks[wi];
+    const wStart = weekStartDate(ci, wi);
+    const wEnd   = weekEndDate(ci, wi);
+    const isCW   = isCycleCurrent(ci) && wi === pos.week;
+    const isPW   = isCycleCurrent(ci) ? wi < pos.week : isCyclePast(ci);
+    const s      = weekScore(weekData);
+
+    const block = document.createElement('div');
+    block.className = 'week-block' + (isCW ? ' current-week' : '') + (isPW ? ' past-week' : '');
+    block.setAttribute('data-week', wi);
+    if (isCW) block.classList.add('open');
+
+    const scoreBadge = s.pct !== null
+      ? `<span class="week-score-badge ${scoreClass(s.pct)}">${s.pct}%</span>`
+      : `<span class="week-score-badge sc-none">—</span>`;
+
+    block.innerHTML = `
+      <div class="week-header ${isCW ? 'wh-current' : ''}" onclick="toggleWeek(this)">
+        <div class="week-num"><span class="wn-label">Sem.</span>${wi+1}</div>
+        <div class="week-dates">${fmt(wStart)} (lun) → ${fmt(wEnd)} (dim)</div>
+        ${isCW ? '<span class="week-current-badge">↑ En cours</span>' : ''}
+        ${isPW && !isCW ? '<span style="font-size:11px;color:var(--text3)">Passée</span>' : ''}
+        ${scoreBadge}
+        <span class="chevron">▶</span>
+      </div>
+      <div class="week-body">
+        ${renderActionsHTML(ci, wi, weekData)}
+        ${renderWeekSummaryHTML(s, wi)}
+        <div class="review-note">
+          <div class="field-label">📝 Note de revue</div>
+          <textarea rows="3" placeholder="Points positifs, obstacles, ajustements…" oninput="updateReviewNote(${wi},this.value)">${esc(weekData.reviewNote)}</textarea>
+        </div>
+      </div>
+    `;
+    container.appendChild(block);
+  }
+
+  // Semaine tampon
+  const bStart  = bufferStartDate(ci);
+  const bEnd    = bufferEndDate(ci);
+  const isAbuf  = isBufferCurrent(ci);
+  const isPBuf  = isCyclePast(ci) && !isCycleCurrent(ci);
+  const bufData = state.cycles[ci].buffer;
+
+  let checklistHTML = '<ul class="buffer-checklist">';
+  BUFFER_CHECKLIST_ITEMS.forEach((item, bi) => {
+    const checked = bufData.checklist[bi] || false;
+    checklistHTML += `
+      <li>
+        <div class="bck ${checked ? 'checked' : ''}" onclick="toggleBufferCheck(${bi})"></div>
+        <span style="${checked ? 'text-decoration:line-through;color:var(--text3)' : ''}">${item}</span>
+      </li>`;
+  });
+  checklistHTML += '</ul>';
+
+  const bufBlock = document.createElement('div');
+  bufBlock.className = 'week-block' + (isAbuf ? ' current-week' : '') + (isPBuf ? ' past-week' : '');
+  bufBlock.setAttribute('data-week', 'buffer');
+  if (isAbuf) bufBlock.classList.add('open');
+
+  bufBlock.innerHTML = `
+    <div class="week-header wh-buffer" onclick="toggleWeek(this)">
+      <div class="week-num" style="font-size:15px">⟳</div>
+      <div class="week-dates"><strong>Semaine tampon</strong> — ${fmt(bStart)} (lun) → ${fmt(bEnd)} (dim)</div>
+      ${isAbuf ? '<span class="week-current-badge" style="background:var(--orange)">En cours</span>' : ''}
+      ${isPBuf ? '<span style="font-size:11px;color:var(--text3)">Passée</span>' : ''}
+      <span class="week-buffer-badge">Bilan & Prépa C${ci + 2 <= NUM_CYCLES ? ci+2 : '—'}</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="week-body">
+      <div class="buffer-body">
+        <div class="field-label" style="margin-top:0;margin-bottom:10px">Checklist de bilan</div>
+        ${checklistHTML}
+        <div class="field-label">📝 Notes de bilan — Cycle ${ci+1}</div>
+        <textarea rows="4" placeholder="Bilan global : accomplissements, enseignements, décisions pour le prochain cycle…" oninput="updateBufferNote(this.value)" style="background:white">${esc(bufData.reviewNote)}</textarea>
+      </div>
+    </div>
+  `;
+  container.appendChild(bufBlock);
+}
+
+function renderActionsHTML(ci, wi, weekData) {
+  let html = '';
+  for (let oi = 0; oi < 3; oi++) {
+    const objTitle = state.cycles[ci].objectives[oi].title || OBJ_LABELS[oi];
+    const actions  = weekData.actions[oi];
+    html += `
+      <div class="obj-section-title">
+        <span class="obj-color-dot dot-${oi+1}"></span>${esc(objTitle)}
+        <button class="btn-add" style="margin:0;padding:2px 8px;font-size:11px;width:auto;margin-left:8px" onclick="addAction(${wi},${oi})">+ Action</button>
+      </div>
+    `;
+    if (actions.length === 0) {
+      html += `<div style="font-size:12px;color:var(--text3);padding:3px 0 3px 22px;font-style:italic">Aucune action. Cliquez sur + Action.</div>`;
+    }
+    actions.forEach((action, ai) => {
+      html += `
+        <div class="action-row" id="ar-${wi}-${oi}-${ai}">
+          <div class="action-checkbox ${action.done ? 'checked' : ''}" onclick="toggleAction(${wi},${oi},${ai})"></div>
+          <input type="text" class="action-text ${action.done ? 'done' : ''}" value="${esc(action.text)}"
+            placeholder="Action concrète pour cette semaine…"
+            oninput="updateActionText(${wi},${oi},${ai},this.value)">
+          <button class="btn-remove" onclick="removeAction(${wi},${oi},${ai})" title="Supprimer">✕</button>
+        </div>
+      `;
+    });
+  }
+  return html;
+}
+
+function renderWeekSummaryHTML(s, wi) {
+  const pct = s.pct !== null ? s.pct+'%' : '—';
+  const info = s.pct !== null
+    ? (s.pct >= TARGET_PCT
+        ? `<span style="color:var(--green);font-weight:600;font-size:12px">✓ Cible atteinte</span>`
+        : `<span style="color:var(--red);font-size:12px">⚑ ${TARGET_PCT - s.pct}% sous la cible</span>`)
+    : '';
+  return `
+    <div class="week-score-summary" id="wss-${wi}">
+      <span class="wss-item">Prévues : <strong>${s.total}</strong></span>
+      <span class="wss-item">Réalisées : <strong>${s.done}</strong></span>
+      <span class="wss-item">Score : <strong>${pct}</strong></span>
+      ${info}
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">Cible : ${TARGET_PCT}%</span>
+    </div>`;
+}
+
+window.toggleWeek = function(header) { header.closest('.week-block').classList.toggle('open'); };
+
+window.addAction = function(wi, oi) {
+  state.cycles[activeCycleIdx].weeks[wi].actions[oi].push({ text: '', done: false });
+  scheduleAutoSave(); refreshWeekBlock(wi);
+};
+
+window.removeAction = function(wi, oi, ai) {
+  state.cycles[activeCycleIdx].weeks[wi].actions[oi].splice(ai, 1);
+  scheduleAutoSave(); refreshWeekBlock(wi);
+};
+
+window.toggleAction = function(wi, oi, ai) {
+  const action = state.cycles[activeCycleIdx].weeks[wi].actions[oi][ai];
+  action.done = !action.done;
+  scheduleAutoSave();
+  const row = document.getElementById(`ar-${wi}-${oi}-${ai}`);
+  if (row) {
+    row.querySelector('.action-checkbox').classList.toggle('checked', action.done);
+    row.querySelector('.action-text').classList.toggle('done', action.done);
+  }
+  refreshWeekScore(wi);
+};
+
+window.updateActionText = function(wi, oi, ai, val) {
+  state.cycles[activeCycleIdx].weeks[wi].actions[oi][ai].text = val;
+  scheduleAutoSave();
+};
+
+window.updateReviewNote = function(wi, val) {
+  state.cycles[activeCycleIdx].weeks[wi].reviewNote = val;
+  scheduleAutoSave();
+};
+
+window.updateBufferNote = function(val) {
+  state.cycles[activeCycleIdx].buffer.reviewNote = val;
+  scheduleAutoSave();
+};
+
+window.toggleBufferCheck = function(bi) {
+  state.cycles[activeCycleIdx].buffer.checklist[bi] = !state.cycles[activeCycleIdx].buffer.checklist[bi];
+  scheduleAutoSave();
+  const items = document.querySelectorAll('.buffer-checklist .bck');
+  if (items[bi]) {
+    const checked = state.cycles[activeCycleIdx].buffer.checklist[bi];
+    items[bi].classList.toggle('checked', checked);
+    const span = items[bi].nextElementSibling;
+    if (span) span.style.cssText = checked ? 'text-decoration:line-through;color:var(--text3)' : '';
+  }
+};
+
+function refreshWeekScore(wi) {
+  const s = weekScore(state.cycles[activeCycleIdx].weeks[wi]);
+  const block = document.querySelector(`.week-block[data-week="${wi}"]`);
+  if (!block) return;
+  const el = block.querySelector('.week-score-summary');
+  if (el) el.outerHTML = renderWeekSummaryHTML(s, wi);
+  const badge = block.querySelector('.week-score-badge');
+  if (badge) { badge.className = 'week-score-badge ' + scoreClass(s.pct); badge.textContent = s.pct !== null ? s.pct+'%' : '—'; }
+}
+
+function refreshWeekBlock(wi) {
+  const block = document.querySelector(`.week-block[data-week="${wi}"]`);
+  if (!block) return;
+  const weekData = state.cycles[activeCycleIdx].weeks[wi];
+  const s = weekScore(weekData);
+  const body = block.querySelector('.week-body');
+  if (body) {
+    body.innerHTML = `
+      ${renderActionsHTML(activeCycleIdx, wi, weekData)}
+      ${renderWeekSummaryHTML(s, wi)}
+      <div class="review-note">
+        <div class="field-label">📝 Note de revue</div>
+        <textarea rows="3" placeholder="Points positifs, obstacles, ajustements…" oninput="updateReviewNote(${wi},this.value)">${esc(weekData.reviewNote)}</textarea>
+      </div>`;
+  }
+  const badge = block.querySelector('.week-score-badge');
+  if (badge) { badge.className = 'week-score-badge ' + scoreClass(s.pct); badge.textContent = s.pct !== null ? s.pct+'%' : '—'; }
+}
+
+// ── PARKING ────────────────────────────────────────────────────────────
+function renderParking() {
+  const ci = activeCycleIdx;
+  const list = document.getElementById('parkingList');
+  list.innerHTML = '';
+  state.cycles[ci].parking.forEach((item, i) => {
+    const li = document.createElement('li');
+    li.className = 'parking-item';
+    li.innerHTML = `
+      <span style="color:var(--text3);font-size:14px;margin-top:3px">◦</span>
+      <textarea rows="1" oninput="updateParking(${i},this.value);autoResize(this)" onfocus="autoResize(this)">${esc(item)}</textarea>
+      <button class="btn-remove" onclick="removeParking(${i})" title="Supprimer">✕</button>
+    `;
+    list.appendChild(li);
+    autoResize(li.querySelector('textarea'));
+  });
+  const count = state.cycles[ci].parking.length;
+  document.getElementById('parkingCount').textContent = count + ' élément' + (count > 1 ? 's' : '');
+}
+
+window.addParkingItem = function() {
+  state.cycles[activeCycleIdx].parking.push('');
+  scheduleAutoSave(); renderParking();
+  const items = document.querySelectorAll('#parkingList .parking-item textarea');
+  if (items.length) items[items.length - 1].focus();
+};
+
+window.removeParking = function(i) {
+  state.cycles[activeCycleIdx].parking.splice(i, 1);
+  scheduleAutoSave(); renderParking();
+};
+
+window.updateParking = function(i, val) {
+  state.cycles[activeCycleIdx].parking[i] = val;
+  scheduleAutoSave();
+  const count = state.cycles[activeCycleIdx].parking.length;
+  document.getElementById('parkingCount').textContent = count + ' élément' + (count > 1 ? 's' : '');
+};
+
+function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+
+// ── ANNUAL VIEW ────────────────────────────────────────────────────────
+function renderAnnual() {
+  const pos  = getCurrentPosition();
+  const grid = document.getElementById('yearGrid');
+  grid.innerHTML = '';
+  for (let ci = 0; ci < NUM_CYCLES; ci++) {
+    const cs    = cycleScore(ci);
+    const isCur = isCycleCurrent(ci);
+    const isBuf = isBufferCurrent(ci);
+    const isPast = isCyclePast(ci) && !isCur;
+    const isFut  = ci > pos.cycle && pos.phase !== 'after' && !isBuf;
+    const cStart = cycleStartDate(ci);
+    const cEnd   = cycleEndDate(ci);
+    const bStart = bufferStartDate(ci);
+    const bEnd   = bufferEndDate(ci);
+
+    const card = document.createElement('div');
+    card.className = 'year-cycle-card' + (ci === activeCycleIdx ? ' yc-active' : '') + (isFut ? ' yc-future' : '');
+
+    let dotsHTML = '<div class="yc-mini-weeks">';
+    for (let wi = 0; wi < CYCLE_WEEKS; wi++) {
+      const s = weekScore(state.cycles[ci].weeks[wi]);
+      const isCW = isCur && wi === pos.week;
+      let dotCls = 'yc-dot';
+      if (isCW) dotCls += ' yd-current';
+      else if (s.pct !== null && (isPast || isBuf || (isCur && wi < pos.week))) {
+        dotCls += s.pct >= TARGET_PCT ? ' yd-green' : (s.pct >= TARGET_PCT - 15 ? ' yd-orange' : ' yd-red');
+      }
+      dotsHTML += `<div class="${dotCls}" title="S${wi+1}: ${s.pct !== null ? s.pct+'%' : '—'}"></div>`;
+    }
+    dotsHTML += `<div class="yc-dot yd-buffer" title="Tampon: ${fmt(bStart)}→${fmt(bEnd)}"></div></div>`;
+
+    const statusStr  = isFut ? 'À venir' : (isBuf ? '⟳ Tampon' : (isCur ? 'En cours' : 'Terminé'));
+    const scoreDisp  = cs.pct !== null ? cs.pct+'%' : (isFut ? '—' : '0%');
+
+    card.innerHTML = `
+      <div class="yc-label">Cycle ${ci+1} ${isCur ? '← En cours' : ''} ${isBuf ? '← Tampon' : ''}</div>
+      <div class="yc-dates">${fmt(cStart)} → ${fmt(cEnd)}</div>
+      <div class="yc-score">${scoreDisp}</div>
+      <div class="yc-score-label">${cs.total > 0 ? cs.done+'/'+cs.total+' actions — ' : ''}${statusStr}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Tampon : ${fmt(bStart)} → ${fmt(bEnd)}</div>
+      ${dotsHTML}
+    `;
+    card.onclick = () => {
+      activeCycleIdx = ci; renderCycleBar();
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-tab')[0].classList.add('active');
+      document.getElementById('section-dashboard').classList.add('active');
+      activeSectionId = 'dashboard'; renderDashboard();
+    };
+    grid.appendChild(card);
+  }
+}
+
+// ── IMPORT / EXPORT ────────────────────────────────────────────────────
+window.exportData = function() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `12wy-export-${new Date().toISOString().slice(0,10)}.json`
+  });
+  a.click(); URL.revokeObjectURL(url);
+  showToast('Export téléchargé ✓');
+};
+
+window.triggerImport = function() { document.getElementById('importFile').click(); };
+
+window.importData = function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      state = deepMerge(defaultState(), imported);
+      await saveData();
+      renderCycleBar(); renderCurrentSection();
+      showToast('Données importées et synchronisées ✓');
+    } catch { showToast('⚠ Fichier invalide'); }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+};
+
+// ── RESET ──────────────────────────────────────────────────────────────
+window.openResetModal  = function() { document.getElementById('resetModal').classList.add('open'); };
+window.closeResetModal = function() { document.getElementById('resetModal').classList.remove('open'); };
+
+window.resetData = async function() {
+  state = defaultState();
+  await saveData();
+  closeResetModal();
+  activeCycleIdx = getCurrentPosition().cycle;
+  renderCycleBar(); renderCurrentSection();
+  showToast('Données réinitialisées');
+};
+
+// ── TOAST ──────────────────────────────────────────────────────────────
+function showToast(msg, duration = 2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+
+
+// ── BACKLOG DATA ──────────────────────────────────────────────────────
+// Chaque item : { id, text, status: 'pending'|'planned'|'done' }
+// Stocké dans state.cycles[ci].objectives[oi].backlog (array)
+
+function defaultBacklogForObjective(oi) { return []; }
+
+// Ensure backlog array exists on every objective (migration-safe)
+function ensureBacklogs() {
+  for (const cycle of state.cycles) {
+    for (const obj of cycle.objectives) {
+      if (!Array.isArray(obj.backlog)) obj.backlog = [];
+    }
+  }
+}
+
+function blId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// Sync backlog item statuses with what's actually planned in weeks
+// An item is "planned" if its text appears in any week action of the current cycle
+// An item is "done" if it's planned AND checked
+function syncBacklogStatuses(ci) {
+  const cycle = state.cycles[ci];
+  // Build a map: text (lowercase trimmed) → { planned, done }
+  const weekMap = {};
+  for (const w of cycle.weeks) {
+    for (const arr of w.actions) {
+      for (const a of arr) {
+        const key = a.text.trim().toLowerCase();
+        if (key) {
+          if (!weekMap[key]) weekMap[key] = { planned: false, done: false };
+          weekMap[key].planned = true;
+          if (a.done) weekMap[key].done = true;
+        }
+      }
+    }
+  }
+  for (const obj of cycle.objectives) {
+    for (const item of (obj.backlog || [])) {
+      const key = item.text.trim().toLowerCase();
+      if (weekMap[key]) {
+        item.status = weekMap[key].done ? 'done' : 'planned';
+      } else {
+        // Only reset if it was auto-set (don't reset manual "done")
+        if (item.status === 'planned') item.status = 'pending';
+      }
+    }
+  }
+}
+
+// ── BACKLOG SECTION RENDER ─────────────────────────────────────────────
+function renderBacklog() {
+  const ci = activeCycleIdx;
+  ensureBacklogs();
+  syncBacklogStatuses(ci);
+
+  const container = document.getElementById('backlogContent');
+  container.innerHTML = '';
+
+  state.cycles[ci].objectives.forEach((obj, oi) => {
+    const backlog = obj.backlog || [];
+    const pending = backlog.filter(i => i.status === 'pending').length;
+    const planned = backlog.filter(i => i.status === 'planned').length;
+    const done    = backlog.filter(i => i.status === 'done').length;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.marginBottom = '16px';
+
+    const dotColor = ['#c4581a','#2a5faa','#2e7d52'][oi];
+    card.innerHTML = `
+      <div class="card-title">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dotColor};flex-shrink:0"></span>
+        ${esc(obj.title || OBJ_LABELS[oi])}
+        <span class="card-subtitle">
+          <span style="color:var(--text3)">${pending} en attente</span>
+          ${planned > 0 ? `<span style="color:#2a5faa;margin-left:8px">${planned} planifié${planned>1?'s':''}</span>` : ''}
+          ${done > 0 ? `<span style="color:var(--green);margin-left:8px">${done} fait${done>1?'s':''}</span>` : ''}
+        </span>
+      </div>
+      <ul class="backlog-list" id="bl-list-${oi}"></ul>
+      <button class="btn-add" style="margin-top:8px" onclick="addBacklogItem(${oi})">+ Ajouter une action au backlog</button>
+    `;
+    container.appendChild(card);
+
+    renderBacklogList(ci, oi);
+  });
+}
+
+function renderBacklogList(ci, oi) {
+  const ul = document.getElementById('bl-list-' + oi);
+  if (!ul) return;
+  ul.innerHTML = '';
+  const backlog = state.cycles[ci].objectives[oi].backlog || [];
+
+  if (backlog.length === 0) {
+    ul.innerHTML = '<li class="bl-empty">Aucune action dans le backlog. Ajoutez vos idées d'actions pour cet objectif.</li>';
+    return;
+  }
+
+  // Sort: pending first, then planned, then done
+  const order = { pending: 0, planned: 1, done: 2 };
+  const sorted = [...backlog].map((item, idx) => ({ ...item, origIdx: idx }))
+    .sort((a, b) => order[a.status] - order[b.status]);
+
+  sorted.forEach(({ id, text, status, origIdx }) => {
+    const li = document.createElement('li');
+    li.className = 'backlog-item' + (status === 'done' ? ' bl-done' : '');
+    li.setAttribute('data-id', id);
+
+    const dotClass = { pending: 'pending', planned: 'planned', done: 'done' }[status];
+    const dotTitle = { pending: 'En attente — cliquer pour marquer comme fait', planned: 'Planifié dans une semaine', done: 'Réalisé — cliquer pour remettre en attente' }[status];
+
+    li.innerHTML = `
+      <div class="bl-status-dot ${dotClass}" title="${dotTitle}" onclick="cycleBacklogStatus(${oi},'${id}')"></div>
+      <input type="text" value="${esc(text)}" placeholder="Description de l'action…"
+        oninput="updateBacklogText(${oi},'${id}',this.value)"
+        class="${status === 'done' ? 'done' : ''}">
+      <button class="btn-remove" onclick="removeBacklogItem(${oi},'${id}')" title="Supprimer">✕</button>
+    `;
+    ul.appendChild(li);
+  });
+}
+
+window.addBacklogItem = function(oi) {
+  const ci = activeCycleIdx;
+  ensureBacklogs();
+  state.cycles[ci].objectives[oi].backlog.push({ id: blId(), text: '', status: 'pending' });
+  scheduleAutoSave();
+  renderBacklog();
+  // Focus the new input
+  setTimeout(() => {
+    const ul = document.getElementById('bl-list-' + oi);
+    if (ul) {
+      const inputs = ul.querySelectorAll('input[type="text"]');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+  }, 30);
+};
+
+window.removeBacklogItem = function(oi, id) {
+  const ci = activeCycleIdx;
+  ensureBacklogs();
+  state.cycles[ci].objectives[oi].backlog = state.cycles[ci].objectives[oi].backlog.filter(i => i.id !== id);
+  scheduleAutoSave();
+  renderBacklogList(ci, oi);
+  // Refresh counts
+  renderBacklog();
+};
+
+window.updateBacklogText = function(oi, id, val) {
+  const ci = activeCycleIdx;
+  ensureBacklogs();
+  const item = state.cycles[ci].objectives[oi].backlog.find(i => i.id === id);
+  if (item) item.text = val;
+  scheduleAutoSave();
+};
+
+window.cycleBacklogStatus = function(oi, id) {
+  const ci = activeCycleIdx;
+  ensureBacklogs();
+  const item = state.cycles[ci].objectives[oi].backlog.find(i => i.id === id);
+  if (!item) return;
+  // pending → done, done → pending (planned is managed automatically)
+  if (item.status === 'pending') item.status = 'done';
+  else if (item.status === 'done') item.status = 'pending';
+  // planned stays planned (managed by sync)
+  scheduleAutoSave();
+  renderBacklog();
+};
+
+// ── BACKLOG PICKER (in-week) ───────────────────────────────────────────
+let pickerWeekIdx   = null;
+let pickerSelected  = new Set(); // set of backlog item ids
+
+window.openBacklogPicker = function(wi) {
+  const ci = activeCycleIdx;
+  ensureBacklogs();
+  syncBacklogStatuses(ci);
+  pickerWeekIdx  = wi;
+  pickerSelected = new Set();
+
+  const overlay = document.getElementById('blPickerOverlay');
+  const title   = document.getElementById('blPickerTitle');
+  const body    = document.getElementById('blPickerBody');
+  const hint    = document.getElementById('blPickerHint');
+
+  const wStart = weekStartDate(ci, wi);
+  const wEnd   = weekEndDate(ci, wi);
+  title.textContent = `Backlog — S${wi+1} (${fmt(wStart)} → ${fmt(wEnd)})`;
+  hint.textContent  = 'Sélectionnez les actions à ajouter à cette semaine';
+
+  body.innerHTML = '';
+
+  let hasAny = false;
+  state.cycles[ci].objectives.forEach((obj, oi) => {
+    const backlog = (obj.backlog || []).filter(i => i.status !== 'done');
+    if (backlog.length === 0) return;
+    hasAny = true;
+
+    const dotColor = ['#c4581a','#2a5faa','#2e7d52'][oi];
+    const titleEl = document.createElement('div');
+    titleEl.className = 'bl-picker-obj-title';
+    titleEl.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor}"></span>${esc(obj.title || OBJ_LABELS[oi])}`;
+    body.appendChild(titleEl);
+
+    backlog.forEach(item => {
+      // Check if already in this specific week
+      const alreadyInWeek = state.cycles[ci].weeks[wi].actions[oi]
+        .some(a => a.text.trim().toLowerCase() === item.text.trim().toLowerCase());
+
+      const el = document.createElement('div');
+      el.className = 'bl-picker-item' + (alreadyInWeek ? ' already-planned' : '');
+      el.setAttribute('data-id', item.id);
+      el.setAttribute('data-oi', oi);
+
+      const statusBadge = item.status === 'planned'
+        ? `<span class="bl-pick-badge" style="background:var(--st-on-track-bg);color:var(--st-on-track-fg)">Planifié</span>`
+        : alreadyInWeek
+          ? `<span class="bl-pick-badge">Déjà dans S${wi+1}</span>`
+          : '';
+
+      el.innerHTML = `
+        <div class="bl-pick-check"></div>
+        <span class="bl-pick-text">${esc(item.text || '(sans titre)')}</span>
+        ${statusBadge}
+      `;
+
+      if (!alreadyInWeek) {
+        el.onclick = () => {
+          const key = item.id + '|' + oi;
+          if (pickerSelected.has(key)) {
+            pickerSelected.delete(key);
+            el.classList.remove('selected');
+          } else {
+            pickerSelected.add(key);
+            el.classList.add('selected');
+          }
+          hint.textContent = pickerSelected.size > 0
+            ? `${pickerSelected.size} action${pickerSelected.size > 1 ? 's' : ''} sélectionnée${pickerSelected.size > 1 ? 's' : ''}`
+            : 'Sélectionnez les actions à ajouter à cette semaine';
+        };
+      }
+
+      body.appendChild(el);
+    });
+  });
+
+  if (!hasAny) {
+    body.innerHTML = '<div class="bl-empty" style="padding:20px 0">Le backlog est vide pour ce cycle. Ajoutez des actions dans l'onglet Backlog.</div>';
+  }
+
+  overlay.classList.add('open');
+};
+
+window.closeBacklogPicker = function() {
+  document.getElementById('blPickerOverlay').classList.remove('open');
+  pickerWeekIdx  = null;
+  pickerSelected = new Set();
+};
+
+window.confirmBacklogPick = function() {
+  if (pickerSelected.size === 0 || pickerWeekIdx === null) { closeBacklogPicker(); return; }
+  const ci = activeCycleIdx;
+
+  pickerSelected.forEach(key => {
+    const [id, oiStr] = key.split('|');
+    const oi   = parseInt(oiStr);
+    const item = (state.cycles[ci].objectives[oi].backlog || []).find(i => i.id === id);
+    if (!item || !item.text.trim()) return;
+    state.cycles[ci].weeks[pickerWeekIdx].actions[oi].push({ text: item.text, done: false });
+  });
+
+  scheduleAutoSave();
+  closeBacklogPicker();
+  refreshWeekBlock(pickerWeekIdx);
+  syncBacklogStatuses(ci);
+  showToast(`${pickerSelected.size} action${pickerSelected.size > 1 ? 's' : ''} ajoutée${pickerSelected.size > 1 ? 's' : ''} à S${pickerWeekIdx + 1}`);
+};
+
+// Close picker on overlay click
+document.getElementById('blPickerOverlay').onclick = function(e) {
+  if (e.target === this) closeBacklogPicker();
+};
+
+// ── INIT ───────────────────────────────────────────────────────────────
+// Firebase load AVANT tout rendu (convention hub)
+await loadData();
+</script>
+</body>
+</html>
