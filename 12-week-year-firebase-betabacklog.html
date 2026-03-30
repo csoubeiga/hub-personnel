@@ -529,8 +529,9 @@ input[type="text"]:focus, textarea:focus { border-color: var(--accent); backgrou
    ===================================================================== */
 
 // ── FIREBASE ────────────────────────────────────────────────────────
-import { initializeApp }              from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { initializeApp }                      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc }  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, onAuthStateChanged }         from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const FB_CONFIG = {
   apiKey:            "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
@@ -541,8 +542,9 @@ const FB_CONFIG = {
   appId:             "1:394129070920:web:10f3303c22adcda47cf17d"
 };
 
-const app = initializeApp(FB_CONFIG);
-const db  = getFirestore(app);
+const app    = initializeApp(FB_CONFIG);
+const db     = getFirestore(app);
+const auth   = getAuth(app);
 const DOC_REF = doc(db, '12-week-year', 'data');
 
 // ── CONFIG MÉTIER ───────────────────────────────────────────────────
@@ -648,13 +650,11 @@ async function loadData() {
       const parsed = deserialize(snap.data());
       if (parsed) state = deepMerge(defaultState(), parsed);
     }
-    // Sync localStorage fallback
     try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
     setSyncStatus('synced', '✓ Synchronisé');
     lastSaveOk = true;
   } catch(e) {
     console.warn('Firebase load error, falling back to localStorage', e);
-    // Fallback localStorage
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) state = deepMerge(defaultState(), JSON.parse(raw));
@@ -662,10 +662,6 @@ async function loadData() {
     setSyncStatus('error', '⚠ Hors ligne — données locales');
     lastSaveOk = false;
   }
-  // Render after data loaded
-  activeCycleIdx = Math.max(0, Math.min(getCurrentPosition().cycle, NUM_CYCLES - 1));
-  renderCycleBar();
-  renderDashboard();
 }
 
 async function saveData() {
@@ -1189,7 +1185,8 @@ window.updateParking = function(i, val) {
   document.getElementById('parkingCount').textContent = count + ' élément' + (count > 1 ? 's' : '');
 };
 
-function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+window.autoResize = function(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
+function autoResize(el) { window.autoResize(el); }
 
 // ── ANNUAL VIEW ────────────────────────────────────────────────────────
 function renderAnnual() {
@@ -1584,8 +1581,28 @@ document.getElementById('blPickerOverlay').onclick = function(e) {
 };
 
 // ── INIT ───────────────────────────────────────────────────────────────
-// Firebase load AVANT tout rendu (convention hub)
-await loadData();
+// Pattern hub : auth wrapper → loadData → renderAll dans try/finally
+// Le finally garantit que l'UI se rend même si Firebase échoue
+function boot() {
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'login.html';
+      return;
+    }
+    try {
+      await loadData();
+    } catch(e) {
+      console.error('Boot error:', e);
+    } finally {
+      // Garantit le rendu même en cas d'erreur Firebase
+      activeCycleIdx = Math.max(0, Math.min(getCurrentPosition().cycle, NUM_CYCLES - 1));
+      renderCycleBar();
+      renderDashboard();
+    }
+  });
+}
+
+boot();
 </script>
 </body>
 </html>
