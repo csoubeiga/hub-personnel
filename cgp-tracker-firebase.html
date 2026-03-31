@@ -795,9 +795,9 @@ function CGPTracker() {
   const [weekData,setWeekData]   = useState(emptyWeeks());
   const [objectives,setObj]      = useState({...DEFAULT_OBJ});
   const [prospects,setProspects] = useState([]);
-  const [ready,setReady]         = useState(false);
+  const [loaded,setLoaded]       = useState(false);
 
-  // ── Firebase boot ────────────────────────────────────────────────────────
+  // ── Firebase boot — en arrière-plan, n'empêche pas le rendu ──────────────
   useEffect(()=>{
     const boot = async () => {
       try {
@@ -810,11 +810,11 @@ function CGPTracker() {
         if(obj)  setObj(obj);
         if(pros) setProspects(pros);
         const bar=document.getElementById('sync-bar');
-        bar.className='ok'; bar.textContent='✓ Synchronisé';
+        if(bar){ bar.className='ok'; bar.textContent='✓ Synchronisé'; }
       } catch(e) {
         const bar=document.getElementById('sync-bar');
-        bar.className='error'; bar.textContent='⚠ Erreur de chargement';
-      } finally { setReady(true); }
+        if(bar){ bar.className='error'; bar.textContent='⚠ Erreur de chargement'; }
+      } finally { setLoaded(true); }
     };
     if(window.__FB_READY) boot();
     else { const poll = setInterval(()=>{ if(window.__FB_READY){ clearInterval(poll); boot(); } }, 50); }
@@ -824,22 +824,22 @@ function CGPTracker() {
   const init = useRef({w:true, o:true, p:true});
 
   useEffect(()=>{
-    if(!ready) return;
+    if(!loaded) return;
     if(init.current.w){ init.current.w=false; return; }
     window.fbSave('cgp-weeks', weekData);
-  },[weekData, ready]);
+  },[weekData, loaded]);
 
   useEffect(()=>{
-    if(!ready) return;
+    if(!loaded) return;
     if(init.current.o){ init.current.o=false; return; }
     window.fbSave('cgp-objectives', objectives, 800);
-  },[objectives, ready]);
+  },[objectives, loaded]);
 
   useEffect(()=>{
-    if(!ready) return;
+    if(!loaded) return;
     if(init.current.p){ init.current.p=false; return; }
     window.fbSave('cgp-prospects', prospects, 600);
-  },[prospects, ready]);
+  },[prospects, loaded]);
 
   const onChange    = (w,k,v) => setWeekData(p=>({...p,[w]:{...(p[w]||{}),[k]:v}}));
   const onObjChange = (k,v)   => setObj(p=>({...p,[k]:v}));
@@ -862,15 +862,6 @@ function CGPTracker() {
     objectifs: "3 objectifs clés · indicateurs dérivés calculés automatiquement",
     cohorte:   "De la prise de contact jusqu'à la signature · cycle moyen et alertes inactivité",
   };
-
-  if(!ready) return (
-    <div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:C.gray50}}>
-      <div style={{textAlign:"center"}}>
-        <div style={{fontSize:36,marginBottom:12}}>📋</div>
-        <div style={{fontSize:16,fontWeight:600,color:C.gray600}}>Chargement de vos données…</div>
-      </div>
-    </div>
-  );
 
   return (
     <div style={{minHeight:"100vh",background:C.gray50,paddingBottom:40}}>
