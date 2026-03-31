@@ -5,899 +5,903 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Tableau de Bord CGP</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <!-- Firebase compat (synchrone, avant tout le reste) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif; background: #F8FAFC; color: #1E293B; }
-    input[type=number]::-webkit-inner-spin-button,
-    input[type=number]::-webkit-outer-spin-button { opacity: 1; }
-    #sync-bar {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
-      height: 32px; display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 600; font-family: 'DM Sans', sans-serif;
-      transition: background .3s, color .3s;
-    }
-    #sync-bar.loading { background: #F1F5F9; color: #64748B; }
-    #sync-bar.ok      { background: #ECFDF5; color: #059669; }
-    #sync-bar.saving  { background: #EFF6FF; color: #2563EB; }
-    #sync-bar.error   { background: #FEF2F2; color: #DC2626; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'DM Sans','Segoe UI',sans-serif;background:#F8FAFC;color:#1E293B;font-size:14px}
+    button{font-family:inherit;cursor:pointer}
+    input{font-family:inherit}
+    input[type=number]::-webkit-inner-spin-button{opacity:1}
+    #sync-bar{position:fixed;bottom:0;left:0;right:0;height:30px;display:flex;align-items:center;
+      justify-content:center;font-size:12px;font-weight:600;z-index:999;transition:.3s}
+    .sb-loading{background:#F1F5F9;color:#64748B}
+    .sb-ok{background:#ECFDF5;color:#059669}
+    .sb-saving{background:#EFF6FF;color:#2563EB}
+    .sb-error{background:#FEF2F2;color:#DC2626}
+    table{border-collapse:collapse;width:100%}
+    th,td{text-align:left}
   </style>
 </head>
 <body>
-<div id="root"></div>
-<div id="sync-bar" class="loading">⏳ Chargement…</div>
+<div id="app"></div>
+<div id="sync-bar" class="sb-loading">⏳ Chargement…</div>
 
 <script>
-  const FB_CONFIG = {
-    apiKey:            "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
-    authDomain:        "hub-personnel-firebase.firebaseapp.com",
-    projectId:         "hub-personnel-firebase",
-    storageBucket:     "hub-personnel-firebase.firebasestorage.app",
-    messagingSenderId: "394129070920",
-    appId:             "1:394129070920:web:10f3303c22adcda47cf17d"
-  };
-
-  firebase.initializeApp(FB_CONFIG);
-  const db  = firebase.firestore();
-  const bar = document.getElementById('sync-bar');
-  const setBar = (cls, msg) => { if(bar){ bar.className = cls; bar.textContent = msg; } };
-
-  const timers = {};
-
-  window.fbSave = function(col, payload, delay) {
-    delay = delay || 1200;
-    clearTimeout(timers[col]);
-    timers[col] = setTimeout(async function() {
-      setBar('saving', '💾 Synchronisation…');
-      let tries = 0;
-      const attempt = async () => {
-        try {
-          await db.collection(col).doc('data').set({ payload: JSON.stringify(payload), updatedAt: Date.now() });
-          setBar('ok', '✓ Synchronisé');
-        } catch(e) {
-          tries++;
-          setBar('error', '⚠ Erreur (tentative ' + tries + ') – retry dans 5s');
-          if(tries < 5) setTimeout(attempt, 5000);
-          else { try { localStorage.setItem('cgp_' + col, JSON.stringify(payload)); } catch(_){} }
-        }
-      };
-      await attempt();
-    }, delay);
-  };
-
-  window.fbLoad = async function(col) {
-    try {
-      const snap = await db.collection(col).doc('data').get();
-      if(snap.exists) return JSON.parse(snap.data().payload);
-    } catch(e) {
-      const local = localStorage.getItem('cgp_' + col);
-      if(local) return JSON.parse(local);
-    }
-    return null;
-  };
-
-  window.__FB_READY = true;
-</script>
-
-<script type="text/babel">
-const { useState, useMemo, useEffect, useRef } = React;
-const { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-        Tooltip, Legend, ResponsiveContainer } = Recharts;
-
-// ── Palette ───────────────────────────────────────────────────────────────────
-const C = {
-  blue:"#2563EB", blueLt:"#EFF6FF", blueMd:"#DBEAFE",
-  indigo:"#6366F1", violet:"#7C3AED",
-  emerald:"#059669", emerLt:"#ECFDF5",
-  amber:"#D97706", amberLt:"#FFFBEB",
-  slate:"#64748B",
-  gray50:"#F8FAFC", gray100:"#F1F5F9", gray200:"#E2E8F0",
-  gray400:"#94A3B8", gray600:"#475569", gray800:"#1E293B",
-  white:"#FFFFFF",
+// ── Firebase init (synchrone) ──────────────────────────────────────────────
+const FB_CONFIG = {
+  apiKey:            "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+  authDomain:        "hub-personnel-firebase.firebaseapp.com",
+  projectId:         "hub-personnel-firebase",
+  storageBucket:     "hub-personnel-firebase.firebasestorage.app",
+  messagingSenderId: "394129070920",
+  appId:             "1:394129070920:web:10f3303c22adcda47cf17d"
 };
+firebase.initializeApp(FB_CONFIG);
+const DB = firebase.firestore();
+const SB = document.getElementById('sync-bar');
+const sb = (cls,msg)=>{ SB.className=cls; SB.textContent=msg; };
+const timers = {};
 
-// ── Config ────────────────────────────────────────────────────────────────────
-const QUARTERS = [
-  {label:"T1",weeks:[1,13]},{label:"T2",weeks:[14,26]},
-  {label:"T3",weeks:[27,39]},{label:"T4",weeks:[40,52]},
-];
+async function fbSave(col, data, delay) {
+  clearTimeout(timers[col]);
+  timers[col] = setTimeout(async ()=>{
+    sb('sb-saving','💾 Synchronisation…');
+    let t=0;
+    const go = async ()=>{
+      try {
+        await DB.collection(col).doc('data').set({payload:JSON.stringify(data),updatedAt:Date.now()});
+        sb('sb-ok','✓ Synchronisé');
+      } catch(e) {
+        t++; sb('sb-error',`⚠ Erreur (${t}/5) – retry 5s`);
+        if(t<5) setTimeout(go,5000);
+        else try{localStorage.setItem('cgp_'+col,JSON.stringify(data));}catch(_){}
+      }
+    };
+    go();
+  }, delay||1200);
+}
 
-const CURRENT_WEEK = (() => {
-  const start = new Date('2026-01-05');
-  const diff  = Math.floor((new Date() - start) / (7*24*3600*1000)) + 1;
-  return Math.max(1, Math.min(52, diff));
-})();
-
-const KPI = [
-  {key:"r0",         label:"R0",          icon:"🔍", color:C.blue},
-  {key:"r1",         label:"R1",          icon:"📋", color:C.indigo},
-  {key:"r2",         label:"R2",          icon:"🎯", color:C.violet},
-  {key:"signatures", label:"Signatures",  icon:"✍️", color:C.emerald},
-  {key:"encours",    label:"Encours (€)", icon:"🏦", color:C.amber},
-  {key:"commissions",label:"Comm. (€)",   icon:"💰", color:C.emerald},
-  {key:"honoraires", label:"Honor. (€)",  icon:"📄", color:C.blue},
-];
-
-const PRODUITS = ["AV","SCPI","PER","Immobilier","Prévoyance","Défiscalisation","Autre"];
-
-const STATUS_CFG = {
-  r1:    {label:"R1",      color:"#6366F1", bg:"#EEF2FF"},
-  r2:    {label:"R2",      color:"#7C3AED", bg:"#F5F3FF"},
-  signe: {label:"Signé ✓", color:"#059669", bg:"#ECFDF5"},
-  perdu: {label:"Perdu",   color:"#DC2626", bg:"#FEF2F2"},
-};
-
-const DEFAULT_OBJ = {ca:25000, clients:24, encours:500000};
-const emptyWeeks  = () => Object.fromEntries(Array.from({length:52},(_,i)=>[i+1,{}]));
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const fmt = (v, euro=false) => {
-  if(v==null||v===""||isNaN(v)) return "–";
-  if(euro){
-    if(v>=1e6) return `${(v/1e6).toFixed(2).replace(".",",")} M€`;
-    if(v>=1e3) return `${(v/1e3).toFixed(0)}k€`;
-    return `${Number(v).toLocaleString("fr-FR")}€`;
+async function fbLoad(col) {
+  try {
+    const s = await DB.collection(col).doc('data').get();
+    if(s.exists) return JSON.parse(s.data().payload);
+  } catch(e) {
+    const l=localStorage.getItem('cgp_'+col);
+    if(l) return JSON.parse(l);
   }
-  return Number(v).toLocaleString("fr-FR");
+  return null;
+}
+
+// ── Constantes ────────────────────────────────────────────────────────────
+const C={
+  blue:'#2563EB',blueL:'#EFF6FF',blueMd:'#DBEAFE',
+  indigo:'#6366F1',violet:'#7C3AED',
+  green:'#059669',greenL:'#ECFDF5',
+  amber:'#D97706',amberL:'#FFFBEB',
+  red:'#DC2626',
+  slate:'#64748B',
+  g50:'#F8FAFC',g100:'#F1F5F9',g200:'#E2E8F0',
+  g400:'#94A3B8',g600:'#475569',g800:'#1E293B',
+  white:'#FFFFFF'
 };
-const fmtFull = v => `${Number(v||0).toLocaleString("fr-FR")}€`;
-const nv  = v => v===""?0:Number(v)||0;
-const today = () => new Date().toISOString().split("T")[0];
-const daysBetween = (d1,d2) => {
+
+const KPI=[
+  {k:'r0',    label:'R0',          icon:'🔍',color:C.blue},
+  {k:'r1',    label:'R1',          icon:'📋',color:C.indigo},
+  {k:'r2',    label:'R2',          icon:'🎯',color:C.violet},
+  {k:'sig',   label:'Signatures',  icon:'✍️',color:C.green},
+  {k:'enc',   label:'Encours (€)', icon:'🏦',color:C.amber},
+  {k:'comm',  label:'Comm. (€)',   icon:'💰',color:C.green},
+  {k:'honor', label:'Honor. (€)',  icon:'📄',color:C.blue},
+];
+
+const PRODUITS=['AV','SCPI','PER','Immobilier','Prévoyance','Défiscalisation','Autre'];
+const QUARTERS=[{l:'T1',a:1,b:13},{l:'T2',a:14,b:26},{l:'T3',a:27,b:39},{l:'T4',a:40,b:52}];
+const STATUS={
+  r1:{label:'R1',     color:'#6366F1',bg:'#EEF2FF'},
+  r2:{label:'R2',     color:'#7C3AED',bg:'#F5F3FF'},
+  signe:{label:'Signé ✓',color:C.green,bg:C.greenL},
+  perdu:{label:'Perdu',  color:C.red,  bg:'#FEF2F2'},
+};
+
+// ── State global ──────────────────────────────────────────────────────────
+let state = {
+  tab: 'saisie',
+  qIdx: 0,
+  weeks: Object.fromEntries(Array.from({length:52},(_,i)=>[i+1,{}])),
+  obj: {ca:25000,clients:24,encours:500000},
+  prospects: [],
+  showForm: false,
+  editId: null,
+  form: {nom:'',produits:[],dateR1:'',dateSignature:'',statut:'r1'},
+  filterStatut: 'tous',
+  loaded: false,
+};
+
+// ── Utils ─────────────────────────────────────────────────────────────────
+const n = v => v===''||v==null?0:Number(v)||0;
+const fmtE = v => {
+  if(!v) return '0€';
+  if(v>=1e6) return `${(v/1e6).toFixed(2).replace('.',',')} M€`;
+  if(v>=1000) return `${(v/1000).toFixed(0)}k€`;
+  return `${Number(v).toLocaleString('fr-FR')}€`;
+};
+const fmtF = v => `${Number(v||0).toLocaleString('fr-FR')}€`;
+const today = ()=>new Date().toISOString().split('T')[0];
+const daysBetween = (d1,d2)=>{
   if(!d1||!d2) return null;
-  return Math.round((new Date(d2)-new Date(d1))/(864e5));
+  return Math.round((new Date(d2)-new Date(d1))/864e5);
 };
-const getTotals = data => {
-  const t={r0:0,r1:0,r2:0,signatures:0,encours:0,commissions:0,honoraires:0};
-  Object.values(data).forEach(v=>{ if(v) KPI.forEach(k=>{t[k.key]+=nv(v[k.key]);}); });
+const totals = weeks => {
+  const t={r0:0,r1:0,r2:0,sig:0,enc:0,comm:0,honor:0};
+  Object.values(weeks).forEach(w=>{
+    if(w){ t.r0+=n(w.r0);t.r1+=n(w.r1);t.r2+=n(w.r2);t.sig+=n(w.sig);
+           t.enc+=n(w.enc);t.comm+=n(w.comm);t.honor+=n(w.honor); }
+  });
   return t;
 };
-const getLastWeek = data => {
-  for(let w=52;w>=1;w--){ const d=data[w]; if(d&&KPI.some(k=>nv(d[k.key])>0)) return w; }
+const lastFilledWeek = weeks => {
+  for(let w=52;w>=1;w--){
+    const d=weeks[w];
+    if(d&&(n(d.r0)||n(d.r1)||n(d.r2)||n(d.sig)||n(d.enc)||n(d.comm)||n(d.honor))) return w;
+  }
   return 1;
 };
+const CURR_WEEK = (()=>{
+  const diff=Math.floor((new Date()-new Date('2026-01-05'))/(7*864e5))+1;
+  return Math.max(1,Math.min(52,diff));
+})();
 
-// ── Shared components ─────────────────────────────────────────────────────────
-const Card = ({children, style={}}) => (
-  <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.gray200}`,
-               boxShadow:"0 1px 4px rgba(0,0,0,.05)",...style}}>{children}</div>
-);
-
-const TabBtn = ({active, onClick, children, icon}) => (
-  <button onClick={onClick} style={{
-    display:"flex",alignItems:"center",gap:8,padding:"10px 22px",
-    borderRadius:10,border:"none",fontFamily:"inherit",fontSize:14,fontWeight:600,
-    cursor:"pointer",transition:"all .2s",
-    background:active?C.blue:"transparent",color:active?C.white:C.slate,
-    boxShadow:active?"0 2px 8px rgba(37,99,235,.25)":"none",
-  }}><span>{icon}</span>{children}</button>
-);
-
-const KpiCard = ({icon, label, value, color, sub}) => (
-  <Card style={{padding:"20px 22px"}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-      <span style={{fontSize:13,color:C.slate,fontWeight:500}}>{label}</span>
-      <div style={{width:38,height:38,borderRadius:10,background:color+"18",
-                   display:"grid",placeItems:"center",fontSize:20}}>{icon}</div>
-    </div>
-    <div style={{fontSize:28,fontWeight:800,color:C.gray800,letterSpacing:"-0.5px",margin:"8px 0 4px"}}>{value}</div>
-    {sub && <div style={{fontSize:12,color:C.gray400}}>{sub}</div>}
-  </Card>
-);
-
-const ChartTip = ({active,payload,label}) => {
-  if(!active||!payload?.length) return null;
-  return (
-    <div style={{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:10,
-                 padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,.08)",fontSize:13}}>
-      <div style={{fontWeight:700,color:C.gray800,marginBottom:6}}>{label}</div>
-      {payload.map(p=>(
-        <div key={p.dataKey} style={{display:"flex",gap:8,marginBottom:2}}>
-          <span style={{color:p.color}}>●</span>
-          <span style={{color:C.slate}}>{p.name}:</span>
-          <span style={{fontWeight:600,color:C.gray800}}>{p.value>=1000?fmt(p.value,true):p.value}</span>
-        </div>
-      ))}
-    </div>
-  );
+// ── Render helpers ────────────────────────────────────────────────────────
+const el = (tag,props,...children)=>{
+  const e=document.createElement(tag);
+  if(props) Object.entries(props).forEach(([k,v])=>{
+    if(k==='style'&&typeof v==='object') Object.assign(e.style,v);
+    else if(k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==='html') e.innerHTML=v;
+    else e[k]=v;
+  });
+  children.flat().forEach(c=>{
+    if(c==null||c===false) return;
+    e.appendChild(typeof c==='string'||typeof c==='number'?document.createTextNode(c):c);
+  });
+  return e;
 };
 
-// ── Saisie Hebdo ──────────────────────────────────────────────────────────────
-function SaisieHebdo({data, onChange}) {
-  const [qIdx,setQIdx] = useState(0);
-  const q = QUARTERS[qIdx];
-  const weeks = Array.from({length:q.weeks[1]-q.weeks[0]+1},(_,i)=>q.weeks[0]+i);
+const s = (styles,...children) => el('span',{style:styles},...children);
+const d = (styles,...children) => el('div',{style:styles},...children);
 
-  const qTotals = useMemo(()=>{
-    const t={r0:0,r1:0,r2:0,signatures:0,encours:0,commissions:0,honoraires:0};
-    weeks.forEach(w=>{ const d=data[w]; if(d) KPI.forEach(k=>{t[k.key]+=nv(d[k.key]);}); });
-    return t;
-  },[data,qIdx]);
+function card(style={},...children){
+  return d({background:C.white,borderRadius:'14px',border:`1px solid ${C.g200}`,
+             boxShadow:'0 1px 4px rgba(0,0,0,.05)',...style},...children);
+}
 
-  return (
-    <div>
-      <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
-        {[{color:C.blue,label:"R0 · Premier contact"},{color:C.indigo,label:"R1 · Prise d'info patrimoniale"},
-          {color:C.violet,label:"R2 · Présentation solution"},{color:C.emerald,label:"Signature DER + souscription"}
-        ].map(b=>(
-          <div key={b.label} style={{display:"flex",alignItems:"center",gap:6,background:C.white,
-               border:`1px solid ${C.gray200}`,borderRadius:20,padding:"5px 12px",fontSize:12,color:C.gray600}}>
-            <div style={{width:8,height:8,borderRadius:"50%",background:b.color}}/>{b.label}
-          </div>
-        ))}
-      </div>
-
-      <div style={{display:"flex",gap:8,marginBottom:18,alignItems:"center"}}>
-        <button onClick={()=>setQIdx(i=>Math.max(0,i-1))}
-          style={{width:32,height:32,borderRadius:8,border:`1px solid ${C.gray200}`,background:C.white,cursor:"pointer",fontSize:16,color:C.gray600}}>‹</button>
-        {QUARTERS.map((qq,i)=>(
-          <button key={qq.label} onClick={()=>setQIdx(i)} style={{
-            padding:"7px 16px",borderRadius:8,border:"1px solid",
-            borderColor:i===qIdx?C.blue:C.gray200,background:i===qIdx?C.blueMd:C.white,
-            color:i===qIdx?C.blue:C.slate,fontWeight:i===qIdx?700:500,fontSize:13,cursor:"pointer",fontFamily:"inherit",
-          }}>{qq.label} · S{qq.weeks[0]}–{qq.weeks[1]}</button>
-        ))}
-        <button onClick={()=>setQIdx(i=>Math.min(3,i+1))}
-          style={{width:32,height:32,borderRadius:8,border:`1px solid ${C.gray200}`,background:C.white,cursor:"pointer",fontSize:16,color:C.gray600}}>›</button>
-      </div>
-
-      <Card>
-        <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:960}}>
-            <thead>
-              <tr style={{background:C.blue}}>
-                <th style={{padding:"13px 16px",textAlign:"left",color:C.white,fontSize:13,fontWeight:700,minWidth:72}}>Sem.</th>
-                {KPI.map(k=>(
-                  <th key={k.key} style={{padding:"13px 8px",textAlign:"center",color:C.white,fontSize:11,fontWeight:600,minWidth:96}}>
-                    <div style={{fontSize:15}}>{k.icon}</div><div style={{marginTop:2}}>{k.label}</div>
-                  </th>
-                ))}
-                <th style={{padding:"13px 16px",textAlign:"left",color:C.white,fontSize:11,fontWeight:600,minWidth:240}}>
-                  <div>💬</div><div style={{marginTop:2}}>Commentaire</div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {weeks.map(w=>{
-                const d=data[w]||{};
-                const hasData=KPI.some(k=>nv(d[k.key])>0);
-                const isCurrent=w===CURRENT_WEEK;
-                return (
-                  <tr key={w} style={{
-                    background:isCurrent?"#FFF7ED":hasData?C.blueLt:C.white,
-                    borderTop:`1px solid ${C.gray100}`,
-                    boxShadow:isCurrent?`inset 0 0 0 2px ${C.amber}`:"none",
-                  }}>
-                    <td style={{padding:"9px 16px"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:5}}>
-                        <span style={{
-                          background:isCurrent?C.amber:hasData?C.blue:C.gray200,
-                          color:(isCurrent||hasData)?C.white:C.slate,
-                          borderRadius:7,padding:"2px 9px",fontSize:12,fontWeight:700,
-                        }}>S{w}</span>
-                        {isCurrent&&<span style={{fontSize:9,color:C.amber,fontWeight:700}}>AUJ.</span>}
-                      </div>
-                    </td>
-                    {KPI.map(k=>(
-                      <td key={k.key} style={{padding:"7px 5px",textAlign:"center"}}>
-                        <input type="number" min="0"
-                          value={d[k.key]??""} placeholder="—"
-                          onChange={e=>onChange(w,k.key,e.target.value===""?"":Number(e.target.value))}
-                          style={{width:78,textAlign:"center",border:`1.5px solid ${C.gray200}`,borderRadius:8,
-                                  padding:"7px 4px",fontSize:13,outline:"none",background:C.white,color:C.gray800,fontFamily:"inherit"}}
-                          onFocus={e=>e.target.style.borderColor=k.color}
-                          onBlur={e=>e.target.style.borderColor=C.gray200}
-                        />
-                      </td>
-                    ))}
-                    <td style={{padding:"7px 10px"}}>
-                      <input type="text"
-                        value={d.commentaire??""}
-                        onChange={e=>onChange(w,"commentaire",e.target.value)}
-                        placeholder="Qui avez-vous vu ? Notes…"
-                        style={{width:"100%",border:`1.5px solid ${C.gray200}`,borderRadius:8,padding:"7px 10px",
-                                fontSize:12,outline:"none",background:C.white,color:C.gray800,fontFamily:"inherit",boxSizing:"border-box"}}
-                        onFocus={e=>e.target.style.borderColor=C.amber}
-                        onBlur={e=>e.target.style.borderColor=C.gray200}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr style={{background:C.gray800}}>
-                <td style={{padding:"12px 16px",color:C.white,fontWeight:700,fontSize:13}}>Total {q.label}</td>
-                {KPI.map(k=>(
-                  <td key={k.key} style={{padding:"12px 5px",textAlign:"center",color:C.white,fontWeight:700,fontSize:13}}>
-                    {["encours","commissions","honoraires"].includes(k.key)?fmt(qTotals[k.key],true):qTotals[k.key]}
-                  </td>
-                ))}
-                <td/>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </Card>
-    </div>
+function kpiCard(icon,label,value,color,sub){
+  return card({padding:'20px 22px'},
+    d({display:'flex',justifyContent:'space-between',alignItems:'flex-start'},
+      s({fontSize:'13px',color:C.slate,fontWeight:'500'},label),
+      d({width:'38px',height:'38px',borderRadius:'10px',background:color+'18',
+         display:'grid',placeItems:'center',fontSize:'20px'},icon)
+    ),
+    d({fontSize:'28px',fontWeight:'800',color:C.g800,letterSpacing:'-0.5px',margin:'8px 0 4px'},String(value)),
+    sub?s({fontSize:'12px',color:C.g400},sub):null
   );
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
-function Dashboard({data}) {
-  const totals   = useMemo(()=>getTotals(data),[data]);
-  const lastWeek = getLastWeek(data);
-  const caTotal  = totals.commissions + totals.honoraires;
+function btn(label, onClick, style={}){
+  const b=el('button',{onclick:onClick,style:{border:'none',borderRadius:'10px',
+    padding:'9px 18px',fontWeight:'600',fontSize:'13px',cursor:'pointer',...style}},label);
+  return b;
+}
 
-  const chartData = useMemo(()=>{
-    let cum=0;
-    return Array.from({length:lastWeek},(_,i)=>{
-      const w=i+1; const d=data[w]||{};
-      cum+=nv(d.commissions)+nv(d.honoraires);
-      return {name:`S${w}`,R0:nv(d.r0),R1:nv(d.r1),R2:nv(d.r2),Signatures:nv(d.signatures),"CA Cumulé":cum};
+function input(value, onChange, style={}, type='text', placeholder=''){
+  const i=el('input',{type,value:value??'',placeholder,
+    style:{border:`1.5px solid ${C.g200}`,borderRadius:'8px',padding:'7px 10px',
+           fontSize:'13px',outline:'none',background:C.white,...style}});
+  i.addEventListener('input',e=>onChange(e.target.value));
+  i.addEventListener('focus',()=>{ i.style.borderColor=C.blue; });
+  i.addEventListener('blur',()=>{ i.style.borderColor=C.g200; });
+  return i;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function render(){
+  const app=document.getElementById('app');
+  app.innerHTML='';
+  app.appendChild(renderApp());
+}
+
+function renderApp(){
+  const TABS=[
+    {id:'saisie', icon:'📅',label:'Saisie Hebdo'},
+    {id:'dashboard',icon:'📈',label:'Dashboard'},
+    {id:'objectifs',icon:'🎯',label:'Objectifs'},
+    {id:'cohorte',  icon:'👤',label:'Prospects'},
+  ];
+
+  // Header
+  const header=d({background:C.white,borderBottom:`1px solid ${C.g200}`,padding:'0 32px',
+    position:'sticky',top:'0',zIndex:'100',boxShadow:'0 1px 4px rgba(0,0,0,.05)'},
+    d({maxWidth:'1200px',margin:'0 auto'},
+      d({padding:'18px 0 12px',display:'flex',justifyContent:'space-between',alignItems:'center'},
+        d({},
+          d({fontSize:'22px',fontWeight:'800',color:C.g800,letterSpacing:'-0.5px'},'📋 Tableau de Bord CGP'),
+          d({fontSize:'12px',color:C.g400,marginTop:'3px'},'Pilotez votre activité patrimoniale · 2026')
+        ),
+        el('a',{href:'index.html',style:{fontSize:'13px',color:C.slate,textDecoration:'none',
+          fontWeight:'500',padding:'8px 14px',borderRadius:'8px',
+          border:`1px solid ${C.g200}`,background:C.white}},'← Hub')
+      ),
+      d({display:'flex',gap:'4px',paddingBottom:'4px'},
+        ...TABS.map(t=>{
+          const active=state.tab===t.id;
+          const b=el('button',{
+            onclick:()=>{state.tab=t.id;render();},
+            style:{display:'flex',alignItems:'center',gap:'8px',padding:'10px 22px',
+              borderRadius:'10px',border:'none',fontSize:'14px',fontWeight:'600',cursor:'pointer',
+              background:active?C.blue:'transparent',
+              color:active?C.white:C.slate,
+              boxShadow:active?'0 2px 8px rgba(37,99,235,.25)':'none',
+            }
+          },t.icon,' ',t.label);
+          return b;
+        })
+      )
+    )
+  );
+
+  // Content
+  let content;
+  if(state.tab==='saisie')     content=renderSaisie();
+  else if(state.tab==='dashboard') content=renderDashboard();
+  else if(state.tab==='objectifs') content=renderObjectifs();
+  else                             content=renderCohorte();
+
+  return d({},header,
+    d({maxWidth:'1200px',margin:'0 auto',padding:'26px 32px 60px'},content)
+  );
+}
+
+// ── Saisie Hebdo ──────────────────────────────────────────────────────────
+function renderSaisie(){
+  const q=QUARTERS[state.qIdx];
+  const weeks=Array.from({length:q.b-q.a+1},(_,i)=>q.a+i);
+
+  // Totaux trimestriels
+  const qt={r0:0,r1:0,r2:0,sig:0,enc:0,comm:0,honor:0};
+  weeks.forEach(w=>{
+    const wd=state.weeks[w]||{};
+    KPI.forEach(k=>{qt[k.k]+=n(wd[k.k]);});
+  });
+
+  // Legend
+  const legend=d({display:'flex',gap:'8px',marginBottom:'18px',flexWrap:'wrap'},
+    ...[{color:C.blue,label:'R0 · Premier contact'},{color:C.indigo,label:"R1 · Prise d'info patrimoniale"},
+        {color:C.violet,label:'R2 · Présentation solution'},{color:C.green,label:'Signature DER + souscription'}
+    ].map(b=>d({display:'flex',alignItems:'center',gap:'6px',background:C.white,
+      border:`1px solid ${C.g200}`,borderRadius:'20px',padding:'5px 12px',fontSize:'12px',color:C.g600},
+      d({width:'8px',height:'8px',borderRadius:'50%',background:b.color,flexShrink:'0'}),b.label))
+  );
+
+  // Quarter nav
+  const qnav=d({display:'flex',gap:'8px',marginBottom:'18px',alignItems:'center'},
+    el('button',{onclick:()=>{state.qIdx=Math.max(0,state.qIdx-1);render();},
+      style:{width:'32px',height:'32px',borderRadius:'8px',border:`1px solid ${C.g200}`,
+             background:C.white,fontSize:'16px',color:C.g600}},'‹'),
+    ...QUARTERS.map((qq,i)=>el('button',{
+      onclick:()=>{state.qIdx=i;render();},
+      style:{padding:'7px 16px',borderRadius:'8px',border:'1px solid',
+        borderColor:i===state.qIdx?C.blue:C.g200,
+        background:i===state.qIdx?C.blueMd:C.white,
+        color:i===state.qIdx?C.blue:C.slate,
+        fontWeight:i===state.qIdx?'700':'500',fontSize:'13px'}},
+      `${qq.l} · S${qq.a}–${qq.b}`)),
+    el('button',{onclick:()=>{state.qIdx=Math.min(3,state.qIdx+1);render();},
+      style:{width:'32px',height:'32px',borderRadius:'8px',border:`1px solid ${C.g200}`,
+             background:C.white,fontSize:'16px',color:C.g600}},'›')
+  );
+
+  // Table
+  const thead=el('thead',{},el('tr',{style:{background:C.blue}},
+    el('th',{style:{padding:'13px 16px',color:C.white,fontSize:'13px',fontWeight:'700',minWidth:'72px'}},'Sem.'),
+    ...KPI.map(k=>el('th',{style:{padding:'13px 8px',textAlign:'center',color:C.white,fontSize:'11px',fontWeight:'600',minWidth:'96px'}},
+      k.icon,' ',k.label)),
+    el('th',{style:{padding:'13px 16px',color:C.white,fontSize:'11px',fontWeight:'600',minWidth:'240px'}},'💬 Commentaire')
+  ));
+
+  const tbody=el('tbody',{},
+    ...weeks.map(w=>{
+      const wd=state.weeks[w]||{};
+      const hasData=KPI.some(k=>n(wd[k.k])>0);
+      const isCurr=w===CURR_WEEK;
+      const tr=el('tr',{style:{
+        background:isCurr?'#FFF7ED':hasData?C.blueL:C.white,
+        borderTop:`1px solid ${C.g100}`,
+        boxShadow:isCurr?`inset 0 0 0 2px ${C.amber}`:'none',
+      }});
+
+      // Week label
+      const wlabel=el('td',{style:{padding:'9px 16px'}},
+        el('span',{style:{
+          background:isCurr?C.amber:hasData?C.blue:C.g200,
+          color:(isCurr||hasData)?C.white:C.slate,
+          borderRadius:'7px',padding:'2px 9px',fontSize:'12px',fontWeight:'700'
+        }},`S${w}${isCurr?' ◀':''}`)
+      );
+      tr.appendChild(wlabel);
+
+      // KPI inputs
+      KPI.forEach(k=>{
+        const td=el('td',{style:{padding:'7px 5px',textAlign:'center'}});
+        const inp=el('input',{type:'number',min:'0',value:wd[k.k]??'',placeholder:'—',
+          style:{width:'78px',textAlign:'center',border:`1.5px solid ${C.g200}`,borderRadius:'8px',
+                 padding:'7px 4px',fontSize:'13px',outline:'none',background:C.white}});
+        inp.addEventListener('focus',()=>{inp.style.borderColor=k.color;});
+        inp.addEventListener('blur',()=>{inp.style.borderColor=C.g200;});
+        inp.addEventListener('input',e=>{
+          state.weeks[w]={...state.weeks[w],[k.k]:e.target.value===''?'':Number(e.target.value)};
+          fbSave('cgp-weeks',state.weeks);
+        });
+        td.appendChild(inp);
+        tr.appendChild(td);
+      });
+
+      // Commentaire
+      const ctd=el('td',{style:{padding:'7px 10px'}});
+      const cinp=el('input',{type:'text',value:wd.commentaire??'',placeholder:'Qui avez-vous vu ? Notes…',
+        style:{width:'100%',border:`1.5px solid ${C.g200}`,borderRadius:'8px',padding:'7px 10px',
+               fontSize:'12px',outline:'none',background:C.white,boxSizing:'border-box'}});
+      cinp.addEventListener('focus',()=>{cinp.style.borderColor=C.amber;});
+      cinp.addEventListener('blur',()=>{cinp.style.borderColor=C.g200;});
+      cinp.addEventListener('input',e=>{
+        state.weeks[w]={...state.weeks[w],commentaire:e.target.value};
+        fbSave('cgp-weeks',state.weeks);
+      });
+      ctd.appendChild(cinp);
+      tr.appendChild(ctd);
+
+      return tr;
+    })
+  );
+
+  const tfoot=el('tfoot',{},el('tr',{style:{background:C.g800}},
+    el('td',{style:{padding:'12px 16px',color:C.white,fontWeight:'700',fontSize:'13px'}},`Total ${q.l}`),
+    ...KPI.map(k=>el('td',{style:{padding:'12px 5px',textAlign:'center',color:C.white,fontWeight:'700',fontSize:'13px'}},
+      ['enc','comm','honor'].includes(k.k)?fmtE(qt[k.k]):String(qt[k.k]))),
+    el('td',{})
+  ));
+
+  return d({},legend,qnav,
+    card({overflow:'hidden'},
+      d({overflowX:'auto'},
+        el('table',{style:{minWidth:'960px'}},thead,tbody,tfoot)
+      )
+    )
+  );
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+function renderDashboard(){
+  const T=totals(state.weeks);
+  const ca=T.comm+T.honor;
+  const lw=lastFilledWeek(state.weeks);
+
+  const kpis=d({display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(195px,1fr))',gap:'14px',marginBottom:'18px'},
+    kpiCard('🔍','R0 Prospects',T.r0,C.blue,`${T.r1} passés en R1`),
+    kpiCard('🎯','R2 Présentations',T.r2,C.violet,`${T.sig} signatures`),
+    kpiCard('✍️','Nouveaux clients',T.sig,C.green,'Signatures finalisées'),
+    kpiCard('🏦','Encours collectés',fmtE(T.enc),C.amber,`Moy. ${fmtE(T.sig?Math.round(T.enc/T.sig):0)}/client`),
+    kpiCard('💰','Commissions',fmtE(T.comm),C.green,'Rétrocessions'),
+    kpiCard('📄','Honoraires',fmtE(T.honor),C.blue,`CA total : ${fmtE(ca)}`)
+  );
+
+  // Mini sparkline SVG
+  function sparkline(dataKey, color, height=80){
+    const vals=Array.from({length:lw},(_,i)=>{
+      const w=state.weeks[i+1]||{};
+      if(dataKey==='ca') return n(w.comm)+n(w.honor);
+      return n(w[dataKey]);
     });
-  },[data,lastWeek]);
+    const max=Math.max(...vals,1);
+    const W=300,H=height,pad=4;
+    const pts=vals.map((v,i)=>{
+      const x=pad+i*(W-2*pad)/(Math.max(vals.length-1,1));
+      const y=H-pad-(v/max)*(H-2*pad);
+      return `${x},${y}`;
+    }).join(' ');
+    const area=`M${pad},${H-pad} `+vals.map((v,i)=>{
+      const x=pad+i*(W-2*pad)/(Math.max(vals.length-1,1));
+      const y=H-pad-(v/max)*(H-2*pad);
+      return `L${x},${y}`;
+    }).join(' ')+` L${W-pad},${H-pad} Z`;
 
-  const conv = {
-    r0r1:  totals.r0>0?((totals.r1/totals.r0)*100).toFixed(0):"–",
-    r1r2:  totals.r1>0?((totals.r2/totals.r1)*100).toFixed(0):"–",
-    r2sig: totals.r2>0?((totals.signatures/totals.r2)*100).toFixed(0):"–",
-    encAvg: totals.signatures>0?Math.round(totals.encours/totals.signatures):0,
-    caAvg:  totals.signatures>0?Math.round(caTotal/totals.signatures):0,
-  };
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+    svg.style.width='100%';svg.style.height=`${H}px`;
 
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:18}}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(195px,1fr))",gap:14}}>
-        <KpiCard icon="🔍" label="R0 Prospects"      value={totals.r0}                  color={C.blue}    sub={`${totals.r1} passés en R1`}/>
-        <KpiCard icon="🎯" label="R2 Présentations"  value={totals.r2}                  color={C.violet}  sub={`${totals.signatures} signatures`}/>
-        <KpiCard icon="✍️" label="Nouveaux clients"  value={totals.signatures}           color={C.emerald} sub="Signatures finalisées"/>
-        <KpiCard icon="🏦" label="Encours collectés" value={fmt(totals.encours,true)}    color={C.amber}   sub={`Moy. ${fmt(conv.encAvg,true)}/client`}/>
-        <KpiCard icon="💰" label="Commissions"       value={fmt(totals.commissions,true)} color={C.emerald} sub="Rétrocessions"/>
-        <KpiCard icon="📄" label="Honoraires"        value={fmt(totals.honoraires,true)}  color={C.blue}   sub={`CA total : ${fmt(caTotal,true)}`}/>
-      </div>
+    const fillPath=document.createElementNS('http://www.w3.org/2000/svg','path');
+    fillPath.setAttribute('d',area);
+    fillPath.setAttribute('fill',color);
+    fillPath.setAttribute('fill-opacity','0.15');
+    svg.appendChild(fillPath);
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <Card style={{padding:22}}>
-          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>📅 Pipeline RDV (R0 → R1 → R2)</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData}>
-              <defs>
-                {[["gR0",C.blue],["gR1",C.indigo],["gR2",C.violet]].map(([id,col])=>(
-                  <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={col} stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor={col} stopOpacity={0}/>
-                  </linearGradient>
-                ))}
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={C.gray100}/>
-              <XAxis dataKey="name" tick={{fontSize:11,fill:C.gray400}}/>
-              <YAxis tick={{fontSize:11,fill:C.gray400}}/>
-              <Tooltip content={<ChartTip/>}/>
-              <Legend wrapperStyle={{fontSize:12}}/>
-              <Area type="monotone" dataKey="R0" stroke={C.blue}   fill="url(#gR0)" strokeWidth={2} dot={{r:3}}/>
-              <Area type="monotone" dataKey="R1" stroke={C.indigo} fill="url(#gR1)" strokeWidth={2} dot={{r:3}}/>
-              <Area type="monotone" dataKey="R2" stroke={C.violet} fill="url(#gR2)" strokeWidth={2} dot={{r:3}}/>
-            </AreaChart>
-          </ResponsiveContainer>
-        </Card>
+    const linePath=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    linePath.setAttribute('points',pts);
+    linePath.setAttribute('fill','none');
+    linePath.setAttribute('stroke',color);
+    linePath.setAttribute('stroke-width','2.5');
+    linePath.setAttribute('stroke-linejoin','round');
+    svg.appendChild(linePath);
 
-        <Card style={{padding:22}}>
-          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>💰 CA cumulé</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="gCA" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor={C.emerald} stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor={C.emerald} stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={C.gray100}/>
-              <XAxis dataKey="name" tick={{fontSize:11,fill:C.gray400}}/>
-              <YAxis tick={{fontSize:11,fill:C.gray400}} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
-              <Tooltip content={<ChartTip/>}/>
-              <Area type="monotone" dataKey="CA Cumulé" stroke={C.emerald} fill="url(#gCA)" strokeWidth={2.5} dot={{r:3,fill:C.emerald}}/>
-            </AreaChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
+    return svg;
+  }
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <Card style={{padding:22}}>
-          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>🔄 Signatures par semaine</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={C.gray100}/>
-              <XAxis dataKey="name" tick={{fontSize:11,fill:C.gray400}}/>
-              <YAxis tick={{fontSize:11,fill:C.gray400}}/>
-              <Tooltip content={<ChartTip/>}/>
-              <Bar dataKey="Signatures" fill={C.emerald} radius={[4,4,0,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card style={{padding:22}}>
-          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>📐 Taux de conversion</h3>
-          <div style={{display:"flex",flexDirection:"column",gap:9,marginTop:6}}>
-            {[
-              {label:"R0 → R1",               value:conv.r0r1+(conv.r0r1!=="–"?"%":""),    detail:`${totals.r1}/${totals.r0}`,        color:C.blue},
-              {label:"R1 → R2",               value:conv.r1r2+(conv.r1r2!=="–"?"%":""),    detail:`${totals.r2}/${totals.r1}`,        color:C.indigo},
-              {label:"R2 → Signature",         value:conv.r2sig+(conv.r2sig!=="–"?"%":""),  detail:`${totals.signatures}/${totals.r2}`, color:C.emerald},
-              {label:"Encours moyen / client", value:fmt(conv.encAvg,true),                 detail:"",                                  color:C.amber},
-              {label:"CA moyen / client",      value:fmt(conv.caAvg,true),                  detail:"",                                  color:C.violet},
-            ].map(item=>(
-              <div key={item.label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",
-                   padding:"10px 14px",borderRadius:10,background:C.gray50}}>
-                <span style={{fontSize:13,color:C.gray600,fontWeight:500}}>{item.label}</span>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:20,fontWeight:800,color:item.color,letterSpacing:"-0.5px"}}>{item.value}</div>
-                  {item.detail&&<div style={{fontSize:11,color:C.gray400}}>{item.detail}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    </div>
+  const charts=d({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'},
+    card({padding:'22px'},
+      d({fontSize:'14px',fontWeight:'700',color:C.g800,marginBottom:'14px'},'📅 Évolution pipeline RDV'),
+      sparkline('r0',C.blue),
+      d({display:'flex',gap:'16px',marginTop:'8px',fontSize:'11px'},
+        s({color:C.blue},'● R0'),s({color:C.indigo},'● R1'),s({color:C.violet},'● R2')
+      )
+    ),
+    card({padding:'22px'},
+      d({fontSize:'14px',fontWeight:'700',color:C.g800,marginBottom:'14px'},'💰 CA cumulé'),
+      (()=>{
+        let cum=0;
+        const vals=Array.from({length:lw},(_,i)=>{
+          const w=state.weeks[i+1]||{};
+          cum+=n(w.comm)+n(w.honor);
+          return cum;
+        });
+        const max=Math.max(...vals,1);
+        const W=300,H=80,pad=4;
+        const pts=vals.map((v,i)=>{
+          const x=pad+i*(W-2*pad)/(Math.max(vals.length-1,1));
+          const y=H-pad-(v/max)*(H-2*pad);
+          return `${x},${y}`;
+        }).join(' ');
+        const area=`M${pad},${H-pad} `+vals.map((v,i)=>{
+          const x=pad+i*(W-2*pad)/(Math.max(vals.length-1,1));
+          const y=H-pad-(v/max)*(H-2*pad);
+          return `L${x},${y}`;
+        }).join(' ')+` L${W-pad},${H-pad} Z`;
+        const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+        svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+        svg.style.width='100%';svg.style.height='80px';
+        const fp=document.createElementNS('http://www.w3.org/2000/svg','path');
+        fp.setAttribute('d',area);fp.setAttribute('fill',C.green);fp.setAttribute('fill-opacity','0.2');
+        svg.appendChild(fp);
+        const lp=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+        lp.setAttribute('points',pts);lp.setAttribute('fill','none');
+        lp.setAttribute('stroke',C.green);lp.setAttribute('stroke-width','2.5');
+        svg.appendChild(lp);
+        return svg;
+      })(),
+      d({fontSize:'12px',color:C.g400,marginTop:'8px'},`CA total : ${fmtE(ca)}`)
+    )
   );
-}
 
-// ── Objectifs ─────────────────────────────────────────────────────────────────
-function Objectifs({data, objectives, onObjChange}) {
-  const totals   = useMemo(()=>getTotals(data),[data]);
-  const lastWeek = getLastWeek(data);
-  const caTotal  = totals.commissions + totals.honoraires;
-  const weeksLeft = Math.max(52-lastWeek,1);
-  const encPerClient = objectives.clients>0?Math.round(objectives.encours/objectives.clients):0;
-  const caPerClient  = Math.round(encPerClient*0.05);
-  const projCa       = lastWeek>0?Math.round((caTotal/lastWeek)*52):0;
-
-  const items = [
-    {label:"CA (commissions + honoraires)", current:caTotal,           target:objectives.ca,      color:C.emerald, euro:true},
-    {label:"Nouveaux clients (signatures)", current:totals.signatures,  target:objectives.clients, color:C.blue,    euro:false},
-    {label:"Encours collectés",             current:totals.encours,    target:objectives.encours,  color:C.amber,   euro:true},
+  const convItems=[
+    {label:'R0 → R1',         val:T.r0>0?((T.r1/T.r0)*100).toFixed(0)+'%':'–', detail:`${T.r1}/${T.r0}`,     color:C.blue},
+    {label:'R1 → R2',         val:T.r1>0?((T.r2/T.r1)*100).toFixed(0)+'%':'–', detail:`${T.r2}/${T.r1}`,     color:C.indigo},
+    {label:'R2 → Signature',  val:T.r2>0?((T.sig/T.r2)*100).toFixed(0)+'%':'–', detail:`${T.sig}/${T.r2}`,   color:C.green},
+    {label:'Encours moy./client',val:T.sig?fmtE(Math.round(T.enc/T.sig)):'–',   detail:'',                    color:C.amber},
+    {label:'CA moy./client',  val:T.sig?fmtE(Math.round(ca/T.sig)):'–',         detail:'',                    color:C.violet},
   ];
 
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:20}}>
-      <Card style={{padding:26}}>
-        <h3 style={{margin:"0 0 4px",fontSize:15,fontWeight:700,color:C.gray800}}>🎯 Vos 3 objectifs annuels</h3>
-        <p style={{margin:"0 0 22px",fontSize:13,color:C.gray400}}>Les indicateurs dérivés sont calculés automatiquement</p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
-          {[
-            {key:"ca",      label:"CA annuel",         icon:"💶", color:C.emerald, desc:"Commissions + honoraires"},
-            {key:"clients", label:"Nouveaux clients",  icon:"👤", color:C.blue,    desc:"Signatures dans l'année"},
-            {key:"encours", label:"Encours collectés", icon:"🏦", color:C.amber,   desc:"Total souscriptions"},
-          ].map(f=>(
-            <div key={f.key} style={{border:`2px solid ${f.color}30`,borderRadius:14,padding:"18px 20px",background:f.color+"06"}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-                <span style={{fontSize:22}}>{f.icon}</span>
-                <div>
-                  <div style={{fontSize:13,fontWeight:700,color:C.gray800}}>{f.label}</div>
-                  <div style={{fontSize:11,color:C.gray400}}>{f.desc}</div>
-                </div>
-              </div>
-              <input type="number" min="0"
-                value={objectives[f.key]||""}
-                onChange={e=>onObjChange(f.key,e.target.value===""?0:Number(e.target.value))}
-                style={{width:"100%",padding:"12px 0",borderRadius:10,border:`2px solid ${f.color}40`,background:C.white,
-                        fontSize:24,fontWeight:800,color:f.color,textAlign:"center",outline:"none",
-                        boxSizing:"border-box",fontFamily:"inherit"}}
-                onFocus={e=>e.target.style.borderColor=f.color}
-                onBlur={e=>e.target.style.borderColor=f.color+"40"}
-              />
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card style={{padding:24}}>
-        <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:C.gray800}}>🔢 Indicateurs dérivés</h3>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
-          {[
-            {label:"CA moyen / client cible",     value:fmtFull(caPerClient),               icon:"💰", color:C.emerald},
-            {label:"Encours moyen / client cible", value:fmtFull(encPerClient),              icon:"🏦", color:C.amber},
-            {label:"Clients / mois à signer",      value:(objectives.clients/12).toFixed(1), icon:"📅", color:C.blue},
-            {label:"Taux rémunération moyen",       value:"5,0%",                            icon:"📐", color:C.violet},
-          ].map(item=>(
-            <div key={item.label} style={{background:C.gray50,borderRadius:12,padding:"14px 16px",border:`1px solid ${C.gray200}`}}>
-              <div style={{fontSize:11,color:C.gray400,marginBottom:6}}>{item.icon} {item.label}</div>
-              <div style={{fontSize:22,fontWeight:800,color:item.color,letterSpacing:"-0.5px"}}>{item.value}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card style={{padding:26}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <h3 style={{margin:0,fontSize:15,fontWeight:700,color:C.gray800}}>📊 Progression</h3>
-          <span style={{background:C.blueMd,color:C.blue,fontWeight:700,fontSize:12,padding:"5px 12px",borderRadius:999}}>
-            Semaine {lastWeek} / 52
-          </span>
-        </div>
-        {items.map(({label,current,target,color,euro})=>{
-          const p = target>0?Math.min((current/target)*100,100):0;
-          const isAhead = p>=(lastWeek/52)*100;
-          return (
-            <div key={label} style={{marginBottom:20}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}>
-                <span style={{fontSize:14,fontWeight:600,color:C.gray800}}>{label}</span>
-                <span style={{fontSize:13,color:C.gray600}}>{euro?fmtFull(current):current} / {euro?fmtFull(target):target}</span>
-              </div>
-              <div style={{background:C.gray100,borderRadius:999,height:10}}>
-                <div style={{width:`${p}%`,height:"100%",borderRadius:999,background:color,transition:"width .5s"}}/>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:5}}>
-                <span style={{fontSize:12,color:C.gray400}}>{p.toFixed(1)}% atteint</span>
-                <span style={{fontSize:12,fontWeight:600,color:isAhead?C.emerald:C.amber}}>
-                  {isAhead?"✓ En avance":"⚠ En retard"}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </Card>
-
-      <div style={{background:"linear-gradient(135deg,#1D4ED8 0%,#2563EB 60%,#3B82F6 100%)",borderRadius:16,
-                   padding:26,color:C.white,boxShadow:"0 4px 20px rgba(37,99,235,.25)"}}>
-        <h3 style={{margin:"0 0 18px",fontSize:15,fontWeight:700}}>💡 Analyse de votre rythme</h3>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(185px,1fr))",gap:14}}>
-          {[
-            {label:"Projection CA annuel",    value:fmtFull(projCa),                                               sub:"Sur votre rythme actuel"},
-            {label:"Écart vs objectif CA",    value:(projCa>=objectives.ca?"+":"")+fmtFull(projCa-objectives.ca), sub:"Projection vs cible"},
-            {label:"CA restant à faire",      value:fmtFull(Math.max(objectives.ca-caTotal,0)),                   sub:`Sur ${weeksLeft} semaines restantes`},
-            {label:"Clients encore à signer", value:Math.max(objectives.clients-totals.signatures,0),             sub:`Objectif : ${objectives.clients} sur l'année`},
-          ].map(item=>(
-            <div key={item.label} style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"16px 18px"}}>
-              <div style={{fontSize:11,opacity:0.75,marginBottom:8,fontWeight:500}}>{item.label}</div>
-              <div style={{fontSize:24,fontWeight:800,letterSpacing:"-0.5px"}}>{item.value}</div>
-              <div style={{fontSize:11,opacity:0.55,marginTop:5}}>{item.sub}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+  const conv=card({padding:'22px'},
+    d({fontSize:'14px',fontWeight:'700',color:C.g800,marginBottom:'14px'},'📐 Taux de conversion'),
+    d({display:'flex',flexDirection:'column',gap:'8px'},
+      ...convItems.map(item=>d({display:'flex',justifyContent:'space-between',alignItems:'center',
+        padding:'10px 14px',borderRadius:'10px',background:C.g50},
+        s({fontSize:'13px',color:C.g600,fontWeight:'500'},item.label),
+        d({textAlign:'right'},
+          d({fontSize:'20px',fontWeight:'800',color:item.color,letterSpacing:'-0.5px'},item.val),
+          item.detail?s({fontSize:'11px',color:C.g400},item.detail):null
+        )
+      ))
+    )
   );
+
+  return d({},kpis,charts,conv);
 }
 
-// ── Cohorte ───────────────────────────────────────────────────────────────────
-function Cohorte({prospects, setProspects}) {
-  const [showForm,setShowForm] = useState(false);
-  const [editId,setEditId]     = useState(null);
-  const [form,setForm]         = useState({nom:"",produits:[],dateR1:"",dateSignature:"",statut:"r1"});
-  const [filter,setFilter]     = useState("tous");
+// ── Objectifs ─────────────────────────────────────────────────────────────
+function renderObjectifs(){
+  const T=totals(state.weeks);
+  const ca=T.comm+T.honor;
+  const lw=lastFilledWeek(state.weeks);
+  const wLeft=Math.max(52-lw,1);
+  const epc=state.obj.clients>0?Math.round(state.obj.encours/state.obj.clients):0;
+  const projCa=lw>0?Math.round((ca/lw)*52):0;
 
-  const openNew  = () => { setForm({nom:"",produits:[],dateR1:"",dateSignature:"",statut:"r1"}); setEditId(null); setShowForm(true); };
-  const openEdit = p  => { setForm({...p}); setEditId(p.id); setShowForm(true); };
-  const save = () => {
-    if(!form.nom.trim()) return;
-    if(editId) setProspects(ps=>ps.map(p=>p.id===editId?{...form,id:editId}:p));
-    else       setProspects(ps=>[...ps,{...form,id:Date.now()}]);
-    setShowForm(false);
-  };
-  const remove    = id => setProspects(ps=>ps.filter(p=>p.id!==id));
-  const setStatut = (id,statut) => setProspects(ps=>ps.map(p=>{
-    if(p.id!==id) return p;
-    const upd={...p,statut};
-    if(statut==="signe"&&!p.dateSignature) upd.dateSignature=today();
-    return upd;
-  }));
+  function objInput(key,label,icon,color,desc){
+    const wrap=d({border:`2px solid ${color}30`,borderRadius:'14px',padding:'18px 20px',background:color+'06'});
+    wrap.appendChild(d({display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px'},
+      s({fontSize:'22px'},icon),
+      d({},d({fontSize:'13px',fontWeight:'700',color:C.g800},label),
+         d({fontSize:'11px',color:C.g400},desc))
+    ));
+    const inp=el('input',{type:'number',min:'0',value:state.obj[key]||'',
+      style:{width:'100%',padding:'12px 0',borderRadius:'10px',border:`2px solid ${color}40`,
+             background:C.white,fontSize:'24px',fontWeight:'800',color,textAlign:'center',outline:'none',
+             boxSizing:'border-box'}});
+    inp.addEventListener('focus',()=>{inp.style.borderColor=color;});
+    inp.addEventListener('blur',()=>{inp.style.borderColor=color+'40';});
+    inp.addEventListener('input',e=>{
+      state.obj[key]=Number(e.target.value)||0;
+      fbSave('cgp-objectives',state.obj,800);
+      render();
+    });
+    wrap.appendChild(inp);
+    return wrap;
+  }
 
-  const filtered = filter==="tous"?prospects:prospects.filter(p=>p.statut===filter);
-  const signes   = prospects.filter(p=>p.statut==="signe");
-  const enCours  = prospects.filter(p=>p.statut==="r1"||p.statut==="r2");
-  const cycles   = signes.map(p=>daysBetween(p.dateR1,p.dateSignature)).filter(d=>d!==null);
-  const avgCycle = cycles.length>0?Math.round(cycles.reduce((a,b)=>a+b,0)/cycles.length):null;
-  const alertes  = enCours.filter(p=>p.dateR1&&daysBetween(p.dateR1,today())>60);
+  function progBar(label,current,target,color,euro){
+    const p=target>0?Math.min((current/target)*100,100):0;
+    const ahead=p>=(lw/52)*100;
+    return d({marginBottom:'20px'},
+      d({display:'flex',justifyContent:'space-between',marginBottom:'7px'},
+        s({fontSize:'14px',fontWeight:'600',color:C.g800},label),
+        s({fontSize:'13px',color:C.g600},(euro?fmtF(current):current)+' / '+(euro?fmtF(target):target))
+      ),
+      d({background:C.g100,borderRadius:'999px',height:'10px'},
+        d({width:`${p}%`,height:'100%',borderRadius:'999px',background:color,transition:'width .5s'})
+      ),
+      d({display:'flex',justifyContent:'space-between',marginTop:'5px'},
+        s({fontSize:'12px',color:C.g400},p.toFixed(1)+'% atteint'),
+        s({fontSize:'12px',fontWeight:'600',color:ahead?C.green:C.amber},ahead?'✓ En avance':'⚠ En retard')
+      )
+    );
+  }
 
-  const setF       = (k,v) => setForm(f=>({...f,[k]:v}));
-  const toggleProd = pr    => setF("produits",form.produits.includes(pr)?form.produits.filter(x=>x!==pr):[...form.produits,pr]);
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:18}}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14}}>
-        <KpiCard icon="👤" label="Total prospects" value={prospects.length} color={C.blue}/>
-        <KpiCard icon="🔄" label="En cours"        value={enCours.length}  color={C.violet}/>
-        <KpiCard icon="✍️" label="Signés"          value={signes.length}   color={C.emerald}/>
-        <KpiCard icon="⏱️" label="Cycle moyen"     value={avgCycle!==null?`${avgCycle}j`:"—"} color={C.amber}/>
-      </div>
-
-      {alertes.length>0&&(
-        <div style={{background:"#FEF9C3",border:"1px solid #FDE047",borderRadius:12,padding:"14px 18px",
-                     display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:20}}>⚠️</span>
-          <div>
-            <span style={{fontWeight:700,fontSize:14,color:"#92400E"}}>{alertes.length} prospect(s) sans mouvement depuis +60j : </span>
-            <span style={{fontSize:13,color:"#92400E"}}>{alertes.map(p=>p.nom).join(", ")}</span>
-          </div>
-        </div>
-      )}
-
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {["tous","r1","r2","signe","perdu"].map(s=>(
-            <button key={s} onClick={()=>setFilter(s)} style={{
-              padding:"6px 14px",borderRadius:20,border:"1px solid",
-              borderColor:filter===s?C.blue:C.gray200,background:filter===s?C.blueMd:C.white,
-              color:filter===s?C.blue:C.slate,fontWeight:filter===s?700:500,fontSize:12,cursor:"pointer",fontFamily:"inherit",
-            }}>
-              {s==="tous"?`Tous (${prospects.length})`:`${STATUS_CFG[s].label} (${prospects.filter(p=>p.statut===s).length})`}
-            </button>
-          ))}
-        </div>
-        <button onClick={openNew} style={{
-          display:"flex",alignItems:"center",gap:8,padding:"9px 18px",borderRadius:10,border:"none",
-          background:C.blue,color:C.white,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",
-          boxShadow:"0 2px 8px rgba(37,99,235,.25)",
-        }}>+ Nouveau prospect</button>
-      </div>
-
-      <Card>
-        {filtered.length===0?(
-          <div style={{padding:"48px 24px",textAlign:"center",color:C.gray400}}>
-            <div style={{fontSize:36,marginBottom:12}}>👤</div>
-            <div style={{fontSize:15,fontWeight:600,color:C.gray600,marginBottom:6}}>Aucun prospect</div>
-            <div style={{fontSize:13}}>Cliquez sur "+ Nouveau prospect" pour commencer</div>
-          </div>
-        ):(
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",minWidth:780}}>
-              <thead>
-                <tr style={{background:C.blue}}>
-                  {["Nom","Produit(s)","Statut","Date R1","Date signature","Durée cycle",""].map(h=>(
-                    <th key={h} style={{padding:"12px 14px",textAlign:"left",color:C.white,fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p,i)=>{
-                  const cycle = daysBetween(p.dateR1, p.statut==="signe"?p.dateSignature:today());
-                  const isStale = (p.statut==="r1"||p.statut==="r2")&&cycle!==null&&cycle>60;
-                  return (
-                    <tr key={p.id} style={{borderTop:`1px solid ${C.gray100}`,background:isStale?"#FFFBEB":i%2===0?C.white:C.gray50}}>
-                      <td style={{padding:"11px 14px",fontWeight:700,color:C.gray800,fontSize:14}}>
-                        {p.nom}
-                        {isStale&&<span style={{marginLeft:6,fontSize:11,color:C.amber}}>⚠ inactif</span>}
-                      </td>
-                      <td style={{padding:"11px 14px"}}>
-                        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                          {p.produits.length>0?p.produits.map(pr=>(
-                            <span key={pr} style={{background:C.blueMd,color:C.blue,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:600}}>{pr}</span>
-                          )):<span style={{color:C.gray400,fontSize:12}}>—</span>}
-                        </div>
-                      </td>
-                      <td style={{padding:"11px 14px"}}>
-                        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                          {Object.entries(STATUS_CFG).map(([key,cfg])=>(
-                            <button key={key} onClick={()=>setStatut(p.id,key)} style={{
-                              padding:"3px 10px",borderRadius:20,border:`1.5px solid ${p.statut===key?cfg.color:C.gray200}`,
-                              background:p.statut===key?cfg.bg:C.white,color:p.statut===key?cfg.color:C.gray400,
-                              fontWeight:p.statut===key?700:400,fontSize:11,cursor:"pointer",fontFamily:"inherit",
-                            }}>{cfg.label}</button>
-                          ))}
-                        </div>
-                      </td>
-                      <td style={{padding:"11px 14px",fontSize:13,color:C.gray600}}>{p.dateR1||"—"}</td>
-                      <td style={{padding:"11px 14px",fontSize:13,color:p.statut==="signe"?C.emerald:C.gray600,
-                                  fontWeight:p.statut==="signe"?700:400}}>
-                        {p.dateSignature||"—"}
-                      </td>
-                      <td style={{padding:"11px 14px"}}>
-                        {cycle!==null?(
-                          <span style={{background:cycle>60?C.amberLt:C.emerLt,color:cycle>60?C.amber:C.emerald,
-                                        borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:700}}>
-                            {p.statut==="signe"?`${cycle}j`:`${cycle}j en cours`}
-                          </span>
-                        ):"—"}
-                      </td>
-                      <td style={{padding:"11px 14px",textAlign:"right"}}>
-                        <button onClick={()=>openEdit(p)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:"2px 6px",color:C.slate}}>✏️</button>
-                        <button onClick={()=>remove(p.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:"2px 6px",color:"#DC2626"}}>🗑</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {signes.length>0&&(
-        <Card style={{padding:22}}>
-          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>⏱️ Cycles de conversion</h3>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
-            {[
-              {label:"Cycle moyen R1→Signature", value:avgCycle!==null?`${avgCycle} jours`:"—",          color:C.blue},
-              {label:"Cycle min",                value:cycles.length>0?`${Math.min(...cycles)}j`:"—",     color:C.emerald},
-              {label:"Cycle max",                value:cycles.length>0?`${Math.max(...cycles)}j`:"—",     color:"#DC2626"},
-              {label:"Clients signés",           value:`${signes.length} / ${prospects.length}`,           color:C.emerald},
-            ].map(item=>(
-              <div key={item.label} style={{background:C.gray50,borderRadius:12,padding:"14px 16px",border:`1px solid ${C.gray200}`}}>
-                <div style={{fontSize:11,color:C.gray400,marginBottom:6}}>{item.label}</div>
-                <div style={{fontSize:22,fontWeight:800,color:item.color}}>{item.value}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {showForm&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:200,display:"flex",
-                     alignItems:"center",justifyContent:"center",padding:20}}
-          onClick={e=>{if(e.target===e.currentTarget)setShowForm(false);}}>
-          <div style={{background:C.white,borderRadius:18,padding:32,width:"100%",maxWidth:480,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
-            <h3 style={{margin:"0 0 22px",fontSize:17,fontWeight:800,color:C.gray800}}>
-              {editId?"Modifier le prospect":"Nouveau prospect"}
-            </h3>
-            <div style={{marginBottom:18}}>
-              <label style={{fontSize:12,fontWeight:600,color:C.gray600,display:"block",marginBottom:6}}>Nom complet *</label>
-              <input value={form.nom} onChange={e=>setF("nom",e.target.value)} placeholder="Ex : Jean Dupont"
-                style={{width:"100%",border:`1.5px solid ${C.gray200}`,borderRadius:10,padding:"10px 14px",fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}
-                onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.gray200}/>
-            </div>
-            <div style={{marginBottom:18}}>
-              <label style={{fontSize:12,fontWeight:600,color:C.gray600,display:"block",marginBottom:8}}>Produit(s) visé(s)</label>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {PRODUITS.map(pr=>(
-                  <button key={pr} onClick={()=>toggleProd(pr)} style={{
-                    padding:"5px 12px",borderRadius:20,border:`1.5px solid ${form.produits.includes(pr)?C.blue:C.gray200}`,
-                    background:form.produits.includes(pr)?C.blueMd:C.white,
-                    color:form.produits.includes(pr)?C.blue:C.gray600,
-                    fontWeight:form.produits.includes(pr)?700:400,fontSize:12,cursor:"pointer",fontFamily:"inherit",
-                  }}>{pr}</button>
-                ))}
-              </div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
-              {[{label:"Date R1",key:"dateR1"},{label:"Date signature",key:"dateSignature"}].map(f=>(
-                <div key={f.key}>
-                  <label style={{fontSize:12,fontWeight:600,color:C.gray600,display:"block",marginBottom:6}}>{f.label}</label>
-                  <input type="date" value={form[f.key]} onChange={e=>setF(f.key,e.target.value)}
-                    style={{width:"100%",border:`1.5px solid ${C.gray200}`,borderRadius:10,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}
-                    onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.gray200}/>
-                </div>
-              ))}
-            </div>
-            <div style={{marginBottom:24}}>
-              <label style={{fontSize:12,fontWeight:600,color:C.gray600,display:"block",marginBottom:8}}>Statut</label>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {Object.entries(STATUS_CFG).map(([key,cfg])=>(
-                  <button key={key} onClick={()=>setF("statut",key)} style={{
-                    padding:"6px 14px",borderRadius:20,border:`1.5px solid ${form.statut===key?cfg.color:C.gray200}`,
-                    background:form.statut===key?cfg.bg:C.white,color:form.statut===key?cfg.color:C.gray400,
-                    fontWeight:form.statut===key?700:400,fontSize:12,cursor:"pointer",fontFamily:"inherit",
-                  }}>{cfg.label}</button>
-                ))}
-              </div>
-            </div>
-            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>setShowForm(false)} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${C.gray200}`,background:C.white,color:C.slate,fontWeight:600,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>Annuler</button>
-              <button onClick={save} style={{padding:"10px 22px",borderRadius:10,border:"none",background:C.blue,color:C.white,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(37,99,235,.25)"}}>
-                {editId?"Enregistrer":"Ajouter"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Root ──────────────────────────────────────────────────────────────────────
-function CGPTracker() {
-  const [tab,setTab]             = useState("saisie");
-  const [weekData,setWeekData]   = useState(emptyWeeks());
-  const [objectives,setObj]      = useState({...DEFAULT_OBJ});
-  const [prospects,setProspects] = useState([]);
-  const [loaded,setLoaded]       = useState(false);
-
-  // ── Firebase boot — en arrière-plan, n'empêche pas le rendu ──────────────
-  useEffect(()=>{
-    const boot = async () => {
-      try {
-        const [wd,obj,pros] = await Promise.all([
-          window.fbLoad('cgp-weeks'),
-          window.fbLoad('cgp-objectives'),
-          window.fbLoad('cgp-prospects'),
-        ]);
-        if(wd)   setWeekData(wd);
-        if(obj)  setObj(obj);
-        if(pros) setProspects(pros);
-        const bar=document.getElementById('sync-bar');
-        if(bar){ bar.className='ok'; bar.textContent='✓ Synchronisé'; }
-      } catch(e) {
-        const bar=document.getElementById('sync-bar');
-        if(bar){ bar.className='error'; bar.textContent='⚠ Erreur de chargement'; }
-      } finally { setLoaded(true); }
-    };
-    if(window.__FB_READY) boot();
-    else { const poll = setInterval(()=>{ if(window.__FB_READY){ clearInterval(poll); boot(); } }, 50); }
-  },[]);
-
-  // ── Auto-save (skip first render after load) ─────────────────────────────
-  const init = useRef({w:true, o:true, p:true});
-
-  useEffect(()=>{
-    if(!loaded) return;
-    if(init.current.w){ init.current.w=false; return; }
-    window.fbSave('cgp-weeks', weekData);
-  },[weekData, loaded]);
-
-  useEffect(()=>{
-    if(!loaded) return;
-    if(init.current.o){ init.current.o=false; return; }
-    window.fbSave('cgp-objectives', objectives, 800);
-  },[objectives, loaded]);
-
-  useEffect(()=>{
-    if(!loaded) return;
-    if(init.current.p){ init.current.p=false; return; }
-    window.fbSave('cgp-prospects', prospects, 600);
-  },[prospects, loaded]);
-
-  const onChange    = (w,k,v) => setWeekData(p=>({...p,[w]:{...(p[w]||{}),[k]:v}}));
-  const onObjChange = (k,v)   => setObj(p=>({...p,[k]:v}));
-
-  const TABS = [
-    {id:"saisie",    label:"Saisie Hebdo", icon:"📅"},
-    {id:"dashboard", label:"Dashboard",    icon:"📈"},
-    {id:"objectifs", label:"Objectifs",    icon:"🎯"},
-    {id:"cohorte",   label:"Prospects",    icon:"👤"},
+  const derived=[
+    {label:'CA moyen / client cible',     val:fmtF(Math.round(epc*0.05)), icon:'💰',color:C.green},
+    {label:'Encours moyen / client cible', val:fmtF(epc),                 icon:'🏦',color:C.amber},
+    {label:'Clients / mois à signer',      val:(state.obj.clients/12).toFixed(1), icon:'📅',color:C.blue},
+    {label:'Taux rémunération moyen',       val:'5,0%',                   icon:'📐',color:C.violet},
   ];
-  const TITLES = {
-    saisie:    "Saisie de votre activité hebdomadaire",
-    dashboard: "Vue d'ensemble de votre activité",
-    objectifs: "Suivi de vos objectifs annuels",
-    cohorte:   "Suivi individuel des prospects",
-  };
-  const SUBS = {
-    saisie:    "Pipeline R0 → R1 → R2 → Signature · Semaine courante surlignée en orange",
-    dashboard: "KPIs, graphiques et taux de conversion calculés automatiquement",
-    objectifs: "3 objectifs clés · indicateurs dérivés calculés automatiquement",
-    cohorte:   "De la prise de contact jusqu'à la signature · cycle moyen et alertes inactivité",
-  };
 
-  return (
-    <div style={{minHeight:"100vh",background:C.gray50,paddingBottom:40}}>
-      <div style={{background:C.white,borderBottom:`1px solid ${C.gray200}`,padding:"0 32px",
-                   position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-        <div style={{maxWidth:1200,margin:"0 auto"}}>
-          <div style={{padding:"18px 0 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <h1 style={{margin:0,fontSize:22,fontWeight:800,color:C.gray800,letterSpacing:"-0.5px"}}>📋 Tableau de Bord CGP</h1>
-              <p style={{margin:"3px 0 0",fontSize:12,color:C.gray400}}>Pilotez votre activité patrimoniale · Année 2026</p>
-            </div>
-            <a href="index.html" style={{fontSize:13,color:C.slate,textDecoration:"none",fontWeight:500,
-               display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:8,
-               border:`1px solid ${C.gray200}`,background:C.white}}>← Hub</a>
-          </div>
-          <div style={{display:"flex",gap:4,paddingBottom:4}}>
-            {TABS.map(t=><TabBtn key={t.id} active={tab===t.id} onClick={()=>setTab(t.id)} icon={t.icon}>{t.label}</TabBtn>)}
-          </div>
-        </div>
-      </div>
+  const rythme=[
+    {label:'Projection CA annuel',   val:fmtF(projCa),                                        sub:'Sur votre rythme actuel'},
+    {label:'Écart vs objectif CA',   val:(projCa>=state.obj.ca?'+':'')+fmtF(projCa-state.obj.ca), sub:'Projection vs cible'},
+    {label:'CA restant à faire',     val:fmtF(Math.max(state.obj.ca-ca,0)),                   sub:`Sur ${wLeft} semaines`},
+    {label:'Clients encore à signer',val:String(Math.max(state.obj.clients-T.sig,0)),          sub:`Objectif : ${state.obj.clients}`},
+  ];
 
-      <div style={{maxWidth:1200,margin:"0 auto",padding:"26px 32px 60px"}}>
-        <div style={{marginBottom:22}}>
-          <h2 style={{margin:0,fontSize:18,fontWeight:700,color:C.gray800}}>{TITLES[tab]}</h2>
-          <p style={{margin:"4px 0 0",fontSize:13,color:C.gray400}}>{SUBS[tab]}</p>
-        </div>
-        {tab==="saisie"    && <SaisieHebdo data={weekData} onChange={onChange}/>}
-        {tab==="dashboard" && <Dashboard   data={weekData}/>}
-        {tab==="objectifs" && <Objectifs   data={weekData} objectives={objectives} onObjChange={onObjChange}/>}
-        {tab==="cohorte"   && <Cohorte     prospects={prospects} setProspects={setProspects}/>}
-      </div>
-    </div>
+  return d({display:'flex',flexDirection:'column',gap:'20px'},
+    card({padding:'26px'},
+      d({fontSize:'15px',fontWeight:'700',color:C.g800,marginBottom:'4px'},'🎯 Vos 3 objectifs annuels'),
+      d({fontSize:'13px',color:C.g400,marginBottom:'22px'},'Les indicateurs dérivés sont calculés automatiquement'),
+      d({display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'16px'},
+        objInput('ca','CA annuel','💶',C.green,'Commissions + honoraires'),
+        objInput('clients','Nouveaux clients','👤',C.blue,"Signatures dans l'année"),
+        objInput('encours','Encours collectés','🏦',C.amber,'Total souscriptions')
+      )
+    ),
+    card({padding:'24px'},
+      d({fontSize:'15px',fontWeight:'700',color:C.g800,marginBottom:'16px'},'🔢 Indicateurs dérivés'),
+      d({display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:'12px'},
+        ...derived.map(it=>d({background:C.g50,borderRadius:'12px',padding:'14px 16px',border:`1px solid ${C.g200}`},
+          d({fontSize:'11px',color:C.g400,marginBottom:'6px'},it.icon+' '+it.label),
+          d({fontSize:'22px',fontWeight:'800',color:it.color,letterSpacing:'-0.5px'},it.val)
+        ))
+      )
+    ),
+    card({padding:'26px'},
+      d({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'},
+        d({fontSize:'15px',fontWeight:'700',color:C.g800},'📊 Progression'),
+        d({background:C.blueMd,color:C.blue,fontWeight:'700',fontSize:'12px',padding:'5px 12px',borderRadius:'999px'},`Semaine ${lw} / 52`)
+      ),
+      progBar('CA (commissions + honoraires)',ca,state.obj.ca,C.green,true),
+      progBar('Nouveaux clients (signatures)',T.sig,state.obj.clients,C.blue,false),
+      progBar('Encours collectés',T.enc,state.obj.encours,C.amber,true)
+    ),
+    d({background:'linear-gradient(135deg,#1D4ED8 0%,#2563EB 60%,#3B82F6 100%)',
+       borderRadius:'16px',padding:'26px',boxShadow:'0 4px 20px rgba(37,99,235,.25)'},
+      d({fontSize:'15px',fontWeight:'700',color:C.white,marginBottom:'18px'},'💡 Analyse de votre rythme'),
+      d({display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(185px,1fr))',gap:'14px'},
+        ...rythme.map(it=>d({background:'rgba(255,255,255,.12)',borderRadius:'12px',padding:'16px 18px'},
+          d({fontSize:'11px',color:'rgba(255,255,255,.75)',marginBottom:'8px',fontWeight:'500'},it.label),
+          d({fontSize:'24px',fontWeight:'800',color:C.white,letterSpacing:'-0.5px'},it.val),
+          d({fontSize:'11px',color:'rgba(255,255,255,.55)',marginTop:'5px'},it.sub)
+        ))
+      )
+    )
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<CGPTracker/>);
+// ── Cohorte ───────────────────────────────────────────────────────────────
+function renderCohorte(){
+  const pros=state.prospects;
+  const signes=pros.filter(p=>p.statut==='signe');
+  const enCours=pros.filter(p=>p.statut==='r1'||p.statut==='r2');
+  const cycles=signes.map(p=>daysBetween(p.dateR1,p.dateSignature)).filter(d=>d!==null);
+  const avgCycle=cycles.length>0?Math.round(cycles.reduce((a,b)=>a+b,0)/cycles.length):null;
+  const alertes=enCours.filter(p=>p.dateR1&&daysBetween(p.dateR1,today())>60);
+  const filtered=state.filterStatut==='tous'?pros:pros.filter(p=>p.statut===state.filterStatut);
+
+  const kpis=d({display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'14px',marginBottom:'18px'},
+    kpiCard('👤','Total prospects',pros.length,C.blue),
+    kpiCard('🔄','En cours',enCours.length,C.violet),
+    kpiCard('✍️','Signés',signes.length,C.green),
+    kpiCard('⏱️','Cycle moyen',avgCycle!==null?`${avgCycle}j`:'—',C.amber)
+  );
+
+  const alerte=alertes.length>0?d({background:'#FEF9C3',border:'1px solid #FDE047',borderRadius:'12px',
+    padding:'14px 18px',display:'flex',alignItems:'center',gap:'10px',marginBottom:'18px'},
+    s({fontSize:'20px'},'⚠️'),
+    d({},
+      s({fontWeight:'700',fontSize:'14px',color:'#92400E'},`${alertes.length} prospect(s) sans mouvement depuis +60j : `),
+      s({fontSize:'13px',color:'#92400E'},alertes.map(p=>p.nom).join(', '))
+    )
+  ):null;
+
+  // Filters + new button
+  const filters=d({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'},
+    d({display:'flex',gap:'6px',flexWrap:'wrap'},
+      ...['tous','r1','r2','signe','perdu'].map(s2=>{
+        const active=state.filterStatut===s2;
+        const count=s2==='tous'?pros.length:pros.filter(p=>p.statut===s2).length;
+        const label=s2==='tous'?`Tous (${count})`:STATUS[s2]?`${STATUS[s2].label} (${count})`:s2;
+        return el('button',{
+          onclick:()=>{state.filterStatut=s2;render();},
+          style:{padding:'6px 14px',borderRadius:'20px',border:'1px solid',
+            borderColor:active?C.blue:C.g200,background:active?C.blueMd:C.white,
+            color:active?C.blue:C.slate,fontWeight:active?'700':'500',fontSize:'12px'}
+        },label);
+      })
+    ),
+    el('button',{
+      onclick:()=>{
+        state.form={nom:'',produits:[],dateR1:'',dateSignature:'',statut:'r1'};
+        state.editId=null;state.showForm=true;render();
+      },
+      style:{padding:'9px 18px',borderRadius:'10px',border:'none',background:C.blue,
+             color:C.white,fontWeight:'700',fontSize:'13px',boxShadow:'0 2px 8px rgba(37,99,235,.25)'}
+    },'+ Nouveau prospect')
+  );
+
+  // Table
+  let tableContent;
+  if(filtered.length===0){
+    tableContent=d({padding:'48px 24px',textAlign:'center',color:C.g400},
+      d({fontSize:'36px',marginBottom:'12px'},'👤'),
+      d({fontSize:'15px',fontWeight:'600',color:C.g600,marginBottom:'6px'},'Aucun prospect'),
+      d({fontSize:'13px'},'Cliquez sur "+ Nouveau prospect" pour commencer')
+    );
+  } else {
+    const thead2=el('thead',{},el('tr',{style:{background:C.blue}},
+      ...['Nom','Produit(s)','Statut','Date R1','Date signature','Durée cycle',''].map(h=>
+        el('th',{style:{padding:'12px 14px',color:C.white,fontSize:'12px',fontWeight:'600',whiteSpace:'nowrap'}},h))
+    ));
+    const tbody2=el('tbody',{},
+      ...filtered.map((p,i)=>{
+        const cycle=daysBetween(p.dateR1,p.statut==='signe'?p.dateSignature:today());
+        const isStale=(p.statut==='r1'||p.statut==='r2')&&cycle!==null&&cycle>60;
+        const tr=el('tr',{style:{borderTop:`1px solid ${C.g100}`,background:isStale?'#FFFBEB':i%2===0?C.white:C.g50}});
+
+        // Nom
+        tr.appendChild(el('td',{style:{padding:'11px 14px',fontWeight:'700',color:C.g800,fontSize:'14px'}},
+          p.nom, isStale?s({marginLeft:'6px',fontSize:'11px',color:C.amber},'⚠ inactif'):null));
+
+        // Produits
+        const prodCell=el('td',{style:{padding:'11px 14px'}});
+        const prodWrap=d({display:'flex',gap:'4px',flexWrap:'wrap'});
+        if(p.produits.length>0) p.produits.forEach(pr=>prodWrap.appendChild(
+          s({background:C.blueMd,color:C.blue,borderRadius:'20px',padding:'2px 9px',fontSize:'11px',fontWeight:'600'},pr)));
+        else prodWrap.appendChild(s({color:C.g400,fontSize:'12px'},'—'));
+        prodCell.appendChild(prodWrap);
+        tr.appendChild(prodCell);
+
+        // Statut buttons
+        const stCell=el('td',{style:{padding:'11px 14px'}});
+        const stWrap=d({display:'flex',gap:'4px',flexWrap:'wrap'});
+        Object.entries(STATUS).forEach(([key,cfg])=>{
+          const active=p.statut===key;
+          stWrap.appendChild(el('button',{
+            onclick:()=>{
+              const idx=state.prospects.findIndex(x=>x.id===p.id);
+              if(idx>=0){
+                state.prospects[idx]={...state.prospects[idx],statut:key};
+                if(key==='signe'&&!state.prospects[idx].dateSignature)
+                  state.prospects[idx].dateSignature=today();
+                fbSave('cgp-prospects',state.prospects,600);
+                render();
+              }
+            },
+            style:{padding:'3px 10px',borderRadius:'20px',
+              border:`1.5px solid ${active?cfg.color:C.g200}`,
+              background:active?cfg.bg:C.white,color:active?cfg.color:C.g400,
+              fontWeight:active?'700':'400',fontSize:'11px'}
+          },cfg.label));
+        });
+        stCell.appendChild(stWrap);
+        tr.appendChild(stCell);
+
+        // Dates + cycle
+        tr.appendChild(el('td',{style:{padding:'11px 14px',fontSize:'13px',color:C.g600}},p.dateR1||'—'));
+        tr.appendChild(el('td',{style:{padding:'11px 14px',fontSize:'13px',
+          color:p.statut==='signe'?C.green:C.g600,fontWeight:p.statut==='signe'?'700':'400'}},
+          p.dateSignature||'—'));
+        tr.appendChild(el('td',{style:{padding:'11px 14px'}},
+          cycle!==null?s({background:cycle>60?C.amberL:C.greenL,color:cycle>60?C.amber:C.green,
+            borderRadius:'8px',padding:'3px 10px',fontSize:'12px',fontWeight:'700'},
+            p.statut==='signe'?`${cycle}j`:`${cycle}j en cours`):'—'));
+
+        // Actions
+        const actCell=el('td',{style:{padding:'11px 14px',textAlign:'right'}});
+        const editBtn=el('button',{
+          onclick:()=>{state.form={...p};state.editId=p.id;state.showForm=true;render();},
+          style:{background:'none',border:'none',cursor:'pointer',fontSize:'15px',padding:'2px 6px',color:C.slate}
+        },'✏️');
+        const delBtn=el('button',{
+          onclick:()=>{
+            state.prospects=state.prospects.filter(x=>x.id!==p.id);
+            fbSave('cgp-prospects',state.prospects,600);render();
+          },
+          style:{background:'none',border:'none',cursor:'pointer',fontSize:'15px',padding:'2px 6px',color:C.red}
+        },'🗑');
+        actCell.appendChild(editBtn);actCell.appendChild(delBtn);
+        tr.appendChild(actCell);
+        return tr;
+      })
+    );
+    tableContent=d({overflowX:'auto'},el('table',{style:{minWidth:'780px'}},thead2,tbody2));
+  }
+
+  // Cycle stats
+  let cycleStats=null;
+  if(signes.length>0){
+    cycleStats=card({padding:'22px',marginTop:'18px'},
+      d({fontSize:'14px',fontWeight:'700',color:C.g800,marginBottom:'14px'},'⏱️ Cycles de conversion'),
+      d({display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:'12px'},
+        ...[
+          {label:'Cycle moyen R1→Signature',val:avgCycle!==null?`${avgCycle} jours`:'—',color:C.blue},
+          {label:'Cycle min',val:cycles.length>0?`${Math.min(...cycles)}j`:'—',color:C.green},
+          {label:'Cycle max',val:cycles.length>0?`${Math.max(...cycles)}j`:'—',color:C.red},
+          {label:'Clients signés',val:`${signes.length} / ${pros.length}`,color:C.green},
+        ].map(it=>d({background:C.g50,borderRadius:'12px',padding:'14px 16px',border:`1px solid ${C.g200}`},
+          d({fontSize:'11px',color:C.g400,marginBottom:'6px'},it.label),
+          d({fontSize:'22px',fontWeight:'800',color:it.color},it.val)
+        ))
+      )
+    );
+  }
+
+  // Form modal
+  let modal=null;
+  if(state.showForm){
+    const f=state.form;
+    const overlay=d({position:'fixed',inset:'0',background:'rgba(0,0,0,.45)',zIndex:'200',
+      display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'});
+    overlay.addEventListener('click',e=>{if(e.target===overlay){state.showForm=false;render();}});
+
+    const box=d({background:C.white,borderRadius:'18px',padding:'32px',width:'100%',maxWidth:'480px',
+      boxShadow:'0 20px 60px rgba(0,0,0,.2)'});
+
+    box.appendChild(d({fontSize:'17px',fontWeight:'800',color:C.g800,marginBottom:'22px'},
+      state.editId?'Modifier le prospect':'Nouveau prospect'));
+
+    // Nom
+    box.appendChild(d({marginBottom:'18px'},
+      d({fontSize:'12px',fontWeight:'600',color:C.g600,marginBottom:'6px'},'Nom complet *'),
+      (()=>{
+        const i=el('input',{type:'text',value:f.nom||'',placeholder:'Ex : Jean Dupont',
+          style:{width:'100%',border:`1.5px solid ${C.g200}`,borderRadius:'10px',padding:'10px 14px',
+                 fontSize:'14px',outline:'none',boxSizing:'border-box'}});
+        i.addEventListener('input',e=>{state.form.nom=e.target.value;});
+        i.addEventListener('focus',()=>{i.style.borderColor=C.blue;});
+        i.addEventListener('blur',()=>{i.style.borderColor=C.g200;});
+        return i;
+      })()
+    ));
+
+    // Produits
+    const prodWrap=d({marginBottom:'18px'},
+      d({fontSize:'12px',fontWeight:'600',color:C.g600,marginBottom:'8px'},'Produit(s) visé(s)'),
+      d({display:'flex',gap:'6px',flexWrap:'wrap'},
+        ...PRODUITS.map(pr=>{
+          const active=(f.produits||[]).includes(pr);
+          const b=el('button',{
+            onclick:()=>{
+              const cur=state.form.produits||[];
+              state.form.produits=cur.includes(pr)?cur.filter(x=>x!==pr):[...cur,pr];
+              render();
+            },
+            style:{padding:'5px 12px',borderRadius:'20px',border:`1.5px solid ${active?C.blue:C.g200}`,
+              background:active?C.blueMd:C.white,color:active?C.blue:C.g600,
+              fontWeight:active?'700':'400',fontSize:'12px'}
+          },pr);
+          return b;
+        })
+      )
+    );
+    box.appendChild(prodWrap);
+
+    // Dates
+    const datesWrap=d({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px',marginBottom:'18px'});
+    [{label:'Date R1',key:'dateR1'},{label:'Date signature',key:'dateSignature'}].forEach(fd=>{
+      const i=el('input',{type:'date',value:f[fd.key]||'',
+        style:{width:'100%',border:`1.5px solid ${C.g200}`,borderRadius:'10px',padding:'9px 12px',
+               fontSize:'13px',outline:'none',boxSizing:'border-box'}});
+      i.addEventListener('input',e=>{state.form[fd.key]=e.target.value;});
+      i.addEventListener('focus',()=>{i.style.borderColor=C.blue;});
+      i.addEventListener('blur',()=>{i.style.borderColor=C.g200;});
+      datesWrap.appendChild(d({},d({fontSize:'12px',fontWeight:'600',color:C.g600,marginBottom:'6px'},fd.label),i));
+    });
+    box.appendChild(datesWrap);
+
+    // Statut
+    box.appendChild(d({marginBottom:'24px'},
+      d({fontSize:'12px',fontWeight:'600',color:C.g600,marginBottom:'8px'},'Statut'),
+      d({display:'flex',gap:'6px',flexWrap:'wrap'},
+        ...Object.entries(STATUS).map(([key,cfg])=>{
+          const active=f.statut===key;
+          return el('button',{
+            onclick:()=>{state.form.statut=key;render();},
+            style:{padding:'6px 14px',borderRadius:'20px',border:`1.5px solid ${active?cfg.color:C.g200}`,
+              background:active?cfg.bg:C.white,color:active?cfg.color:C.g400,
+              fontWeight:active?'700':'400',fontSize:'12px'}
+          },cfg.label);
+        })
+      )
+    ));
+
+    // Buttons
+    box.appendChild(d({display:'flex',gap:'10px',justifyContent:'flex-end'},
+      el('button',{
+        onclick:()=>{state.showForm=false;render();},
+        style:{padding:'10px 20px',borderRadius:'10px',border:`1px solid ${C.g200}`,
+               background:C.white,color:C.slate,fontWeight:'600',fontSize:'13px'}
+      },'Annuler'),
+      el('button',{
+        onclick:()=>{
+          if(!state.form.nom.trim()) return;
+          if(state.editId){
+            const idx=state.prospects.findIndex(x=>x.id===state.editId);
+            if(idx>=0) state.prospects[idx]={...state.form,id:state.editId};
+          } else {
+            state.prospects.push({...state.form,id:Date.now()});
+          }
+          fbSave('cgp-prospects',state.prospects,600);
+          state.showForm=false;render();
+        },
+        style:{padding:'10px 22px',borderRadius:'10px',border:'none',background:C.blue,
+               color:C.white,fontWeight:'700',fontSize:'13px',boxShadow:'0 2px 8px rgba(37,99,235,.25)'}
+      },state.editId?'Enregistrer':'Ajouter')
+    ));
+
+    overlay.appendChild(box);
+    modal=overlay;
+  }
+
+  return d({},kpis,alerte,filters,card({overflow:'hidden'},tableContent),cycleStats,modal);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+async function boot(){
+  try {
+    const [wd,obj,pros]=await Promise.all([
+      fbLoad('cgp-weeks'),
+      fbLoad('cgp-objectives'),
+      fbLoad('cgp-prospects'),
+    ]);
+    if(wd)  state.weeks=wd;
+    if(obj) state.obj=obj;
+    if(pros) state.prospects=pros;
+    sb('sb-ok','✓ Synchronisé');
+  } catch(e){
+    sb('sb-error','⚠ Erreur de chargement – données locales utilisées');
+  }
+  render();
+}
+
+// Render immédiat, puis hydratation Firebase
+render();
+boot();
 </script>
 </body>
 </html>
