@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tableau de Bord CGP</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif; background: #F8FAFC; color: #1E293B; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { opacity: 1; }
+    #sync-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
+      height: 32px; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+      transition: background .3s, color .3s;
+    }
+    #sync-bar.loading { background: #F1F5F9; color: #64748B; }
+    #sync-bar.ok      { background: #ECFDF5; color: #059669; }
+    #sync-bar.saving  { background: #EFF6FF; color: #2563EB; }
+    #sync-bar.error   { background: #FEF2F2; color: #DC2626; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<div id="sync-bar" class="loading">⏳ Chargement…</div>
+
+<script type="module">
+  import { initializeApp }                     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, onAuthStateChanged }       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const FB_CONFIG = {
+    apiKey:            "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+    authDomain:        "hub-personnel-firebase.firebaseapp.com",
+    projectId:         "hub-personnel-firebase",
+    storageBucket:     "hub-personnel-firebase.firebasestorage.app",
+    messagingSenderId: "394129070920",
+    appId:             "1:394129070920:web:10f3303c22adcda47cf17d"
+  };
+
+  const app  = initializeApp(FB_CONFIG);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+  const bar  = document.getElementById('sync-bar');
+  const setBar = (cls, msg) => { bar.className = cls; bar.textContent = msg; };
+
+  onAuthStateChanged(auth, user => {
+    if (!user) { window.location.href = 'login.html'; return; }
+    window.__FB_DB    = db;
+    window.__FB_READY = true;
+    document.dispatchEvent(new Event('fb-ready'));
+  });
+
+  const timers = {};
+
+  window.fbSave = async function(col, payload, delay = 1200) {
+    clearTimeout(timers[col]);
+    timers[col] = setTimeout(async () => {
+      setBar('saving', '💾 Synchronisation…');
+      let tries = 0;
+      const attempt = async () => {
+        try {
+          await setDoc(doc(db, col, 'data'), { payload: JSON.stringify(payload), updatedAt: Date.now() });
+          setBar('ok', '✓ Synchronisé');
+        } catch (e) {
+          tries++;
+          setBar('error', `⚠ Erreur (tentative ${tries}) – retry dans 5s`);
+          if (tries < 5) setTimeout(attempt, 5000);
+          else { try { localStorage.setItem('cgp_' + col, JSON.stringify(payload)); } catch(_){} }
+        }
+      };
+      await attempt();
+    }, delay);
+  };
+
+  window.fbLoad = async function(col) {
+    try {
+      const snap = await getDoc(doc(db, col, 'data'));
+      if (snap.exists()) return JSON.parse(snap.data().payload);
+    } catch (e) {
+      const local = localStorage.getItem('cgp_' + col);
+      if (local) return JSON.parse(local);
+    }
+    return null;
+  };
+</script>
+
+<script type="text/babel">
+const { useState, useMemo, useEffect, useRef } = React;
+const { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+        Tooltip, Legend, ResponsiveContainer } = Recharts;
+
+// ── Palette ───────────────────────────────────────────────────────────────────
+const C = {
+  blue:"#2563EB", blueLt:"#EFF6FF", blueMd:"#DBEAFE",
+  indigo:"#6366F1", violet:"#7C3AED",
+  emerald:"#059669", emerLt:"#ECFDF5",
+  amber:"#D97706", amberLt:"#FFFBEB",
+  slate:"#64748B",
+  gray50:"#F8FAFC", gray100:"#F1F5F9", gray200:"#E2E8F0",
+  gray400:"#94A3B8", gray600:"#475569", gray800:"#1E293B",
+  white:"#FFFFFF",
+};
+
+// ── Config ────────────────────────────────────────────────────────────────────
+const QUARTERS = [
+  {label:"T1",weeks:[1,13]},{label:"T2",weeks:[14,26]},
+  {label:"T3",weeks:[27,39]},{label:"T4",weeks:[40,52]},
+];
+
+const CURRENT_WEEK = (() => {
+  const start = new Date('2026-01-05');
+  const diff  = Math.floor((new Date() - start) / (7*24*3600*1000)) + 1;
+  return Math.max(1, Math.min(52, diff));
+})();
+
+const KPI = [
+  {key:"r0",         label:"R0",          icon:"🔍", color:C.blue},
+  {key:"r1",         label:"R1",          icon:"📋", color:C.indigo},
+  {key:"r2",         label:"R2",          icon:"🎯", color:C.violet},
+  {key:"signatures", label:"Signatures",  icon:"✍️", color:C.emerald},
+  {key:"encours",    label:"Encours (€)", icon:"🏦", color:C.amber},
+  {key:"commissions",label:"Comm. (€)",   icon:"💰", color:C.emerald},
+  {key:"honoraires", label:"Honor. (€)",  icon:"📄", color:C.blue},
+];
+
+const PRODUITS = ["AV","SCPI","PER","Immobilier","Prévoyance","Défiscalisation","Autre"];
+
+const STATUS_CFG = {
+  r1:    {label:"R1",      color:"#6366F1", bg:"#EEF2FF"},
+  r2:    {label:"R2",      color:"#7C3AED", bg:"#F5F3FF"},
+  signe: {label:"Signé ✓", color:"#059669", bg:"#ECFDF5"},
+  perdu: {label:"Perdu",   color:"#DC2626", bg:"#FEF2F2"},
+};
+
+const DEFAULT_OBJ = {ca:25000, clients:24, encours:500000};
+const emptyWeeks  = () => Object.fromEntries(Array.from({length:52},(_,i)=>[i+1,{}]));
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmt = (v, euro=false) => {
+  if(v==null||v===""||isNaN(v)) return "–";
+  if(euro){
+    if(v>=1e6) return `${(v/1e6).toFixed(2).replace(".",",")} M€`;
+    if(v>=1e3) return `${(v/1e3).toFixed(0)}k€`;
+    return `${Number(v).toLocaleString("fr-FR")}€`;
+  }
+  return Number(v).toLocaleString("fr-FR");
+};
+const fmtFull = v => `${Number(v||0).toLocaleString("fr-FR")}€`;
+const nv  = v => v===""?0:Number(v)||0;
+const today = () => new Date().toISOString().split("T")[0];
+const daysBetween = (d1,d2) => {
+  if(!d1||!d2) return null;
+  return Math.round((new Date(d2)-new Date(d1))/(864e5));
+};
+const getTotals = data => {
+  const t={r0:0,r1:0,r2:0,signatures:0,encours:0,commissions:0,honoraires:0};
+  Object.values(data).forEach(v=>{ if(v) KPI.forEach(k=>{t[k.key]+=nv(v[k.key]);}); });
+  return t;
+};
+const getLastWeek = data => {
+  for(let w=52;w>=1;w--){ const d=data[w]; if(d&&KPI.some(k=>nv(d[k.key])>0)) return w; }
+  return 1;
+};
+
+// ── Shared components ─────────────────────────────────────────────────────────
+const Card = ({children, style={}}) => (
+  <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.gray200}`,
+               boxShadow:"0 1px 4px rgba(0,0,0,.05)",...style}}>{children}</div>
+);
+
+const TabBtn = ({active, onClick, children, icon}) => (
+  <button onClick={onClick} style={{
+    display:"flex",alignItems:"center",gap:8,padding:"10px 22px",
+    borderRadius:10,border:"none",fontFamily:"inherit",fontSize:14,fontWeight:600,
+    cursor:"pointer",transition:"all .2s",
+    background:active?C.blue:"transparent",color:active?C.white:C.slate,
+    boxShadow:active?"0 2px 8px rgba(37,99,235,.25)":"none",
+  }}><span>{icon}</span>{children}</button>
+);
+
+const KpiCard = ({icon, label, value, color, sub}) => (
+  <Card style={{padding:"20px 22px"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+      <span style={{fontSize:13,color:C.slate,fontWeight:500}}>{label}</span>
+      <div style={{width:38,height:38,borderRadius:10,background:color+"18",
+                   display:"grid",placeItems:"center",fontSize:20}}>{icon}</div>
+    </div>
+    <div style={{fontSize:28,fontWeight:800,color:C.gray800,letterSpacing:"-0.5px",margin:"8px 0 4px"}}>{value}</div>
+    {sub && <div style={{fontSize:12,color:C.gray400}}>{sub}</div>}
+  </Card>
+);
+
+const ChartTip = ({active,payload,label}) => {
+  if(!active||!payload?.length) return null;
+  return (
+    <div style={{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:10,
+                 padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,.08)",fontSize:13}}>
+      <div style={{fontWeight:700,color:C.gray800,marginBottom:6}}>{label}</div>
+      {payload.map(p=>(
+        <div key={p.dataKey} style={{display:"flex",gap:8,marginBottom:2}}>
+          <span style={{color:p.color}}>●</span>
+          <span style={{color:C.slate}}>{p.name}:</span>
+          <span style={{fontWeight:600,color:C.gray800}}>{p.value>=1000?fmt(p.value,true):p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ── Saisie Hebdo ──────────────────────────────────────────────────────────────
+function SaisieHebdo({data, onChange}) {
+  const [qIdx,setQIdx] = useState(0);
+  const q = QUARTERS[qIdx];
+  const weeks = Array.from({length:q.weeks[1]-q.weeks[0]+1},(_,i)=>q.weeks[0]+i);
+
+  const qTotals = useMemo(()=>{
+    const t={r0:0,r1:0,r2:0,signatures:0,encours:0,commissions:0,honoraires:0};
+    weeks.forEach(w=>{ const d=data[w]; if(d) KPI.forEach(k=>{t[k.key]+=nv(d[k.key]);}); });
+    return t;
+  },[data,qIdx]);
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
+        {[{color:C.blue,label:"R0 · Premier contact"},{color:C.indigo,label:"R1 · Prise d'info patrimoniale"},
+          {color:C.violet,label:"R2 · Présentation solution"},{color:C.emerald,label:"Signature DER + souscription"}
+        ].map(b=>(
+          <div key={b.label} style={{display:"flex",alignItems:"center",gap:6,background:C.white,
+               border:`1px solid ${C.gray200}`,borderRadius:20,padding:"5px 12px",fontSize:12,color:C.gray600}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:b.color}}/>{b.label}
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"flex",gap:8,marginBottom:18,alignItems:"center"}}>
+        <button onClick={()=>setQIdx(i=>Math.max(0,i-1))}
+          style={{width:32,height:32,borderRadius:8,border:`1px solid ${C.gray200}`,background:C.white,cursor:"pointer",fontSize:16,color:C.gray600}}>‹</button>
+        {QUARTERS.map((qq,i)=>(
+          <button key={qq.label} onClick={()=>setQIdx(i)} style={{
+            padding:"7px 16px",borderRadius:8,border:"1px solid",
+            borderColor:i===qIdx?C.blue:C.gray200,background:i===qIdx?C.blueMd:C.white,
+            color:i===qIdx?C.blue:C.slate,fontWeight:i===qIdx?700:500,fontSize:13,cursor:"pointer",fontFamily:"inherit",
+          }}>{qq.label} · S{qq.weeks[0]}–{qq.weeks[1]}</button>
+        ))}
+        <button onClick={()=>setQIdx(i=>Math.min(3,i+1))}
+          style={{width:32,height:32,borderRadius:8,border:`1px solid ${C.gray200}`,background:C.white,cursor:"pointer",fontSize:16,color:C.gray600}}>›</button>
+      </div>
+
+      <Card>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:960}}>
+            <thead>
+              <tr style={{background:C.blue}}>
+                <th style={{padding:"13px 16px",textAlign:"left",color:C.white,fontSize:13,fontWeight:700,minWidth:72}}>Sem.</th>
+                {KPI.map(k=>(
+                  <th key={k.key} style={{padding:"13px 8px",textAlign:"center",color:C.white,fontSize:11,fontWeight:600,minWidth:96}}>
+                    <div style={{fontSize:15}}>{k.icon}</div><div style={{marginTop:2}}>{k.label}</div>
+                  </th>
+                ))}
+                <th style={{padding:"13px 16px",textAlign:"left",color:C.white,fontSize:11,fontWeight:600,minWidth:240}}>
+                  <div>💬</div><div style={{marginTop:2}}>Commentaire</div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {weeks.map(w=>{
+                const d=data[w]||{};
+                const hasData=KPI.some(k=>nv(d[k.key])>0);
+                const isCurrent=w===CURRENT_WEEK;
+                return (
+                  <tr key={w} style={{
+                    background:isCurrent?"#FFF7ED":hasData?C.blueLt:C.white,
+                    borderTop:`1px solid ${C.gray100}`,
+                    boxShadow:isCurrent?`inset 0 0 0 2px ${C.amber}`:"none",
+                  }}>
+                    <td style={{padding:"9px 16px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:5}}>
+                        <span style={{
+                          background:isCurrent?C.amber:hasData?C.blue:C.gray200,
+                          color:(isCurrent||hasData)?C.white:C.slate,
+                          borderRadius:7,padding:"2px 9px",fontSize:12,fontWeight:700,
+                        }}>S{w}</span>
+                        {isCurrent&&<span style={{fontSize:9,color:C.amber,fontWeight:700}}>AUJ.</span>}
+                      </div>
+                    </td>
+                    {KPI.map(k=>(
+                      <td key={k.key} style={{padding:"7px 5px",textAlign:"center"}}>
+                        <input type="number" min="0"
+                          value={d[k.key]??""} placeholder="—"
+                          onChange={e=>onChange(w,k.key,e.target.value===""?"":Number(e.target.value))}
+                          style={{width:78,textAlign:"center",border:`1.5px solid ${C.gray200}`,borderRadius:8,
+                                  padding:"7px 4px",fontSize:13,outline:"none",background:C.white,color:C.gray800,fontFamily:"inherit"}}
+                          onFocus={e=>e.target.style.borderColor=k.color}
+                          onBlur={e=>e.target.style.borderColor=C.gray200}
+                        />
+                      </td>
+                    ))}
+                    <td style={{padding:"7px 10px"}}>
+                      <input type="text"
+                        value={d.commentaire??""}
+                        onChange={e=>onChange(w,"commentaire",e.target.value)}
+                        placeholder="Qui avez-vous vu ? Notes…"
+                        style={{width:"100%",border:`1.5px solid ${C.gray200}`,borderRadius:8,padding:"7px 10px",
+                                fontSize:12,outline:"none",background:C.white,color:C.gray800,fontFamily:"inherit",boxSizing:"border-box"}}
+                        onFocus={e=>e.target.style.borderColor=C.amber}
+                        onBlur={e=>e.target.style.borderColor=C.gray200}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{background:C.gray800}}>
+                <td style={{padding:"12px 16px",color:C.white,fontWeight:700,fontSize:13}}>Total {q.label}</td>
+                {KPI.map(k=>(
+                  <td key={k.key} style={{padding:"12px 5px",textAlign:"center",color:C.white,fontWeight:700,fontSize:13}}>
+                    {["encours","commissions","honoraires"].includes(k.key)?fmt(qTotals[k.key],true):qTotals[k.key]}
+                  </td>
+                ))}
+                <td/>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function Dashboard({data}) {
+  const totals   = useMemo(()=>getTotals(data),[data]);
+  const lastWeek = getLastWeek(data);
+  const caTotal  = totals.commissions + totals.honoraires;
+
+  const chartData = useMemo(()=>{
+    let cum=0;
+    return Array.from({length:lastWeek},(_,i)=>{
+      const w=i+1; const d=data[w]||{};
+      cum+=nv(d.commissions)+nv(d.honoraires);
+      return {name:`S${w}`,R0:nv(d.r0),R1:nv(d.r1),R2:nv(d.r2),Signatures:nv(d.signatures),"CA Cumulé":cum};
+    });
+  },[data,lastWeek]);
+
+  const conv = {
+    r0r1:  totals.r0>0?((totals.r1/totals.r0)*100).toFixed(0):"–",
+    r1r2:  totals.r1>0?((totals.r2/totals.r1)*100).toFixed(0):"–",
+    r2sig: totals.r2>0?((totals.signatures/totals.r2)*100).toFixed(0):"–",
+    encAvg: totals.signatures>0?Math.round(totals.encours/totals.signatures):0,
+    caAvg:  totals.signatures>0?Math.round(caTotal/totals.signatures):0,
+  };
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(195px,1fr))",gap:14}}>
+        <KpiCard icon="🔍" label="R0 Prospects"      value={totals.r0}                  color={C.blue}    sub={`${totals.r1} passés en R1`}/>
+        <KpiCard icon="🎯" label="R2 Présentations"  value={totals.r2}                  color={C.violet}  sub={`${totals.signatures} signatures`}/>
+        <KpiCard icon="✍️" label="Nouveaux clients"  value={totals.signatures}           color={C.emerald} sub="Signatures finalisées"/>
+        <KpiCard icon="🏦" label="Encours collectés" value={fmt(totals.encours,true)}    color={C.amber}   sub={`Moy. ${fmt(conv.encAvg,true)}/client`}/>
+        <KpiCard icon="💰" label="Commissions"       value={fmt(totals.commissions,true)} color={C.emerald} sub="Rétrocessions"/>
+        <KpiCard icon="📄" label="Honoraires"        value={fmt(totals.honoraires,true)}  color={C.blue}   sub={`CA total : ${fmt(caTotal,true)}`}/>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        <Card style={{padding:22}}>
+          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>📅 Pipeline RDV (R0 → R1 → R2)</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData}>
+              <defs>
+                {[["gR0",C.blue],["gR1",C.indigo],["gR2",C.violet]].map(([id,col])=>(
+                  <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={col} stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor={col} stopOpacity={0}/>
+                  </linearGradient>
+                ))}
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.gray100}/>
+              <XAxis dataKey="name" tick={{fontSize:11,fill:C.gray400}}/>
+              <YAxis tick={{fontSize:11,fill:C.gray400}}/>
+              <Tooltip content={<ChartTip/>}/>
+              <Legend wrapperStyle={{fontSize:12}}/>
+              <Area type="monotone" dataKey="R0" stroke={C.blue}   fill="url(#gR0)" strokeWidth={2} dot={{r:3}}/>
+              <Area type="monotone" dataKey="R1" stroke={C.indigo} fill="url(#gR1)" strokeWidth={2} dot={{r:3}}/>
+              <Area type="monotone" dataKey="R2" stroke={C.violet} fill="url(#gR2)" strokeWidth={2} dot={{r:3}}/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card style={{padding:22}}>
+          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>💰 CA cumulé</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="gCA" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={C.emerald} stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor={C.emerald} stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.gray100}/>
+              <XAxis dataKey="name" tick={{fontSize:11,fill:C.gray400}}/>
+              <YAxis tick={{fontSize:11,fill:C.gray400}} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
+              <Tooltip content={<ChartTip/>}/>
+              <Area type="monotone" dataKey="CA Cumulé" stroke={C.emerald} fill="url(#gCA)" strokeWidth={2.5} dot={{r:3,fill:C.emerald}}/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        <Card style={{padding:22}}>
+          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>🔄 Signatures par semaine</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.gray100}/>
+              <XAxis dataKey="name" tick={{fontSize:11,fill:C.gray400}}/>
+              <YAxis tick={{fontSize:11,fill:C.gray400}}/>
+              <Tooltip content={<ChartTip/>}/>
+              <Bar dataKey="Signatures" fill={C.emerald} radius={[4,4,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card style={{padding:22}}>
+          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>📐 Taux de conversion</h3>
+          <div style={{display:"flex",flexDirection:"column",gap:9,marginTop:6}}>
+            {[
+              {label:"R0 → R1",               value:conv.r0r1+(conv.r0r1!=="–"?"%":""),    detail:`${totals.r1}/${totals.r0}`,        color:C.blue},
+              {label:"R1 → R2",               value:conv.r1r2+(conv.r1r2!=="–"?"%":""),    detail:`${totals.r2}/${totals.r1}`,        color:C.indigo},
+              {label:"R2 → Signature",         value:conv.r2sig+(conv.r2sig!=="–"?"%":""),  detail:`${totals.signatures}/${totals.r2}`, color:C.emerald},
+              {label:"Encours moyen / client", value:fmt(conv.encAvg,true),                 detail:"",                                  color:C.amber},
+              {label:"CA moyen / client",      value:fmt(conv.caAvg,true),                  detail:"",                                  color:C.violet},
+            ].map(item=>(
+              <div key={item.label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                   padding:"10px 14px",borderRadius:10,background:C.gray50}}>
+                <span style={{fontSize:13,color:C.gray600,fontWeight:500}}>{item.label}</span>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:20,fontWeight:800,color:item.color,letterSpacing:"-0.5px"}}>{item.value}</div>
+                  {item.detail&&<div style={{fontSize:11,color:C.gray400}}>{item.detail}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ── Objectifs ─────────────────────────────────────────────────────────────────
+function Objectifs({data, objectives, onObjChange}) {
+  const totals   = useMemo(()=>getTotals(data),[data]);
+  const lastWeek = getLastWeek(data);
+  const caTotal  = totals.commissions + totals.honoraires;
+  const weeksLeft = Math.max(52-lastWeek,1);
+  const encPerClient = objectives.clients>0?Math.round(objectives.encours/objectives.clients):0;
+  const caPerClient  = Math.round(encPerClient*0.05);
+  const projCa       = lastWeek>0?Math.round((caTotal/lastWeek)*52):0;
+
+  const items = [
+    {label:"CA (commissions + honoraires)", current:caTotal,           target:objectives.ca,      color:C.emerald, euro:true},
+    {label:"Nouveaux clients (signatures)", current:totals.signatures,  target:objectives.clients, color:C.blue,    euro:false},
+    {label:"Encours collectés",             current:totals.encours,    target:objectives.encours,  color:C.amber,   euro:true},
+  ];
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:20}}>
+      <Card style={{padding:26}}>
+        <h3 style={{margin:"0 0 4px",fontSize:15,fontWeight:700,color:C.gray800}}>🎯 Vos 3 objectifs annuels</h3>
+        <p style={{margin:"0 0 22px",fontSize:13,color:C.gray400}}>Les indicateurs dérivés sont calculés automatiquement</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
+          {[
+            {key:"ca",      label:"CA annuel",         icon:"💶", color:C.emerald, desc:"Commissions + honoraires"},
+            {key:"clients", label:"Nouveaux clients",  icon:"👤", color:C.blue,    desc:"Signatures dans l'année"},
+            {key:"encours", label:"Encours collectés", icon:"🏦", color:C.amber,   desc:"Total souscriptions"},
+          ].map(f=>(
+            <div key={f.key} style={{border:`2px solid ${f.color}30`,borderRadius:14,padding:"18px 20px",background:f.color+"06"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                <span style={{fontSize:22}}>{f.icon}</span>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.gray800}}>{f.label}</div>
+                  <div style={{fontSize:11,color:C.gray400}}>{f.desc}</div>
+                </div>
+              </div>
+              <input type="number" min="0"
+                value={objectives[f.key]||""}
+                onChange={e=>onObjChange(f.key,e.target.value===""?0:Number(e.target.value))}
+                style={{width:"100%",padding:"12px 0",borderRadius:10,border:`2px solid ${f.color}40`,background:C.white,
+                        fontSize:24,fontWeight:800,color:f.color,textAlign:"center",outline:"none",
+                        boxSizing:"border-box",fontFamily:"inherit"}}
+                onFocus={e=>e.target.style.borderColor=f.color}
+                onBlur={e=>e.target.style.borderColor=f.color+"40"}
+              />
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card style={{padding:24}}>
+        <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700,color:C.gray800}}>🔢 Indicateurs dérivés</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
+          {[
+            {label:"CA moyen / client cible",     value:fmtFull(caPerClient),               icon:"💰", color:C.emerald},
+            {label:"Encours moyen / client cible", value:fmtFull(encPerClient),              icon:"🏦", color:C.amber},
+            {label:"Clients / mois à signer",      value:(objectives.clients/12).toFixed(1), icon:"📅", color:C.blue},
+            {label:"Taux rémunération moyen",       value:"5,0%",                            icon:"📐", color:C.violet},
+          ].map(item=>(
+            <div key={item.label} style={{background:C.gray50,borderRadius:12,padding:"14px 16px",border:`1px solid ${C.gray200}`}}>
+              <div style={{fontSize:11,color:C.gray400,marginBottom:6}}>{item.icon} {item.label}</div>
+              <div style={{fontSize:22,fontWeight:800,color:item.color,letterSpacing:"-0.5px"}}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card style={{padding:26}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <h3 style={{margin:0,fontSize:15,fontWeight:700,color:C.gray800}}>📊 Progression</h3>
+          <span style={{background:C.blueMd,color:C.blue,fontWeight:700,fontSize:12,padding:"5px 12px",borderRadius:999}}>
+            Semaine {lastWeek} / 52
+          </span>
+        </div>
+        {items.map(({label,current,target,color,euro})=>{
+          const p = target>0?Math.min((current/target)*100,100):0;
+          const isAhead = p>=(lastWeek/52)*100;
+          return (
+            <div key={label} style={{marginBottom:20}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}>
+                <span style={{fontSize:14,fontWeight:600,color:C.gray800}}>{label}</span>
+                <span style={{fontSize:13,color:C.gray600}}>{euro?fmtFull(current):current} / {euro?fmtFull(target):target}</span>
+              </div>
+              <div style={{background:C.gray100,borderRadius:999,height:10}}>
+                <div style={{width:`${p}%`,height:"100%",borderRadius:999,background:color,transition:"width .5s"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:5}}>
+                <span style={{fontSize:12,color:C.gray400}}>{p.toFixed(1)}% atteint</span>
+                <span style={{fontSize:12,fontWeight:600,color:isAhead?C.emerald:C.amber}}>
+                  {isAhead?"✓ En avance":"⚠ En retard"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+
+      <div style={{background:"linear-gradient(135deg,#1D4ED8 0%,#2563EB 60%,#3B82F6 100%)",borderRadius:16,
+                   padding:26,color:C.white,boxShadow:"0 4px 20px rgba(37,99,235,.25)"}}>
+        <h3 style={{margin:"0 0 18px",fontSize:15,fontWeight:700}}>💡 Analyse de votre rythme</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(185px,1fr))",gap:14}}>
+          {[
+            {label:"Projection CA annuel",    value:fmtFull(projCa),                                               sub:"Sur votre rythme actuel"},
+            {label:"Écart vs objectif CA",    value:(projCa>=objectives.ca?"+":"")+fmtFull(projCa-objectives.ca), sub:"Projection vs cible"},
+            {label:"CA restant à faire",      value:fmtFull(Math.max(objectives.ca-caTotal,0)),                   sub:`Sur ${weeksLeft} semaines restantes`},
+            {label:"Clients encore à signer", value:Math.max(objectives.clients-totals.signatures,0),             sub:`Objectif : ${objectives.clients} sur l'année`},
+          ].map(item=>(
+            <div key={item.label} style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"16px 18px"}}>
+              <div style={{fontSize:11,opacity:0.75,marginBottom:8,fontWeight:500}}>{item.label}</div>
+              <div style={{fontSize:24,fontWeight:800,letterSpacing:"-0.5px"}}>{item.value}</div>
+              <div style={{fontSize:11,opacity:0.55,marginTop:5}}>{item.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Cohorte ───────────────────────────────────────────────────────────────────
+function Cohorte({prospects, setProspects}) {
+  const [showForm,setShowForm] = useState(false);
+  const [editId,setEditId]     = useState(null);
+  const [form,setForm]         = useState({nom:"",produits:[],dateR1:"",dateSignature:"",statut:"r1"});
+  const [filter,setFilter]     = useState("tous");
+
+  const openNew  = () => { setForm({nom:"",produits:[],dateR1:"",dateSignature:"",statut:"r1"}); setEditId(null); setShowForm(true); };
+  const openEdit = p  => { setForm({...p}); setEditId(p.id); setShowForm(true); };
+  const save = () => {
+    if(!form.nom.trim()) return;
+    if(editId) setProspects(ps=>ps.map(p=>p.id===editId?{...form,id:editId}:p));
+    else       setProspects(ps=>[...ps,{...form,id:Date.now()}]);
+    setShowForm(false);
+  };
+  const remove    = id => setProspects(ps=>ps.filter(p=>p.id!==id));
+  const setStatut = (id,statut) => setProspects(ps=>ps.map(p=>{
+    if(p.id!==id) return p;
+    const upd={...p,statut};
+    if(statut==="signe"&&!p.dateSignature) upd.dateSignature=today();
+    return upd;
+  }));
+
+  const filtered = filter==="tous"?prospects:prospects.filter(p=>p.statut===filter);
+  const signes   = prospects.filter(p=>p.statut==="signe");
+  const enCours  = prospects.filter(p=>p.statut==="r1"||p.statut==="r2");
+  const cycles   = signes.map(p=>daysBetween(p.dateR1,p.dateSignature)).filter(d=>d!==null);
+  const avgCycle = cycles.length>0?Math.round(cycles.reduce((a,b)=>a+b,0)/cycles.length):null;
+  const alertes  = enCours.filter(p=>p.dateR1&&daysBetween(p.dateR1,today())>60);
+
+  const setF       = (k,v) => setForm(f=>({...f,[k]:v}));
+  const toggleProd = pr    => setF("produits",form.produits.includes(pr)?form.produits.filter(x=>x!==pr):[...form.produits,pr]);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14}}>
+        <KpiCard icon="👤" label="Total prospects" value={prospects.length} color={C.blue}/>
+        <KpiCard icon="🔄" label="En cours"        value={enCours.length}  color={C.violet}/>
+        <KpiCard icon="✍️" label="Signés"          value={signes.length}   color={C.emerald}/>
+        <KpiCard icon="⏱️" label="Cycle moyen"     value={avgCycle!==null?`${avgCycle}j`:"—"} color={C.amber}/>
+      </div>
+
+      {alertes.length>0&&(
+        <div style={{background:"#FEF9C3",border:"1px solid #FDE047",borderRadius:12,padding:"14px 18px",
+                     display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:20}}>⚠️</span>
+          <div>
+            <span style={{fontWeight:700,fontSize:14,color:"#92400E"}}>{alertes.length} prospect(s) sans mouvement depuis +60j : </span>
+            <span style={{fontSize:13,color:"#92400E"}}>{alertes.map(p=>p.nom).join(", ")}</span>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {["tous","r1","r2","signe","perdu"].map(s=>(
+            <button key={s} onClick={()=>setFilter(s)} style={{
+              padding:"6px 14px",borderRadius:20,border:"1px solid",
+              borderColor:filter===s?C.blue:C.gray200,background:filter===s?C.blueMd:C.white,
+              color:filter===s?C.blue:C.slate,fontWeight:filter===s?700:500,fontSize:12,cursor:"pointer",fontFamily:"inherit",
+            }}>
+              {s==="tous"?`Tous (${prospects.length})`:`${STATUS_CFG[s].label} (${prospects.filter(p=>p.statut===s).length})`}
+            </button>
+          ))}
+        </div>
+        <button onClick={openNew} style={{
+          display:"flex",alignItems:"center",gap:8,padding:"9px 18px",borderRadius:10,border:"none",
+          background:C.blue,color:C.white,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",
+          boxShadow:"0 2px 8px rgba(37,99,235,.25)",
+        }}>+ Nouveau prospect</button>
+      </div>
+
+      <Card>
+        {filtered.length===0?(
+          <div style={{padding:"48px 24px",textAlign:"center",color:C.gray400}}>
+            <div style={{fontSize:36,marginBottom:12}}>👤</div>
+            <div style={{fontSize:15,fontWeight:600,color:C.gray600,marginBottom:6}}>Aucun prospect</div>
+            <div style={{fontSize:13}}>Cliquez sur "+ Nouveau prospect" pour commencer</div>
+          </div>
+        ):(
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:780}}>
+              <thead>
+                <tr style={{background:C.blue}}>
+                  {["Nom","Produit(s)","Statut","Date R1","Date signature","Durée cycle",""].map(h=>(
+                    <th key={h} style={{padding:"12px 14px",textAlign:"left",color:C.white,fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p,i)=>{
+                  const cycle = daysBetween(p.dateR1, p.statut==="signe"?p.dateSignature:today());
+                  const isStale = (p.statut==="r1"||p.statut==="r2")&&cycle!==null&&cycle>60;
+                  return (
+                    <tr key={p.id} style={{borderTop:`1px solid ${C.gray100}`,background:isStale?"#FFFBEB":i%2===0?C.white:C.gray50}}>
+                      <td style={{padding:"11px 14px",fontWeight:700,color:C.gray800,fontSize:14}}>
+                        {p.nom}
+                        {isStale&&<span style={{marginLeft:6,fontSize:11,color:C.amber}}>⚠ inactif</span>}
+                      </td>
+                      <td style={{padding:"11px 14px"}}>
+                        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                          {p.produits.length>0?p.produits.map(pr=>(
+                            <span key={pr} style={{background:C.blueMd,color:C.blue,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:600}}>{pr}</span>
+                          )):<span style={{color:C.gray400,fontSize:12}}>—</span>}
+                        </div>
+                      </td>
+                      <td style={{padding:"11px 14px"}}>
+                        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                          {Object.entries(STATUS_CFG).map(([key,cfg])=>(
+                            <button key={key} onClick={()=>setStatut(p.id,key)} style={{
+                              padding:"3px 10px",borderRadius:20,border:`1.5px solid ${p.statut===key?cfg.color:C.gray200}`,
+                              background:p.statut===key?cfg.bg:C.white,color:p.statut===key?cfg.color:C.gray400,
+                              fontWeight:p.statut===key?700:400,fontSize:11,cursor:"pointer",fontFamily:"inherit",
+                            }}>{cfg.label}</button>
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{padding:"11px 14px",fontSize:13,color:C.gray600}}>{p.dateR1||"—"}</td>
+                      <td style={{padding:"11px 14px",fontSize:13,color:p.statut==="signe"?C.emerald:C.gray600,
+                                  fontWeight:p.statut==="signe"?700:400}}>
+                        {p.dateSignature||"—"}
+                      </td>
+                      <td style={{padding:"11px 14px"}}>
+                        {cycle!==null?(
+                          <span style={{background:cycle>60?C.amberLt:C.emerLt,color:cycle>60?C.amber:C.emerald,
+                                        borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:700}}>
+                            {p.statut==="signe"?`${cycle}j`:`${cycle}j en cours`}
+                          </span>
+                        ):"—"}
+                      </td>
+                      <td style={{padding:"11px 14px",textAlign:"right"}}>
+                        <button onClick={()=>openEdit(p)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:"2px 6px",color:C.slate}}>✏️</button>
+                        <button onClick={()=>remove(p.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:"2px 6px",color:"#DC2626"}}>🗑</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {signes.length>0&&(
+        <Card style={{padding:22}}>
+          <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:C.gray800}}>⏱️ Cycles de conversion</h3>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
+            {[
+              {label:"Cycle moyen R1→Signature", value:avgCycle!==null?`${avgCycle} jours`:"—",          color:C.blue},
+              {label:"Cycle min",                value:cycles.length>0?`${Math.min(...cycles)}j`:"—",     color:C.emerald},
+              {label:"Cycle max",                value:cycles.length>0?`${Math.max(...cycles)}j`:"—",     color:"#DC2626"},
+              {label:"Clients signés",           value:`${signes.length} / ${prospects.length}`,           color:C.emerald},
+            ].map(item=>(
+              <div key={item.label} style={{background:C.gray50,borderRadius:12,padding:"14px 16px",border:`1px solid ${C.gray200}`}}>
+                <div style={{fontSize:11,color:C.gray400,marginBottom:6}}>{item.label}</div>
+                <div style={{fontSize:22,fontWeight:800,color:item.color}}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {showForm&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:200,display:"flex",
+                     alignItems:"center",justifyContent:"center",padding:20}}
+          onClick={e=>{if(e.target===e.currentTarget)setShowForm(false);}}>
+          <div style={{background:C.white,borderRadius:18,padding:32,width:"100%",maxWidth:480,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
+            <h3 style={{margin:"0 0 22px",fontSize:17,fontWeight:800,color:C.gray800}}>
+              {editId?"Modifier le prospect":"Nouveau prospect"}
+            </h3>
+            <div style={{marginBottom:18}}>
+              <label style={{fontSize:12,fontWeight:600,color:C.gray600,display:"block",marginBottom:6}}>Nom complet *</label>
+              <input value={form.nom} onChange={e=>setF("nom",e.target.value)} placeholder="Ex : Jean Dupont"
+                style={{width:"100%",border:`1.5px solid ${C.gray200}`,borderRadius:10,padding:"10px 14px",fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}
+                onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.gray200}/>
+            </div>
+            <div style={{marginBottom:18}}>
+              <label style={{fontSize:12,fontWeight:600,color:C.gray600,display:"block",marginBottom:8}}>Produit(s) visé(s)</label>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {PRODUITS.map(pr=>(
+                  <button key={pr} onClick={()=>toggleProd(pr)} style={{
+                    padding:"5px 12px",borderRadius:20,border:`1.5px solid ${form.produits.includes(pr)?C.blue:C.gray200}`,
+                    background:form.produits.includes(pr)?C.blueMd:C.white,
+                    color:form.produits.includes(pr)?C.blue:C.gray600,
+                    fontWeight:form.produits.includes(pr)?700:400,fontSize:12,cursor:"pointer",fontFamily:"inherit",
+                  }}>{pr}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
+              {[{label:"Date R1",key:"dateR1"},{label:"Date signature",key:"dateSignature"}].map(f=>(
+                <div key={f.key}>
+                  <label style={{fontSize:12,fontWeight:600,color:C.gray600,display:"block",marginBottom:6}}>{f.label}</label>
+                  <input type="date" value={form[f.key]} onChange={e=>setF(f.key,e.target.value)}
+                    style={{width:"100%",border:`1.5px solid ${C.gray200}`,borderRadius:10,padding:"9px 12px",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}
+                    onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.gray200}/>
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:24}}>
+              <label style={{fontSize:12,fontWeight:600,color:C.gray600,display:"block",marginBottom:8}}>Statut</label>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {Object.entries(STATUS_CFG).map(([key,cfg])=>(
+                  <button key={key} onClick={()=>setF("statut",key)} style={{
+                    padding:"6px 14px",borderRadius:20,border:`1.5px solid ${form.statut===key?cfg.color:C.gray200}`,
+                    background:form.statut===key?cfg.bg:C.white,color:form.statut===key?cfg.color:C.gray400,
+                    fontWeight:form.statut===key?700:400,fontSize:12,cursor:"pointer",fontFamily:"inherit",
+                  }}>{cfg.label}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <button onClick={()=>setShowForm(false)} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${C.gray200}`,background:C.white,color:C.slate,fontWeight:600,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>Annuler</button>
+              <button onClick={save} style={{padding:"10px 22px",borderRadius:10,border:"none",background:C.blue,color:C.white,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(37,99,235,.25)"}}>
+                {editId?"Enregistrer":"Ajouter"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Root ──────────────────────────────────────────────────────────────────────
+function CGPTracker() {
+  const [tab,setTab]             = useState("saisie");
+  const [weekData,setWeekData]   = useState(emptyWeeks());
+  const [objectives,setObj]      = useState({...DEFAULT_OBJ});
+  const [prospects,setProspects] = useState([]);
+  const [ready,setReady]         = useState(false);
+
+  // ── Firebase boot ────────────────────────────────────────────────────────
+  useEffect(()=>{
+    const boot = async () => {
+      try {
+        const [wd,obj,pros] = await Promise.all([
+          window.fbLoad('cgp-weeks'),
+          window.fbLoad('cgp-objectives'),
+          window.fbLoad('cgp-prospects'),
+        ]);
+        if(wd)   setWeekData(wd);
+        if(obj)  setObj(obj);
+        if(pros) setProspects(pros);
+        const bar=document.getElementById('sync-bar');
+        bar.className='ok'; bar.textContent='✓ Synchronisé';
+      } catch(e) {
+        const bar=document.getElementById('sync-bar');
+        bar.className='error'; bar.textContent='⚠ Erreur de chargement';
+      } finally { setReady(true); }
+    };
+    if(window.__FB_READY) boot();
+    else document.addEventListener('fb-ready', boot, {once:true});
+  },[]);
+
+  // ── Auto-save (skip first render after load) ─────────────────────────────
+  const init = useRef({w:true, o:true, p:true});
+
+  useEffect(()=>{
+    if(!ready) return;
+    if(init.current.w){ init.current.w=false; return; }
+    window.fbSave('cgp-weeks', weekData);
+  },[weekData, ready]);
+
+  useEffect(()=>{
+    if(!ready) return;
+    if(init.current.o){ init.current.o=false; return; }
+    window.fbSave('cgp-objectives', objectives, 800);
+  },[objectives, ready]);
+
+  useEffect(()=>{
+    if(!ready) return;
+    if(init.current.p){ init.current.p=false; return; }
+    window.fbSave('cgp-prospects', prospects, 600);
+  },[prospects, ready]);
+
+  const onChange    = (w,k,v) => setWeekData(p=>({...p,[w]:{...(p[w]||{}),[k]:v}}));
+  const onObjChange = (k,v)   => setObj(p=>({...p,[k]:v}));
+
+  const TABS = [
+    {id:"saisie",    label:"Saisie Hebdo", icon:"📅"},
+    {id:"dashboard", label:"Dashboard",    icon:"📈"},
+    {id:"objectifs", label:"Objectifs",    icon:"🎯"},
+    {id:"cohorte",   label:"Prospects",    icon:"👤"},
+  ];
+  const TITLES = {
+    saisie:    "Saisie de votre activité hebdomadaire",
+    dashboard: "Vue d'ensemble de votre activité",
+    objectifs: "Suivi de vos objectifs annuels",
+    cohorte:   "Suivi individuel des prospects",
+  };
+  const SUBS = {
+    saisie:    "Pipeline R0 → R1 → R2 → Signature · Semaine courante surlignée en orange",
+    dashboard: "KPIs, graphiques et taux de conversion calculés automatiquement",
+    objectifs: "3 objectifs clés · indicateurs dérivés calculés automatiquement",
+    cohorte:   "De la prise de contact jusqu'à la signature · cycle moyen et alertes inactivité",
+  };
+
+  if(!ready) return (
+    <div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:C.gray50}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:36,marginBottom:12}}>📋</div>
+        <div style={{fontSize:16,fontWeight:600,color:C.gray600}}>Chargement de vos données…</div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{minHeight:"100vh",background:C.gray50,paddingBottom:40}}>
+      <div style={{background:C.white,borderBottom:`1px solid ${C.gray200}`,padding:"0 32px",
+                   position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+        <div style={{maxWidth:1200,margin:"0 auto"}}>
+          <div style={{padding:"18px 0 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <h1 style={{margin:0,fontSize:22,fontWeight:800,color:C.gray800,letterSpacing:"-0.5px"}}>📋 Tableau de Bord CGP</h1>
+              <p style={{margin:"3px 0 0",fontSize:12,color:C.gray400}}>Pilotez votre activité patrimoniale · Année 2026</p>
+            </div>
+            <a href="index.html" style={{fontSize:13,color:C.slate,textDecoration:"none",fontWeight:500,
+               display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:8,
+               border:`1px solid ${C.gray200}`,background:C.white}}>← Hub</a>
+          </div>
+          <div style={{display:"flex",gap:4,paddingBottom:4}}>
+            {TABS.map(t=><TabBtn key={t.id} active={tab===t.id} onClick={()=>setTab(t.id)} icon={t.icon}>{t.label}</TabBtn>)}
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:1200,margin:"0 auto",padding:"26px 32px 60px"}}>
+        <div style={{marginBottom:22}}>
+          <h2 style={{margin:0,fontSize:18,fontWeight:700,color:C.gray800}}>{TITLES[tab]}</h2>
+          <p style={{margin:"4px 0 0",fontSize:13,color:C.gray400}}>{SUBS[tab]}</p>
+        </div>
+        {tab==="saisie"    && <SaisieHebdo data={weekData} onChange={onChange}/>}
+        {tab==="dashboard" && <Dashboard   data={weekData}/>}
+        {tab==="objectifs" && <Objectifs   data={weekData} objectives={objectives} onObjChange={onObjChange}/>}
+        {tab==="cohorte"   && <Cohorte     prospects={prospects} setProspects={setProspects}/>}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<CGPTracker/>);
+</script>
+</body>
+</html>
