@@ -9,6 +9,8 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif; background: #F8FAFC; color: #1E293B; }
@@ -30,10 +32,7 @@
 <div id="root"></div>
 <div id="sync-bar" class="loading">⏳ Chargement…</div>
 
-<script type="module">
-  import { initializeApp }                     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
+<script>
   const FB_CONFIG = {
     apiKey:            "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
     authDomain:        "hub-personnel-firebase.firebaseapp.com",
@@ -43,30 +42,27 @@
     appId:             "1:394129070920:web:10f3303c22adcda47cf17d"
   };
 
-  const app = initializeApp(FB_CONFIG);
-  const db  = getFirestore(app);
+  firebase.initializeApp(FB_CONFIG);
+  const db  = firebase.firestore();
   const bar = document.getElementById('sync-bar');
-  const setBar = (cls, msg) => { bar.className = cls; bar.textContent = msg; };
-
-  window.__FB_DB    = db;
-  window.__FB_READY = true;
-  document.dispatchEvent(new Event('fb-ready'));
+  const setBar = (cls, msg) => { if(bar){ bar.className = cls; bar.textContent = msg; } };
 
   const timers = {};
 
-  window.fbSave = async function(col, payload, delay = 1200) {
+  window.fbSave = function(col, payload, delay) {
+    delay = delay || 1200;
     clearTimeout(timers[col]);
-    timers[col] = setTimeout(async () => {
+    timers[col] = setTimeout(async function() {
       setBar('saving', '💾 Synchronisation…');
       let tries = 0;
       const attempt = async () => {
         try {
-          await setDoc(doc(db, col, 'data'), { payload: JSON.stringify(payload), updatedAt: Date.now() });
+          await db.collection(col).doc('data').set({ payload: JSON.stringify(payload), updatedAt: Date.now() });
           setBar('ok', '✓ Synchronisé');
-        } catch (e) {
+        } catch(e) {
           tries++;
-          setBar('error', `⚠ Erreur (tentative ${tries}) – retry dans 5s`);
-          if (tries < 5) setTimeout(attempt, 5000);
+          setBar('error', '⚠ Erreur (tentative ' + tries + ') – retry dans 5s');
+          if(tries < 5) setTimeout(attempt, 5000);
           else { try { localStorage.setItem('cgp_' + col, JSON.stringify(payload)); } catch(_){} }
         }
       };
@@ -76,14 +72,16 @@
 
   window.fbLoad = async function(col) {
     try {
-      const snap = await getDoc(doc(db, col, 'data'));
-      if (snap.exists()) return JSON.parse(snap.data().payload);
-    } catch (e) {
+      const snap = await db.collection(col).doc('data').get();
+      if(snap.exists) return JSON.parse(snap.data().payload);
+    } catch(e) {
       const local = localStorage.getItem('cgp_' + col);
-      if (local) return JSON.parse(local);
+      if(local) return JSON.parse(local);
     }
     return null;
   };
+
+  window.__FB_READY = true;
 </script>
 
 <script type="text/babel">
@@ -819,7 +817,7 @@ function CGPTracker() {
       } finally { setReady(true); }
     };
     if(window.__FB_READY) boot();
-    else document.addEventListener('fb-ready', boot, {once:true});
+    else { const poll = setInterval(()=>{ if(window.__FB_READY){ clearInterval(poll); boot(); } }, 50); }
   },[]);
 
   // ── Auto-save (skip first render after load) ─────────────────────────────
