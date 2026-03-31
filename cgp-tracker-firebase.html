@@ -32,7 +32,6 @@
 
 <script type="module">
   import { initializeApp }                     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getAuth, onAuthStateChanged }       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
   import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
   const FB_CONFIG = {
@@ -44,18 +43,14 @@
     appId:             "1:394129070920:web:10f3303c22adcda47cf17d"
   };
 
-  const app  = initializeApp(FB_CONFIG);
-  const auth = getAuth(app);
-  const db   = getFirestore(app);
-  const bar  = document.getElementById('sync-bar');
+  const app = initializeApp(FB_CONFIG);
+  const db  = getFirestore(app);
+  const bar = document.getElementById('sync-bar');
   const setBar = (cls, msg) => { bar.className = cls; bar.textContent = msg; };
 
-  onAuthStateChanged(auth, user => {
-    if (!user) { window.location.href = 'login.html'; return; }
-    window.__FB_DB    = db;
-    window.__FB_READY = true;
-    document.dispatchEvent(new Event('fb-ready'));
-  });
+  window.__FB_DB    = db;
+  window.__FB_READY = true;
+  document.dispatchEvent(new Event('fb-ready'));
 
   const timers = {};
 
