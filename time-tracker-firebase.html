@@ -126,6 +126,9 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 .de-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--ink-muted);white-space:nowrap;flex-shrink:0}
 .de-dur{font-family:'DM Mono',monospace;font-size:12px;color:var(--green);white-space:nowrap;flex-shrink:0;margin-left:8px}
 .mini-bar{display:flex;height:5px;border-radius:3px;overflow:hidden;gap:1px;margin:8px 0 4px}
+.day-info{flex:1;min-width:0}
+.day-date{font-size:14px;font-weight:700}
+.day-comment{font-size:12px;color:var(--ink-muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .mini-seg{height:100%}
 .hist-empty{text-align:center;padding:60px 20px;color:var(--ink-muted);font-size:13px;line-height:1.7}
 .overlay{position:fixed;inset:0;background:rgba(26,23,20,.55);backdrop-filter:blur(4px);z-index:300;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s}
@@ -362,6 +365,22 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
   </div>
 </div>
 
+<!-- MODAL NOUVELLE JOURNÉE -->
+<div class="overlay" id="ovNewDay">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="mtitle">🗓 Archiver la journée</div>
+    <div class="msub" id="newDaySub"></div>
+    <label class="flbl">Commentaire <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <input class="field" id="newDayComment" type="text" placeholder="Ex: Journée au bureau, Dimanche en famille…" maxlength="100">
+    <div id="midnightWarning" style="display:none;background:#FDF0EC;border:1.5px solid #E8502A33;border-radius:11px;padding:12px 14px;margin-bottom:13px;font-size:13px;line-height:1.5">
+      <strong style="color:#E8502A">⚠ Activité à cheval sur minuit détectée</strong><br>
+      <span id="midnightDetail"></span>
+    </div>
+    <button class="confirm-btn" id="newDayConfirm">✓ Archiver et nouvelle journée</button>
+  </div>
+</div>
+
 <div class="sync-bar" id="syncBar">Chargement…</div>
 
 <script type="module">
@@ -468,11 +487,15 @@ async function doSave() {
 function scheduleRetry(){clearTimeout(retryT);retryT=setTimeout(doSave,5000);}
 
 // ── ARCHIVE ──
-async function archiveToday(dk) {
-  allDays[dk] = state.history.slice();
+async function archiveToday(dk, comment) {
+  allDays[dk] = {entries: state.history.slice(), comment: comment||''};
   lsSaveHis();
   if(db){
-    try{await setDoc(doc(db,'time-tracker',dk), entriesToDoc(state.history));}
+    try{
+      const d = entriesToDoc(state.history);
+      d.dayComment = comment||'';
+      await setDoc(doc(db,'time-tracker',dk), d);
+    }
     catch(e){console.warn('Archive failed',e);}
   }
 }
@@ -480,6 +503,7 @@ async function archiveToday(dk) {
 // ── LOAD ──
 async function loadAll() {
   const key = todayStr();
+  // 1. Load today
   if(db){
     try{
       const snap = await getDoc(doc(db,'time-tracker',key));
@@ -488,17 +512,24 @@ async function loadAll() {
     }catch(e){ const ls=lsLoadToday(); if(ls)state=ls; }
   } else { const ls=lsLoadToday(); if(ls)state=ls; }
 
+  // 2. Start from LS cache, then MERGE Firestore on top (never replace)
   allDays = lsLoadHis();
+  // Normalise old array format to {entries,comment}
+  Object.keys(allDays).forEach(function(dk){
+    if(Array.isArray(allDays[dk])) allDays[dk]={entries:allDays[dk],comment:''};
+  });
   if(db){
     try{
       const col = await getDocs(collection(db,'time-tracker'));
-      col.forEach(function(d){
-        const dk=d.id;
-        if(dk!==key && /^\d{4}-\d{2}-\d{2}$/.test(dk))
-          allDays[dk]=docToEntries(d.data());
+      col.forEach(function(snap){
+        const dk=snap.id;
+        if(dk===key||dk==='etalon'||!/^\d{4}-\d{2}-\d{2}$/.test(dk)) return;
+        const data=snap.data();
+        // Firestore wins: merge into allDays
+        allDays[dk]={entries:docToEntries(data), comment:data.dayComment||''};
       });
       lsSaveHis();
-    }catch(e){console.warn('History load failed',e);}
+    }catch(e){console.warn('History load failed — using localStorage cache',e);}
   }
 }
 
@@ -593,7 +624,7 @@ function buildPresetTags(tid, cid, nid, noteid) {
 // ── OVERLAYS ──
 function openOv(id){document.getElementById(id).classList.add('on');}
 function closeOv(id){document.getElementById(id).classList.remove('on');}
-['ovStop','ovManual','ovEdit'].forEach(function(id){
+['ovStop','ovManual','ovEdit','ovNewDay'].forEach(function(id){
   document.getElementById(id).addEventListener('click',function(e){if(e.target===this)closeOv(id);});
 });
 
@@ -799,7 +830,10 @@ function renderHistory(){
   }
   let html='';
   keys.forEach(function(dk){
-    const entries=allDays[dk];
+    // Support both {entries,comment} and legacy array format
+    const dayData=allDays[dk];
+    const entries=Array.isArray(dayData)?dayData:(dayData&&dayData.entries?dayData.entries:[]);
+    const comment=(!Array.isArray(dayData)&&dayData&&dayData.comment)||'';
     if(!entries||!entries.length)return;
     const total=entries.reduce(function(a,h){return a+h.duration;},0);
     const catTot={};
@@ -830,7 +864,10 @@ function renderHistory(){
       '<div class="day-block" id="day-'+dk+'">'+
         '<div class="day-header" data-dk="'+dk+'">'+
           '<span class="day-chevron">▶</span>'+
-          '<div class="day-date">'+escH(fmtDateShort(dk))+'</div>'+
+          '<div class="day-info">'+
+            '<div class="day-date">'+escH(fmtDateShort(dk))+'</div>'+
+            (comment?'<div class="day-comment">'+escH(comment)+'</div>':'')+
+          '</div>'+
           '<span class="day-meta">'+entries.length+' activité'+(entries.length>1?'s':'')+'</span>&nbsp;&nbsp;'+
           '<span class="day-total">'+fmtDur(total)+'</span>'+
         '</div>'+
@@ -902,20 +939,87 @@ document.getElementById('btnExportAll').onclick = function(){
   const rows=['Date,Catégorie,Activité,Note,Début,Fin,Durée (min),Durée'];
   if(state.history.length)rowsCsv(state.history,todayStr()).forEach(function(r){rows.push(r);});
   Object.keys(allDays).sort().forEach(function(dk){
-    if(allDays[dk]&&allDays[dk].length)rowsCsv(allDays[dk],dk).forEach(function(r){rows.push(r);});
+    const dayData=allDays[dk];
+    const entries=Array.isArray(dayData)?dayData:(dayData&&dayData.entries?dayData.entries:[]);
+    if(entries&&entries.length)rowsCsv(entries,dk).forEach(function(r){rows.push(r);});
   });
   if(rows.length===1){alert('Aucune donnée à exporter.');return;}
   dlFile('\uFEFF'+rows.join('\n'),'time-tracker-global.csv','text/csv;charset=utf-8');
 };
 
-document.getElementById('btnReset').onclick = async function(){
+document.getElementById('btnReset').onclick = function(){
   if(!state.history.length){alert('Aucune activité à archiver.');return;}
   const dk=todayStr();
-  if(!confirm('Archiver la journée du '+dk+' et démarrer une nouvelle journée ?\n\nLes données seront conservées dans l\'onglet Historique.'))return;
-  await archiveToday(dk);
+  // Check for midnight-crossing entries (startTs yesterday, endTs today)
+  const yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
+  const ykStr=yesterday.toISOString().slice(0,10);
+  const midnight=new Date(); midnight.setHours(0,0,0,0);
+  const crossers=state.history.filter(function(h){
+    return new Date(h.startTs).toISOString().slice(0,10)===ykStr && h.endTs>midnight.getTime();
+  });
+  const sub=state.history.length+' activité'+(state.history.length>1?'s':'')+' · '+
+    fmtDur(state.history.reduce(function(a,h){return a+h.duration;},0))+' enregistrés';
+  document.getElementById('newDaySub').textContent=sub;
+  document.getElementById('newDayComment').value='';
+  const warn=document.getElementById('midnightWarning');
+  if(crossers.length>0){
+    warn.style.display='block';
+    document.getElementById('midnightDetail').textContent=
+      crossers.length+' activité'+(crossers.length>1?'s':'')+' ('+
+      crossers.map(function(h){return h.name||h.cat;}).join(', ')+
+      ') commencée'+(crossers.length>1?'s':'')+' hier et terminée'+(crossers.length>1?'s':'')+
+      " après minuit. Elle"+(crossers.length>1?'s':'')+' sera rattachée'+(crossers.length>1?'s':'')+
+      ' à la journée précédente.';
+  } else { warn.style.display='none'; }
+  openOv('ovNewDay');
+  setTimeout(function(){document.getElementById('newDayComment').focus();},300);
+};
+
+document.getElementById('newDayComment').addEventListener('keydown',function(e){
+  if(e.key==='Enter') doNewDay();
+  if(e.key==='Escape') closeOv('ovNewDay');
+});
+
+document.getElementById('newDayConfirm').onclick = doNewDay;
+
+async function doNewDay(){
+  const dk=todayStr();
+  const comment=document.getElementById('newDayComment').value.trim();
+  // Split midnight-crossing entries: move endTs-spanning portion to previous day
+  const yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
+  const ykStr=yesterday.toISOString().slice(0,10);
+  const midnight=new Date(); midnight.setHours(0,0,0,0);
+  const forYesterday=[];
+  const forToday=[];
+  state.history.forEach(function(h){
+    const startDay=new Date(h.startTs).toISOString().slice(0,10);
+    if(startDay===ykStr && h.endTs>midnight.getTime()){
+      // Split: yesterday portion ends at midnight
+      const durYest=Math.floor((midnight.getTime()-h.startTs)/1000);
+      const durTod=Math.floor((h.endTs-midnight.getTime())/1000);
+      if(durYest>60) forYesterday.push(Object.assign({},h,{endTs:midnight.getTime(),duration:durYest}));
+      if(durTod>60) forToday.push(Object.assign({},h,{startTs:midnight.getTime(),duration:durTod}));
+    } else if(startDay===dk){
+      forToday.push(h);
+    } else {
+      forYesterday.push(h);
+    }
+  });
+  // Archive yesterday's portion merged with existing yk data
+  const existYk=(allDays[ykStr]&&(Array.isArray(allDays[ykStr])?allDays[ykStr]:allDays[ykStr].entries))||[];
+  if(forYesterday.length){
+    const merged=[...existYk,...forYesterday].sort(function(a,b){return a.startTs-b.startTs;});
+    allDays[ykStr]={entries:merged,comment:allDays[ykStr]&&allDays[ykStr].comment||''};
+    lsSaveHis();
+    if(db){ try{ const d=entriesToDoc(merged); d.dayComment=allDays[ykStr].comment; await setDoc(doc(db,'time-tracker',ykStr),d); }catch(e){console.warn(e);} }
+  }
+  // Archive today with today's entries
+  state.history=forToday;
+  await archiveToday(dk,comment);
   state.history=[];
   state.startTs=Date.now();
   scheduleSave();
+  closeOv('ovNewDay');
   renderToday();
   renderHistory();
 };
@@ -977,8 +1081,10 @@ function updateEtalonTotal(){
 function getAllEntries() {
   const all = [];
   Object.keys(allDays).forEach(function(dk){
-    if(!allDays[dk]) return;
-    allDays[dk].forEach(function(h){ all.push(Object.assign({},h,{dayKey:dk})); });
+    const dayData=allDays[dk];
+    const entries=Array.isArray(dayData)?dayData:(dayData&&dayData.entries?dayData.entries:[]);
+    if(!entries) return;
+    entries.forEach(function(h){ all.push(Object.assign({},h,{dayKey:dk})); });
   });
   const tk = todayStr();
   state.history.forEach(function(h){ all.push(Object.assign({},h,{dayKey:tk})); });
