@@ -426,7 +426,12 @@ function syncStatus(msg, cls) {
   b.className = 'sync-bar' + (cls ? ' '+cls : '');
 }
 
-// ── FIRESTORE FLAT STRUCTURE ──
+// ── FIRESTORE PATHS ──
+// CURRENT (chrono live): time-tracker-current/live   ← doSave() writes here ONLY
+// ARCHIVE (past days):   time-tracker-archive/YYYY-MM-DD ← archiveToday() writes here ONLY
+// ETALON:                time-tracker-current/etalon
+// These paths NEVER overlap → archived docs can never be overwritten by doSave()
+
 function stateToDoc(s) {
   const d = {startTs: s.startTs};
   s.history.forEach(function(h,i){ d['entry:'+i] = JSON.stringify(h); });
@@ -467,9 +472,20 @@ function lsLoadToday() {
   }catch(e){return null;}
 }
 function lsSaveHis() { try{localStorage.setItem(LS_HIS,JSON.stringify(allDays));}catch(e){} }
-function lsLoadHis() { try{const r=localStorage.getItem(LS_HIS);return r?JSON.parse(r):{}}catch(e){return {};} }
+function lsLoadHis() {
+  try{
+    const r=localStorage.getItem(LS_HIS);
+    if(!r)return {};
+    const raw=JSON.parse(r);
+    Object.keys(raw).forEach(function(dk){
+      if(Array.isArray(raw[dk])) raw[dk]={entries:raw[dk],comment:''};
+      if(!raw[dk].entries) raw[dk].entries=[];
+    });
+    return raw;
+  }catch(e){return {};}
+}
 
-// ── SAVE (debounced 1200ms) ──
+// ── SAVE TODAY (debounced 1200ms) — writes ONLY to time-tracker-current/live ──
 function scheduleSave() {
   lsSaveToday();
   clearTimeout(saveTimer); clearTimeout(retryT);
@@ -477,59 +493,55 @@ function scheduleSave() {
 }
 async function doSave() {
   lsSaveToday();
-  if(!db){syncStatus('⚠ Hors ligne — données locales','err');scheduleRetry();return;}
+  if(!db){syncStatus('\u26a0 Hors ligne \u2014 donn\u00e9es locales','err');scheduleRetry();return;}
   try{
-    syncStatus('Synchronisation…');
-    await setDoc(doc(db,'time-tracker',todayStr()), stateToDoc(state));
-    syncStatus('✓ Synchronisé','ok');
-  }catch(e){syncStatus('⚠ Erreur sync','err');scheduleRetry();}
+    syncStatus('Synchronisation\u2026');
+    await setDoc(doc(db,'time-tracker-current','live'), stateToDoc(state));
+    syncStatus('\u2713 Synchronis\u00e9','ok');
+  }catch(e){syncStatus('\u26a0 Erreur sync','err');scheduleRetry();}
 }
 function scheduleRetry(){clearTimeout(retryT);retryT=setTimeout(doSave,5000);}
 
-// ── ARCHIVE ──
+// ── ARCHIVE — writes ONLY to time-tracker-archive/YYYY-MM-DD ──
+// This collection is NEVER touched by doSave(), so data is 100% safe after archiving.
 async function archiveToday(dk, comment) {
-  allDays[dk] = {entries: state.history.slice(), comment: comment||''};
+  const entries = state.history.slice();
+  allDays[dk] = {entries: entries, comment: comment||''};
   lsSaveHis();
   if(db){
     try{
-      const d = entriesToDoc(state.history);
+      const d = entriesToDoc(entries);
       d.dayComment = comment||'';
-      await setDoc(doc(db,'time-tracker',dk), d);
-    }
-    catch(e){console.warn('Archive failed',e);}
+      d.archivedAt = Date.now();
+      await setDoc(doc(db,'time-tracker-archive',dk), d);
+    }catch(e){console.warn('Archive write failed \u2014 data safe in localStorage',e);}
   }
 }
 
 // ── LOAD ──
 async function loadAll() {
-  const key = todayStr();
-  // 1. Load today
+  // 1. Load live state (today's chrono) from time-tracker-current/live
   if(db){
     try{
-      const snap = await getDoc(doc(db,'time-tracker',key));
+      const snap = await getDoc(doc(db,'time-tracker-current','live'));
       if(snap.exists()){ state=docToState(snap.data()); lsSaveToday(); }
       else { const ls=lsLoadToday(); if(ls)state=ls; }
     }catch(e){ const ls=lsLoadToday(); if(ls)state=ls; }
   } else { const ls=lsLoadToday(); if(ls)state=ls; }
 
-  // 2. Start from LS cache, then MERGE Firestore on top (never replace)
+  // 2. Load archives: start from LS cache (instant), merge Firestore on top
   allDays = lsLoadHis();
-  // Normalise old array format to {entries,comment}
-  Object.keys(allDays).forEach(function(dk){
-    if(Array.isArray(allDays[dk])) allDays[dk]={entries:allDays[dk],comment:''};
-  });
   if(db){
     try{
-      const col = await getDocs(collection(db,'time-tracker'));
+      const col = await getDocs(collection(db,'time-tracker-archive'));
       col.forEach(function(snap){
         const dk=snap.id;
-        if(dk===key||dk==='etalon'||!/^\d{4}-\d{2}-\d{2}$/.test(dk)) return;
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(dk)) return;
         const data=snap.data();
-        // Firestore wins: merge into allDays
         allDays[dk]={entries:docToEntries(data), comment:data.dayComment||''};
       });
       lsSaveHis();
-    }catch(e){console.warn('History load failed — using localStorage cache',e);}
+    }catch(e){console.warn('Archive load failed \u2014 using localStorage cache',e);}
   }
 }
 
@@ -1011,7 +1023,7 @@ async function doNewDay(){
     const merged=[...existYk,...forYesterday].sort(function(a,b){return a.startTs-b.startTs;});
     allDays[ykStr]={entries:merged,comment:allDays[ykStr]&&allDays[ykStr].comment||''};
     lsSaveHis();
-    if(db){ try{ const d=entriesToDoc(merged); d.dayComment=allDays[ykStr].comment; await setDoc(doc(db,'time-tracker',ykStr),d); }catch(e){console.warn(e);} }
+    if(db){ try{ const d=entriesToDoc(merged); d.dayComment=allDays[ykStr].comment; await setDoc(doc(db,'time-tracker-archive',ykStr),d); }catch(e){console.warn(e);} }
   }
   // Archive today with today's entries
   state.history=forToday;
@@ -1046,7 +1058,7 @@ async function loadEtalon() {
   CATEGORIES.forEach(function(c){ defaults[c.key] = 0; });
   if(!db){ etalon = defaults; return; }
   try {
-    const snap = await getDoc(doc(db,'time-tracker','etalon'));
+    const snap = await getDoc(doc(db,'time-tracker-current','etalon'));
     if(snap.exists()){
       const d = snap.data();
       CATEGORIES.forEach(function(c){ etalon[c.key] = parseFloat(d[c.key]||0)||0; });
@@ -1065,7 +1077,7 @@ async function saveEtalon() {
   try {
     const d = {};
     CATEGORIES.forEach(function(c){ d[c.key] = etalon[c.key]||0; });
-    await setDoc(doc(db,'time-tracker','etalon'), d);
+    await setDoc(doc(db,'time-tracker-current','etalon'), d);
     syncStatus('✓ Étalon enregistré','ok');
     renderStats();
   } catch(e){ syncStatus('⚠ Erreur sauvegarde étalon','err'); }
