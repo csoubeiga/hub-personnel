@@ -126,9 +126,8 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 .de-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--ink-muted);white-space:nowrap;flex-shrink:0}
 .de-dur{font-family:'DM Mono',monospace;font-size:12px;color:var(--green);white-space:nowrap;flex-shrink:0;margin-left:8px}
 .mini-bar{display:flex;height:5px;border-radius:3px;overflow:hidden;gap:1px;margin:8px 0 4px}
-.de-acts{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .15s}
-.day-entry:hover .de-acts{opacity:1}
-@media(max-width:699px){.de-acts{opacity:1}}
+.de-acts{display:flex;gap:2px;flex-shrink:0;margin-left:4px}
+.de-acts .hbtn{font-size:12px;padding:3px 5px}
 .day-info{flex:1;min-width:0}
 .day-date{font-size:14px;font-weight:700}
 .day-comment{font-size:12px;color:var(--ink-muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
@@ -878,23 +877,22 @@ function renderHistory(){
       miniBar+='<div class="mini-seg" style="background:'+c.color+';width:'+pct+'%"></div>';
     });
     let entriesHtml='';
-    entries.forEach(function(h,ei){
+    entries.forEach(function(h, ei){
       const col=catColor(h.cat);
-      const dn=h.name||(h.cat?h.cat:'Sans catégorie');
-      const catLbl=h.cat?h.cat:'Sans catégorie';
+      const dn=h.name||(h.cat||'Sans catégorie');
       entriesHtml+=
         '<div class="day-entry">'+
           '<div class="de-dot" style="background:'+col+'"></div>'+
           '<div class="de-left">'+
             '<div class="de-name">'+escH(dn)+'</div>'+
-            '<div class="de-cat" style="color:'+col+'">'+escH(catLbl)+'</div>'+
+            (h.cat?'<div class="de-cat" style="color:'+col+'">'+escH(h.cat)+'</div>':'<div class="de-cat" style="color:#C8C4BF">Sans catégorie</div>')+
             (h.note?'<div class="de-note">'+escH(h.note)+'</div>':'')+
           '</div>'+
           '<div class="de-time">'+fmtTime(h.startTs)+' → '+fmtTime(h.endTs)+'</div>'+
           '<div class="de-dur">'+fmtDur(h.duration)+'</div>'+
           '<div class="de-acts">'+
-            '<button class="hbtn" data-dk="'+escH(dk)+'" data-ei="'+ei+'" data-ha="hedit" title="Modifier">✏️</button>'+
-            '<button class="hbtn del" data-dk="'+escH(dk)+'" data-ei="'+ei+'" data-ha="hdel" title="Supprimer">✕</button>'+
+            '<button class="hbtn" data-dk="'+escH(dk)+'" data-ei="'+ei+'" data-ha="hedit">✏️</button>'+
+            '<button class="hbtn del" data-dk="'+escH(dk)+'" data-ei="'+ei+'" data-ha="hdel">✕</button>'+
           '</div>'+
         '</div>';
     });
@@ -924,9 +922,9 @@ function renderHistory(){
   container.querySelectorAll('[data-ha]').forEach(function(btn){
     btn.addEventListener('click',function(e){
       e.stopPropagation();
-      const dk=this.getAttribute('data-dk');
-      const ei=parseInt(this.getAttribute('data-ei'),10);
-      const action=this.getAttribute('data-ha');
+      var dk=this.getAttribute('data-dk');
+      var ei=parseInt(this.getAttribute('data-ei'),10);
+      var action=this.getAttribute('data-ha');
       if(action==='hedit') openHistEdit(dk,ei);
       else if(action==='hdel') histDelete(dk,ei);
     });
@@ -934,19 +932,19 @@ function renderHistory(){
 }
 
 // ── HISTORY EDIT / DELETE ──
-let histEditDk = '';
-let histEditEi = -1;
+var histEditDk = '';
+var histEditEi = -1;
 
 function histDelete(dk, ei){
-  const dayData=allDays[dk];
-  const entries=Array.isArray(dayData)?dayData:(dayData.entries||[]);
-  if(!confirm('Supprimer "'+escH(entries[ei].name||entries[ei].cat||'cette entrée')+'" ?'))return;
+  var dayData=allDays[dk];
+  var entries=Array.isArray(dayData)?dayData.slice():(dayData.entries||[]).slice();
+  var label=entries[ei] ? (entries[ei].name||entries[ei].cat||'cette entrée') : 'cette entrée';
+  if(!confirm('Supprimer "'+label+'" ?'))return;
   entries.splice(ei,1);
-  allDays[dk]={entries:entries, comment:dayData.comment||''};
+  allDays[dk]={entries:entries, comment:(Array.isArray(dayData)?'':(dayData.comment||''))};
   lsSaveHis();
-  // Persist to Firestore archive
   if(db){
-    const d=entriesToDoc(entries);
+    var d=entriesToDoc(entries);
     d.dayComment=allDays[dk].comment;
     setDoc(doc(db,'time-tracker-archive',dk),d).catch(function(e){console.warn('Archive update failed',e);});
   }
@@ -955,9 +953,10 @@ function histDelete(dk, ei){
 
 function openHistEdit(dk, ei){
   histEditDk=dk; histEditEi=ei;
-  const dayData=allDays[dk];
-  const entries=Array.isArray(dayData)?dayData:(dayData.entries||[]);
-  const h=entries[ei];
+  var dayData=allDays[dk];
+  var entries=Array.isArray(dayData)?dayData:(dayData.entries||[]);
+  var h=entries[ei];
+  if(!h){return;}
   document.getElementById('heditSub').textContent=
     fmtDateShort(dk)+' · '+fmtTime(h.startTs)+' → '+fmtTime(h.endTs)+'  ('+fmtDur(h.duration)+')';
   document.getElementById('heditName').value=h.name||'';
@@ -968,36 +967,6 @@ function openHistEdit(dk, ei){
   openOv('ovHistEdit');
   setTimeout(function(){document.getElementById('heditName').focus();},300);
 }
-
-document.getElementById('heditName').addEventListener('keydown',function(e){if(e.key==='Escape')closeOv('ovHistEdit');});
-document.getElementById('heditConfirm').onclick = function(){
-  if(histEditEi<0)return;
-  const cat=getSelCat('heditCats');
-  const name=document.getElementById('heditName').value.trim();
-  const note=document.getElementById('heditNote').value.trim();
-  const sv=document.getElementById('heditStart').value;
-  const ev=document.getElementById('heditEnd').value;
-  if(!sv||!ev){alert('Veuillez saisir les deux horaires.');return;}
-  const dayData=allDays[histEditDk];
-  const entries=Array.isArray(dayData)?dayData.slice():(dayData.entries||[]).slice();
-  const refTs=entries[histEditEi].startTs;
-  let startTs=tiToTs(sv,refTs), endTs=tiToTs(ev,refTs);
-  if(endTs<=startTs)endTs+=86400000;
-  const dur=Math.floor((endTs-startTs)/1000);
-  if(dur<60){alert('Durée minimum : 1 minute.');return;}
-  entries[histEditEi]={cat:cat||'',name,note,startTs,endTs,duration:dur,manual:true};
-  entries.sort(function(a,b){return a.startTs-b.startTs;});
-  allDays[histEditDk]={entries:entries, comment:dayData.comment||''};
-  lsSaveHis();
-  if(db){
-    const d=entriesToDoc(entries);
-    d.dayComment=allDays[histEditDk].comment;
-    setDoc(doc(db,'time-tracker-archive',histEditDk),d).catch(function(e){console.warn('Archive update failed',e);});
-  }
-  closeOv('ovHistEdit');
-  renderHistory();
-  histEditDk=''; histEditEi=-1;
-};
 
 // ── EXPORTS ──
 function buildAgg(entries){
@@ -1234,7 +1203,7 @@ function isoWeek(d){
   return y+'-W'+String(w).padStart(2,'0');
 }
 
-// Compute hours per cat for a set of entries (uncategorized entries excluded)
+// Compute hours per cat for a set of entries
 function sumByCat(entries){
   const r={};
   CATEGORIES.forEach(function(c){ r[c.key]=0; });
@@ -1331,21 +1300,19 @@ function renderStats(){
   document.getElementById('stPeriodLabel').textContent = '— '+periodLabel;
 
   const nDays = dayKeys.length;
-  const realByCat = sumByCat(entries); // only categorized
-  const totalCat = Object.values(realByCat).reduce(function(a,v){return a+v;},0);
-  // Total incl. uncategorized (for display)
-  const totalAll = entries.reduce(function(a,h){return a+h.duration/3600;},0);
-  const uncatH = totalAll - totalCat;
+  const realByCat = sumByCat(entries); // categorized only
+  const totalReal = Object.values(realByCat).reduce(function(a,v){return a+v;},0);
+  const totalAll = entries.reduce(function(a,h){return a+(h.duration/3600);},0);
+  const uncatH = Math.max(0, totalAll - totalReal);
 
   // KPIs
-  const avgDay = nDays>0 ? totalCat/nDays : 0;
-  const todayNote = state.history.length>0 ? ' <span style="font-size:10px;color:var(--accent)">+ aujourd'hui</span>' : '';
+  const avgDay = nDays>0 ? totalReal/nDays : 0;
+  const uncatLabel = uncatH>0.016 ? ' <span style="font-size:10px;opacity:.5">(+'+fmtH(uncatH)+' n/c)</span>' : '';
   document.getElementById('stSummary').innerHTML =
-    kpi(fmtH(totalCat)+(uncatH>0.01?' <span style="font-size:10px;opacity:.5">+'+fmtH(uncatH)+' n/c</span>':''), 'Enregistré catégorisé') +
+    kpi(fmtH(totalReal)+uncatLabel, 'Total catégorisé') +
     kpi(nDays+' j', 'Jours couverts') +
-    kpi(fmtH(avgDay), 'Moyenne / jour') +
+    kpi(fmtH(avgDay), 'Moy. catégorisé/j') +
     kpi(fmtH(Object.values(etalon).reduce(function(a,v){return a+v;},0)*nDays), 'Objectif total');
-  const totalReal = totalCat; // use only categorized for bar scaling
 
   // Max for scale (max of real or ideal across all cats)
   let scaleMax = 0;
@@ -1474,6 +1441,38 @@ async function initStats(){
   document.getElementById('monthSel').onchange  = renderStats;
   document.getElementById('saveEtalonBtn').onclick = saveEtalon;
 }
+
+// ── HEDIT CONFIRM ──
+document.getElementById('heditName').addEventListener('keydown',function(e){if(e.key==='Escape')closeOv('ovHistEdit');});
+document.getElementById('heditConfirm').onclick = function(){
+  if(histEditEi<0)return;
+  var cat=getSelCat('heditCats');
+  var name=document.getElementById('heditName').value.trim();
+  var note=document.getElementById('heditNote').value.trim();
+  var sv=document.getElementById('heditStart').value;
+  var ev=document.getElementById('heditEnd').value;
+  if(!sv||!ev){alert('Veuillez saisir les deux horaires.');return;}
+  var dayData=allDays[histEditDk];
+  var entries=Array.isArray(dayData)?dayData.slice():(dayData.entries||[]).slice();
+  var refTs=entries[histEditEi].startTs;
+  var startTs=tiToTs(sv,refTs), endTs=tiToTs(ev,refTs);
+  if(endTs<=startTs)endTs+=86400000;
+  var dur=Math.floor((endTs-startTs)/1000);
+  if(dur<60){alert('Durée minimum : 1 minute.');return;}
+  entries[histEditEi]={cat:cat||'',name:name,note:note,startTs:startTs,endTs:endTs,duration:dur,manual:true};
+  entries.sort(function(a,b){return a.startTs-b.startTs;});
+  var comment=Array.isArray(dayData)?'':(dayData.comment||'');
+  allDays[histEditDk]={entries:entries,comment:comment};
+  lsSaveHis();
+  if(db){
+    var d=entriesToDoc(entries);
+    d.dayComment=comment;
+    setDoc(doc(db,'time-tracker-archive',histEditDk),d).catch(function(e){console.warn('Archive update failed',e);});
+  }
+  closeOv('ovHistEdit');
+  renderHistory();
+  histEditDk=''; histEditEi=-1;
+};
 
 // ── TABS ──
 document.getElementById('tabToday').onclick = function(){
