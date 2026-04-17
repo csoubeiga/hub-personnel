@@ -155,36 +155,6 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 .confirm-btn:hover{opacity:.87}
 .sync-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;text-align:center;background:rgba(245,242,237,.95);backdrop-filter:blur(6px);border-top:1px solid var(--border);color:var(--ink-muted);transition:color .3s}
 .sync-bar.ok{color:var(--green)}.sync-bar.err{color:var(--accent)}
-/* ── TYPE CHIPS ── */
-.type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
-.type-chip{padding:9px 4px;border-radius:10px;border:1.5px solid var(--border);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;text-align:center;cursor:pointer;background:white;color:var(--ink);transition:all .12s;line-height:1.2;user-select:none}
-.type-chip:hover{opacity:.8}
-.cat-picker{margin-bottom:4px}
-.cat-grid-small{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.cat-grid-small .cat-chip{padding:5px 10px;font-size:11px;border-radius:8px}
-/* ── HIST TABLE ── */
-.hist-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.hist-table{width:100%;border-collapse:collapse;font-size:13px;min-width:500px}
-.hist-table thead th{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-muted);padding:8px 10px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap}
-.ht-row{border-bottom:1px solid var(--bg);transition:background .1s}
-.ht-row:hover{background:var(--bg)}
-.ht-today td{background:rgba(46,125,82,.04)}
-.ht-row td{padding:9px 10px;vertical-align:top}
-.ht-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--ink-muted);white-space:nowrap}
-.ht-type{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
-.ht-detail{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
-.ht-note{font-size:10px;color:var(--ink-muted);font-style:italic;margin-top:2px}
-.ht-mono{font-family:'DM Mono',monospace;font-size:12px;white-space:nowrap;color:var(--ink-muted)}
-.ht-dur{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--green);white-space:nowrap}
-.ht-acts{white-space:nowrap}
-.ht-btn{font-size:12px;padding:3px 5px}
-/* ── DAY NAV ── */
-.st-nav-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:6px 12px;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;cursor:pointer;color:var(--ink);transition:all .13s;line-height:1}
-.st-nav-btn:hover{background:var(--ink);color:white;border-color:var(--ink)}
-.st-nav-btn:disabled{opacity:.3;cursor:not-allowed}
-.st-day-label{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--ink);min-width:140px;text-align:center}
-/* ── REMOVE OLD CAT-GRID (keep for compat) ── */
-.cat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:12px}
 /* ── STATS TAB ── */
 .stats-tab-wrap{max-width:960px;margin:0 auto;padding:20px 18px 40px}
 @media(min-width:700px){.stats-tab-wrap{padding:24px 28px 40px}}
@@ -289,7 +259,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 <div class="tab-panel" id="panelHistory">
 <div class="hist-tab-wrap">
   <div class="hist-tab-header">
-    <div class="hist-tab-title">Toutes les entrées</div>
+    <div class="hist-tab-title">Toutes les journées</div>
     <button class="export-all-btn" id="btnExportAll">📄 Exporter tout (CSV)</button>
   </div>
   <div id="allDaysContainer"></div>
@@ -303,7 +273,6 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
   <!-- CONTROLS BAR -->
   <div class="st-controls">
     <div class="st-view-btns">
-      <button class="st-view-btn" id="svDay">Jour</button>
       <button class="st-view-btn active" id="svWeek">Semaine</button>
       <button class="st-view-btn" id="svMonth">Mois</button>
       <button class="st-view-btn" id="svAll">All time</button>
@@ -313,11 +282,6 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
         <input type="checkbox" id="toggleWE" checked>
         <span>Week-end inclus</span>
       </label>
-      <div id="daySel" style="display:none;align-items:center;gap:8px">
-        <button class="st-nav-btn" id="dayPrev">‹</button>
-        <span class="st-day-label" id="dayLabel"></span>
-        <button class="st-nav-btn" id="dayNext">›</button>
-      </div>
       <select class="st-week-sel" id="weekSel"></select>
       <select class="st-week-sel" id="monthSel" style="display:none"></select>
     </div>
@@ -349,22 +313,14 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="handle"></div>
     <div class="mtitle">Terminer l'activité</div>
     <div class="msub" id="stopSub"></div>
-    <label class="flbl">Type de temps</label>
-    <div class="type-grid" id="stopTypes"></div>
-    <div class="cat-picker" id="stopCatPicker" style="display:none">
-      <label class="flbl" style="margin-top:8px">Catégorie</label>
-      <div class="cat-grid-small" id="stopCatPickerGrid"></div>
-    </div>
-    <input class="field" id="stopName" type="text" placeholder="Détail (optionnel)…" maxlength="80" style="margin-top:10px">
-    <textarea class="field note-field" id="stopNote" placeholder="Note…" maxlength="300"></textarea>
-    <div class="cut-row" id="stopCutRow" style="display:none">
-      <label class="flbl">Couper à</label>
-      <input class="field" id="stopCutTime" type="time" style="margin-bottom:10px">
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
-      <button class="confirm-btn" id="stopCutBtn" style="background:var(--border);color:var(--ink)">✂ Couper en 2</button>
-      <button class="confirm-btn" id="stopConfirm">✓ Enregistrer</button>
-    </div>
+    <label class="flbl">Catégorie de temps</label>
+    <div class="cat-grid" id="stopCats"></div>
+    <label class="flbl">Détail <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <input class="field" id="stopName" type="text" placeholder="Ex : Réunion budget, Yoga…" maxlength="80">
+    <div class="tags" id="stopTags"></div>
+    <label class="flbl">Note <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <textarea class="field note-field" id="stopNote" placeholder="Précisions, contexte…" maxlength="300"></textarea>
+    <button class="confirm-btn" id="stopConfirm">✓ Enregistrer et continuer</button>
   </div>
 </div>
 
@@ -372,22 +328,21 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 <div class="overlay" id="ovManual">
   <div class="sheet">
     <div class="handle"></div>
-    <div class="mtitle">Ajouter une entrée</div>
-    <div class="msub">Plage horaire et type</div>
-    <label class="flbl">Type de temps</label>
-    <div class="type-grid" id="manTypes"></div>
-    <div class="cat-picker" id="manCatPicker" style="display:none">
-      <label class="flbl" style="margin-top:8px">Catégorie</label>
-      <div class="cat-grid-small" id="manCatPickerGrid"></div>
-    </div>
-    <input class="field" id="manName" type="text" placeholder="Détail (optionnel)…" maxlength="80" style="margin-top:10px">
-    <textarea class="field note-field" id="manNote" placeholder="Note…" maxlength="300"></textarea>
+    <div class="mtitle">Ajouter une entrée manuellement</div>
+    <div class="msub">Renseignez la catégorie et la plage horaire</div>
+    <label class="flbl">Catégorie de temps</label>
+    <div class="cat-grid" id="manCats"></div>
+    <label class="flbl">Détail <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <input class="field" id="manName" type="text" placeholder="Ex : Déjeuner client…" maxlength="80">
+    <div class="tags" id="manTags"></div>
+    <label class="flbl">Note <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <textarea class="field note-field" id="manNote" placeholder="Précisions, contexte…" maxlength="300"></textarea>
     <label class="flbl">Plage horaire</label>
     <div class="field-row">
       <input class="field" id="manStart" type="time">
       <input class="field" id="manEnd" type="time">
     </div>
-    <button class="confirm-btn" id="manConfirm">✓ Ajouter</button>
+    <button class="confirm-btn" id="manConfirm">✓ Ajouter cette entrée</button>
   </div>
 </div>
 
@@ -397,14 +352,12 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="handle"></div>
     <div class="mtitle">Modifier l'entrée</div>
     <div class="msub" id="editSub"></div>
-    <label class="flbl">Type de temps</label>
-    <div class="type-grid" id="editTypes"></div>
-    <div class="cat-picker" id="editCatPicker" style="display:none">
-      <label class="flbl" style="margin-top:8px">Catégorie</label>
-      <div class="cat-grid-small" id="editCatPickerGrid"></div>
-    </div>
-    <input class="field" id="editName" type="text" placeholder="Détail…" maxlength="80" style="margin-top:10px">
-    <textarea class="field note-field" id="editNote" placeholder="Note…" maxlength="300"></textarea>
+    <label class="flbl">Catégorie de temps</label>
+    <div class="cat-grid" id="editCats"></div>
+    <label class="flbl">Détail <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <input class="field" id="editName" type="text" maxlength="80">
+    <label class="flbl">Note <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <textarea class="field note-field" id="editNote" maxlength="300"></textarea>
     <label class="flbl">Plage horaire</label>
     <div class="field-row">
       <input class="field" id="editStart" type="time">
@@ -420,14 +373,12 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="handle"></div>
     <div class="mtitle">Modifier l'entrée archivée</div>
     <div class="msub" id="heditSub"></div>
-    <label class="flbl">Type de temps</label>
-    <div class="type-grid" id="heditTypes"></div>
-    <div class="cat-picker" id="heditCatPicker" style="display:none">
-      <label class="flbl" style="margin-top:8px">Catégorie</label>
-      <div class="cat-grid-small" id="heditCatPickerGrid"></div>
-    </div>
-    <input class="field" id="heditName" type="text" placeholder="Détail…" maxlength="80" style="margin-top:10px">
-    <textarea class="field note-field" id="heditNote" placeholder="Note…" maxlength="300"></textarea>
+    <label class="flbl">Catégorie <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <div class="cat-grid" id="heditCats"></div>
+    <label class="flbl">Détail <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <input class="field" id="heditName" type="text" maxlength="80">
+    <label class="flbl">Note <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <textarea class="field note-field" id="heditNote" maxlength="300"></textarea>
     <label class="flbl">Plage horaire</label>
     <div class="field-row">
       <input class="field" id="heditStart" type="time">
@@ -443,7 +394,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="handle"></div>
     <div class="mtitle">🗓 Archiver la journée</div>
     <div class="msub" id="newDaySub"></div>
-    <label class="flbl">Commentaire</label>
+    <label class="flbl">Commentaire <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
     <input class="field" id="newDayComment" type="text" placeholder="Ex: Journée au bureau, Dimanche en famille…" maxlength="100">
     <div id="midnightWarning" style="display:none;background:#FDF0EC;border:1.5px solid #E8502A33;border-radius:11px;padding:12px 14px;margin-bottom:13px;font-size:13px;line-height:1.5">
       <strong style="color:#E8502A">⚠ Activité à cheval sur minuit détectée</strong><br>
@@ -478,39 +429,11 @@ const CATEGORIES = [
   {key:'TEMPS PERDU',       color:'#D4526A'},
 ];
 
-// TYPES: each maps to a category (null = user picks, '' = no category)
-const TYPES = [
-  {key:'Sommeil',     cat:'TEMPS OBLIGATOIRE',  color:'#5B6E8A'},
-  {key:'Repas',       cat:'TEMPS OBLIGATOIRE',  color:'#5B6E8A'},
-  {key:'SDB',         cat:'TEMPS OBLIGATOIRE',  color:'#5B6E8A'},
-  {key:'Boulot',      cat:'TEMPS PROFESSIONNEL',color:'#2E7D52'},
-  {key:'CGP',         cat:'TEMPS PRO CGP',      color:'#1A6B9A'},
-  {key:'DJ',          cat:'TEMPS PERSONNEL',    color:'#8B4DB8'},
-  {key:'Immo',        cat:'TEMPS PERSONNEL',    color:'#8B4DB8'},
-  {key:'Photo',       cat:'TEMPS PERSONNEL',    color:'#8B4DB8'},
-  {key:'Perso',       cat:'TEMPS PERSONNEL',    color:'#8B4DB8'},
-  {key:'Famille',     cat:'TEMPS PERSONNEL',    color:'#8B4DB8'},
-  {key:'Couple',      cat:'TEMPS PERSONNEL',    color:'#8B4DB8'},
-  {key:'Amis',        cat:'TEMPS PERSONNEL',    color:'#8B4DB8'},
-  {key:'Sport',       cat:'TEMPS POUR SOI',     color:'#C9A227'},
-  {key:'Lecture',     cat:'TEMPS POUR SOI',     color:'#C9A227'},
-  {key:'Scroll',      cat:'TEMPS PERDU',        color:'#D4526A'},
-  {key:'Perdu',       cat:'TEMPS PERDU',        color:'#D4526A'},
-  {key:'Transport',   cat:null,                 color:'#8A8480'},
-  {key:'Autre',       cat:null,                 color:'#8A8480'},
-  {key:'Non tracké',  cat:'',                   color:'#C8C4BF'},
+const PRESETS = [
+  {label:'😴 Sommeil',    cat:'TEMPS OBLIGATOIRE', note:''},
+  {label:'🍽 Repas',      cat:'TEMPS OBLIGATOIRE', note:''},
+  {label:'🚿 Préparation',cat:'TEMPS OBLIGATOIRE', note:''},
 ];
-
-function typeColor(typeKey){
-  if(!typeKey)return '#C8C4BF';
-  const t=TYPES.find(function(x){return x.key===typeKey;});
-  return t?t.color:'#C8C4BF';
-}
-function typeCat(typeKey){
-  if(!typeKey)return '';
-  const t=TYPES.find(function(x){return x.key===typeKey;});
-  return t?(t.cat===null?null:t.cat):'';
-}
 
 const LS_TODAY = 'tt_v4_today';
 const LS_HIS   = 'tt_v4_history';
@@ -677,65 +600,7 @@ function tiToTs(val,ref){
 function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function catColor(cat){if(!cat)return '#C8C4BF';const c=CATEGORIES.find(function(x){return x.key===cat;});return c?c.color:'#C8C4BF';}
 
-// ── TYPE CHIPS ──
-function buildTypeChips(typeContId, catContId, selType) {
-  const tc=document.getElementById(typeContId);
-  tc.innerHTML='';
-  TYPES.forEach(function(t){
-    const el=document.createElement('div');
-    const isOn=t.key===selType;
-    el.className='type-chip'+(isOn?' on':'');
-    el.setAttribute('data-type',t.key);
-    if(isOn){el.style.background=t.color;el.style.color='white';}
-    el.textContent=t.key;
-    el.addEventListener('click',function(){
-      tc.querySelectorAll('.type-chip').forEach(function(x){
-        x.classList.remove('on');
-        x.style.background='';x.style.color='';
-      });
-      el.classList.add('on');
-      el.style.background=t.color;el.style.color='white';
-      if(catContId){
-        const autoCat=typeCat(t.key);
-        const picker=document.getElementById(catContId);
-        if(autoCat===null){
-          // Show cat picker (Transport / Autre)
-          picker.style.display='block';
-          buildCatChips(catContId+'Grid','');
-        } else {
-          picker.style.display='none';
-        }
-      }
-    });
-    tc.appendChild(el);
-  });
-  // Init visibility
-  if(catContId){
-    const autoCat=typeCat(selType);
-    const picker=document.getElementById(catContId);
-    if(autoCat===null){
-      picker.style.display='block';
-      buildCatChips(catContId+'Grid',selType?'':'');
-    } else {
-      picker.style.display='none';
-    }
-  }
-}
-function getSelType(typeContId){
-  const el=document.querySelector('#'+typeContId+' .type-chip.on');
-  return el?el.getAttribute('data-type'):'';
-}
-function getResolvedCat(typeContId, catContId){
-  const t=getSelType(typeContId);
-  if(!t)return '';
-  const autoCat=typeCat(t);
-  if(autoCat===null){
-    const sel=document.querySelector('#'+catContId+'Grid .cat-chip.on');
-    return sel?sel.getAttribute('data-cat'):'';
-  }
-  return autoCat||'';
-}
-// ── CAT CHIPS (for Transport/Autre picker only) ──
+// ── CAT CHIPS ──
 function buildCatChips(cid, sel) {
   const container=document.getElementById(cid);
   container.innerHTML='';
@@ -746,15 +611,46 @@ function buildCatChips(cid, sel) {
     el.style.color=c.color;
     el.style.borderColor=c.color;
     if(c.key===sel){el.style.background=c.color;el.style.color='white';el.style.borderColor='transparent';}
-    el.textContent=c.key.replace('TEMPS ','');
+    el.textContent=c.key;
     el.addEventListener('click',function(){
       container.querySelectorAll('.cat-chip').forEach(function(x){
         x.classList.remove('on');
-        const cc=CATEGORIES.find(function(ccc){return ccc.key===x.getAttribute('data-cat');});
-        if(cc){x.style.background='white';x.style.color=cc.color;x.style.borderColor=cc.color;}
+        const cat=CATEGORIES.find(function(cc){return cc.key===x.getAttribute('data-cat');});
+        if(cat){x.style.background='white';x.style.color=cat.color;x.style.borderColor=cat.color;}
       });
       el.classList.add('on');
       el.style.background=c.color;el.style.color='white';el.style.borderColor='transparent';
+    });
+    container.appendChild(el);
+  });
+}
+function getSelCat(cid){
+  const el=document.querySelector('#'+cid+' .cat-chip.on');
+  return el?el.getAttribute('data-cat'):'';
+}
+
+// ── PRESET TAGS ──
+function buildPresetTags(tid, cid, nid, noteid) {
+  const container=document.getElementById(tid);
+  container.innerHTML='';
+  const seen={};
+  const arr=[];
+  for(let i=state.history.length-1;i>=0&&arr.length<3;i--){
+    const h=state.history[i];
+    const lbl=h.name||h.cat;
+    if(!seen[lbl]){seen[lbl]=true;arr.push({label:lbl,cat:h.cat,note:h.note||''});}
+  }
+  PRESETS.forEach(function(p){if(!seen[p.label]){seen[p.label]=true;arr.push(p);}});
+  arr.forEach(function(p){
+    const el=document.createElement('div');
+    el.className='tag';
+    el.textContent=p.label;
+    el.addEventListener('click',function(){
+      container.querySelectorAll('.tag').forEach(function(x){x.classList.remove('on');});
+      el.classList.add('on');
+      if(nid)document.getElementById(nid).value=p.label;
+      if(noteid&&p.note)document.getElementById(noteid).value=p.note;
+      if(cid&&p.cat)buildCatChips(cid,p.cat);
     });
     container.appendChild(el);
   });
@@ -804,56 +700,21 @@ document.getElementById('stopBtn').onclick = function(){
   document.getElementById('stopSub').textContent='Durée : '+dur+'  ·  Début : '+fmtTime(state.startTs);
   document.getElementById('stopName').value='';
   document.getElementById('stopNote').value='';
-  document.getElementById('stopCutTime').value='';
-  document.getElementById('stopCutRow').style.display='none';
-  buildTypeChips('stopTypes','stopCatPicker','');
-  buildCatChips('stopCatPicker','');
+  buildCatChips('stopCats','');
+  buildPresetTags('stopTags','stopCats','stopName','stopNote');
   openOv('ovStop');
+  setTimeout(function(){document.getElementById('stopName').focus();},300);
 };
 document.getElementById('stopName').addEventListener('keydown',function(e){if(e.key==='Escape')closeOv('ovStop');});
-document.getElementById('stopCutBtn').onclick = function(){
-  const row=document.getElementById('stopCutRow');
-  row.style.display=row.style.display==='none'?'flex':'none';
-  if(row.style.display==='flex'){
-    // Suggest midpoint
-    const mid=new Date((state.startTs+Date.now())/2);
-    document.getElementById('stopCutTime').value=pad(mid.getHours())+':'+pad(mid.getMinutes());
-  }
-};
 document.getElementById('stopConfirm').onclick = doStop;
 function doStop(){
-  const typeKey=getSelType('stopTypes');
-  const cat=getResolvedCat('stopTypes','stopCatPicker');
+  const cat=getSelCat('stopCats');
   const name=document.getElementById('stopName').value.trim();
   const note=document.getElementById('stopNote').value.trim();
-  const cutVal=document.getElementById('stopCutTime').value;
   const endTs=Date.now();
   const dur=Math.floor((endTs-state.startTs)/1000);
   if(dur<3){alert('Durée trop courte.');closeOv('ovStop');return;}
-  if(cutVal && document.getElementById('stopCutRow').style.display!=='none'){
-    // Split into 2 entries
-    const cutTs=tiToTs(cutVal,state.startTs);
-    if(cutTs<=state.startTs||cutTs>=endTs){alert('Heure de coupure invalide.');return;}
-    // First entry uses current type/cat
-    const dur1=Math.floor((cutTs-state.startTs)/1000);
-    const dur2=Math.floor((endTs-cutTs)/1000);
-    state.history.push({type:typeKey,cat,name,note,startTs:state.startTs,endTs:cutTs,duration:dur1,manual:false});
-    // Second entry: open a second mini-modal inline by storing state and re-opening
-    state.startTs=cutTs;
-    state.history.sort(function(a,b){return a.startTs-b.startTs;});
-    scheduleSave();closeOv('ovStop');
-    // Re-open stop modal for second segment
-    const dur2Fmt=fmtDur(dur2);
-    document.getElementById('stopSub').textContent='Segment 2 — Durée : '+dur2Fmt+'  ·  Début : '+fmtTime(cutTs);
-    document.getElementById('stopName').value='';
-    document.getElementById('stopNote').value='';
-    document.getElementById('stopCutRow').style.display='none';
-    buildTypeChips('stopTypes','stopCatPicker','');
-    buildCatChips('stopCatPicker','');
-    openOv('ovStop');
-    return;
-  }
-  state.history.push({type:typeKey,cat,name,note,startTs:state.startTs,endTs,duration:dur,manual:false});
+  state.history.push({cat:cat||'',name,note,startTs:state.startTs,endTs,duration:dur,manual:false});
   state.history.sort(function(a,b){return a.startTs-b.startTs;});
   state.startTs=endTs;
   scheduleSave();closeOv('ovStop');renderToday();
@@ -863,8 +724,8 @@ function doStop(){
 document.getElementById('addBtn').onclick = function(){
   document.getElementById('manName').value='';
   document.getElementById('manNote').value='';
-  buildTypeChips('manTypes','manCatPicker','');
-  buildCatChips('manCatPicker','');
+  buildCatChips('manCats','');
+  buildPresetTags('manTags','manCats','manName','manNote');
   const lastEnd=state.history.length>0?state.history[state.history.length-1].endTs:null;
   document.getElementById('manStart').value=lastEnd?tsToTI(lastEnd):tsToTI(Date.now()-3600000);
   document.getElementById('manEnd').value=tsToTI(Date.now());
@@ -873,8 +734,7 @@ document.getElementById('addBtn').onclick = function(){
 };
 document.getElementById('manName').addEventListener('keydown',function(e){if(e.key==='Escape')closeOv('ovManual');});
 document.getElementById('manConfirm').onclick = function(){
-  const typeKey=getSelType('manTypes');
-  const cat=getResolvedCat('manTypes','manCatPicker');
+  const cat=getSelCat('manCats');
   const name=document.getElementById('manName').value.trim();
   const note=document.getElementById('manNote').value.trim();
   const sv=document.getElementById('manStart').value;
@@ -884,7 +744,7 @@ document.getElementById('manConfirm').onclick = function(){
   if(endTs<=startTs)endTs+=86400000;
   const dur=Math.floor((endTs-startTs)/1000);
   if(dur<60){alert('Durée minimum : 1 minute.');return;}
-  state.history.push({type:typeKey,cat,name,note,startTs,endTs,duration:dur,manual:true});
+  state.history.push({cat:cat||'',name,note,startTs,endTs,duration:dur,manual:true});
   state.history.sort(function(a,b){return a.startTs-b.startTs;});
   scheduleSave();closeOv('ovManual');renderToday();
 };
@@ -898,16 +758,14 @@ function openEdit(idx){
   document.getElementById('editNote').value=h.note||'';
   document.getElementById('editStart').value=tsToTI(h.startTs);
   document.getElementById('editEnd').value=tsToTI(h.endTs);
-  buildTypeChips('editTypes','editCatPicker',h.type||'');
-  buildCatChips('editCatPicker',h.cat||'');
+  buildCatChips('editCats',h.cat||'');
   openOv('ovEdit');
   setTimeout(function(){document.getElementById('editName').focus();},300);
 }
 document.getElementById('editName').addEventListener('keydown',function(e){if(e.key==='Escape')closeOv('ovEdit');});
 document.getElementById('editConfirm').onclick = function(){
   if(editIdx<0)return;
-  const typeKey=getSelType('editTypes');
-  const cat=getResolvedCat('editTypes','editCatPicker');
+  const cat=getSelCat('editCats');
   const name=document.getElementById('editName').value.trim();
   const note=document.getElementById('editNote').value.trim();
   const sv=document.getElementById('editStart').value;
@@ -918,7 +776,7 @@ document.getElementById('editConfirm').onclick = function(){
   if(endTs<=startTs)endTs+=86400000;
   const dur=Math.floor((endTs-startTs)/1000);
   if(dur<60){alert('Durée minimum : 1 minute.');return;}
-  state.history[editIdx]={type:typeKey,cat,name,note,startTs,endTs,duration:dur,manual:state.history[editIdx].manual};
+  state.history[editIdx]={cat:cat||'',name,note,startTs,endTs,duration:dur,manual:state.history[editIdx].manual};
   state.history.sort(function(a,b){return a.startTs-b.startTs;});
   scheduleSave();closeOv('ovEdit');renderToday();editIdx=-1;
 };
@@ -947,16 +805,15 @@ function renderToday(){
   let html='';
   for(let k=n-1;k>=0;k--){
     const h=state.history[k];
-    const col=typeColor(h.type)||catColor(h.cat);
-    const dn=h.type||h.name||'—';
-    const detail=h.type&&h.name?h.name:'';
+    const col=catColor(h.cat);
+    const dn=h.name||h.cat;
     const manMark=h.manual?' <span style="font-size:10px;opacity:.5">✏️</span>':'';
     html+=
       '<div class="hist-item'+(h.manual?' manual':'')+'">' +
         '<div class="hist-cat-dot" style="background:'+col+'"></div>'+
         '<div class="hist-left">'+
           '<div class="hist-name">'+escH(dn)+manMark+'</div>'+
-          (detail?'<div class="hist-cat-label" style="color:'+col+'">'+escH(detail)+'</div>':'')+
+          (h.cat?'<div class="hist-cat-label" style="color:'+col+'">'+escH(h.cat)+'</div>':'<div class="hist-cat-label" style="color:#C8C4BF">Sans catégorie</div>')+
           (h.note?'<div class="hist-note">'+escH(h.note)+'</div>':'')+
           '<div class="hist-time">'+fmtTime(h.startTs)+' → '+fmtTime(h.endTs)+'</div>'+
         '</div>'+
@@ -998,78 +855,117 @@ function renderToday(){
 // ── RENDER HISTORY ──
 function renderHistory(){
   const container=document.getElementById('allDaysContainer');
-  // Collect all entries: archived + today
-  const rows=[];
-  const tk=todayStr();
-  // archived days
   const keys=Object.keys(allDays).sort(function(a,b){return b.localeCompare(a);});
-  keys.forEach(function(dk){
-    const dayData=allDays[dk];
-    const entries=Array.isArray(dayData)?dayData:(dayData&&dayData.entries?dayData.entries:[]);
-    if(!entries)return;
-    entries.forEach(function(h){ rows.push(Object.assign({},h,{dayKey:dk})); });
-  });
-  // today
-  state.history.forEach(function(h){ rows.push(Object.assign({},h,{dayKey:tk})); });
-  rows.sort(function(a,b){ return b.startTs-a.startTs; }); // newest first
-
-  if(!rows.length){
-    container.innerHTML='<div class="hist-empty">Aucune entrée enregistrée.</div>';
+  if(!keys.length){
+    container.innerHTML='<div class="hist-empty">Aucune journée archivée.<br>Utilisez "🗓 Nouvelle journée" pour archiver la journée courante.</div>';
     return;
   }
-
-  let html='<div class="hist-table-wrap"><table class="hist-table"><thead><tr>'+
-    '<th>Date</th><th>Type</th><th>Détail</th><th>Début</th><th>Fin</th><th>Durée</th>'+
-    '<th></th></tr></thead><tbody>';
-
-  rows.forEach(function(h){
-    const col=typeColor(h.type)||catColor(h.cat);
-    const typeLbl=h.type||'—';
-    const detail=h.name||'';
-    const note=h.note?'<div class="ht-note">'+escH(h.note)+'</div>':'';
-    const isToday=h.dayKey===tk;
-    html+='<tr class="ht-row'+(isToday?' ht-today':'')+'"'+
-      ' data-dk="'+escH(h.dayKey)+'" data-ts="'+h.startTs+'">' +
-      '<td class="ht-date">'+escH(fmtDateShort(h.dayKey))+'</td>'+
-      '<td><span class="ht-type" style="background:'+col+'20;color:'+col+'">'+escH(typeLbl)+'</span></td>'+
-      '<td class="ht-detail">'+escH(detail)+note+'</td>'+
-      '<td class="ht-mono">'+fmtTime(h.startTs)+'</td>'+
-      '<td class="ht-mono">'+fmtTime(h.endTs)+'</td>'+
-      '<td class="ht-dur">'+fmtDur(h.duration)+'</td>'+
-      '<td class="ht-acts">'+
-        '<button class="hbtn ht-btn" data-dk="'+escH(h.dayKey)+'" data-ts="'+h.startTs+'" data-ha="hedit">✏️</button>'+
-        '<button class="hbtn del ht-btn" data-dk="'+escH(h.dayKey)+'" data-ts="'+h.startTs+'" data-ha="hdel">✕</button>'+
-      '</td>'+
-    '</tr>';
+  let html='';
+  keys.forEach(function(dk){
+    // Support both {entries,comment} and legacy array format
+    const dayData=allDays[dk];
+    const entries=Array.isArray(dayData)?dayData:(dayData&&dayData.entries?dayData.entries:[]);
+    const comment=(!Array.isArray(dayData)&&dayData&&dayData.comment)||'';
+    if(!entries||!entries.length)return;
+    const total=entries.reduce(function(a,h){return a+h.duration;},0);
+    const catTot={};
+    entries.forEach(function(h){catTot[h.cat]=(catTot[h.cat]||0)+h.duration;});
+    let miniBar='';
+    CATEGORIES.forEach(function(c){
+      if(!catTot[c.key])return;
+      const pct=(catTot[c.key]/total*100).toFixed(1);
+      miniBar+='<div class="mini-seg" style="background:'+c.color+';width:'+pct+'%"></div>';
+    });
+    let entriesHtml='';
+    entries.forEach(function(h, ei){
+      const col=catColor(h.cat);
+      const dn=h.name||(h.cat||'Sans catégorie');
+      entriesHtml+=
+        '<div class="day-entry">'+
+          '<div class="de-dot" style="background:'+col+'"></div>'+
+          '<div class="de-left">'+
+            '<div class="de-name">'+escH(dn)+'</div>'+
+            (h.cat?'<div class="de-cat" style="color:'+col+'">'+escH(h.cat)+'</div>':'<div class="de-cat" style="color:#C8C4BF">Sans catégorie</div>')+
+            (h.note?'<div class="de-note">'+escH(h.note)+'</div>':'')+
+          '</div>'+
+          '<div class="de-time">'+fmtTime(h.startTs)+' → '+fmtTime(h.endTs)+'</div>'+
+          '<div class="de-dur">'+fmtDur(h.duration)+'</div>'+
+          '<div class="de-acts">'+
+            '<button class="hbtn" data-dk="'+escH(dk)+'" data-ei="'+ei+'" data-ha="hedit">✏️</button>'+
+            '<button class="hbtn del" data-dk="'+escH(dk)+'" data-ei="'+ei+'" data-ha="hdel">✕</button>'+
+          '</div>'+
+        '</div>';
+    });
+    html+=
+      '<div class="day-block" id="day-'+dk+'">'+
+        '<div class="day-header" data-dk="'+dk+'">'+
+          '<span class="day-chevron">▶</span>'+
+          '<div class="day-info">'+
+            '<div class="day-date">'+escH(fmtDateShort(dk))+'</div>'+
+            (comment?'<div class="day-comment">'+escH(comment)+'</div>':'')+
+          '</div>'+
+          '<span class="day-meta">'+entries.length+' activité'+(entries.length>1?'s':'')+'</span>&nbsp;&nbsp;'+
+          '<span class="day-total">'+fmtDur(total)+'</span>'+
+        '</div>'+
+        '<div class="day-entries">'+
+          '<div style="padding:10px 16px 4px"><div class="mini-bar">'+miniBar+'</div></div>'+
+          entriesHtml+
+        '</div>'+
+      '</div>';
   });
-
-  html+='</tbody></table></div>';
   container.innerHTML=html;
-
-  // Wire edit/delete
+  container.querySelectorAll('.day-header').forEach(function(hdr){
+    hdr.addEventListener('click',function(){
+      document.getElementById('day-'+this.getAttribute('data-dk')).classList.toggle('open');
+    });
+  });
   container.querySelectorAll('[data-ha]').forEach(function(btn){
     btn.addEventListener('click',function(e){
       e.stopPropagation();
-      const dk=this.getAttribute('data-dk');
-      const ts=parseInt(this.getAttribute('data-ts'),10);
-      const action=this.getAttribute('data-ha');
-      if(dk===tk){
-        // today entry - find index in state.history
-        const idx=state.history.findIndex(function(h){return h.startTs===ts;});
-        if(idx<0)return;
-        if(action==='hedit') openEdit(idx);
-        else doDelete(idx);
-      } else {
-        // archived entry
-        const dayData=allDays[dk];
-        const entries=Array.isArray(dayData)?dayData:(dayData&&dayData.entries||[]);
-        const ei=entries.findIndex(function(h){return h.startTs===ts;});
-        if(ei<0)return;
-        if(action==='hedit') openHistEdit(dk,ei);
-        else histDelete(dk,ei);
-      }
+      var dk=this.getAttribute('data-dk');
+      var ei=parseInt(this.getAttribute('data-ei'),10);
+      var action=this.getAttribute('data-ha');
+      if(action==='hedit') openHistEdit(dk,ei);
+      else if(action==='hdel') histDelete(dk,ei);
     });
   });
+}
+
+// ── HISTORY EDIT / DELETE ──
+var histEditDk = '';
+var histEditEi = -1;
+
+function histDelete(dk, ei){
+  var dayData=allDays[dk];
+  var entries=Array.isArray(dayData)?dayData.slice():(dayData.entries||[]).slice();
+  var label=entries[ei] ? (entries[ei].name||entries[ei].cat||'cette entrée') : 'cette entrée';
+  if(!confirm('Supprimer "'+label+'" ?'))return;
+  entries.splice(ei,1);
+  allDays[dk]={entries:entries, comment:(Array.isArray(dayData)?'':(dayData.comment||''))};
+  lsSaveHis();
+  if(db){
+    var d=entriesToDoc(entries);
+    d.dayComment=allDays[dk].comment;
+    setDoc(doc(db,'time-tracker-archive',dk),d).catch(function(e){console.warn('Archive update failed',e);});
+  }
+  renderHistory();
+}
+
+function openHistEdit(dk, ei){
+  histEditDk=dk; histEditEi=ei;
+  var dayData=allDays[dk];
+  var entries=Array.isArray(dayData)?dayData:(dayData.entries||[]);
+  var h=entries[ei];
+  if(!h){return;}
+  document.getElementById('heditSub').textContent=
+    fmtDateShort(dk)+' · '+fmtTime(h.startTs)+' → '+fmtTime(h.endTs)+'  ('+fmtDur(h.duration)+')';
+  document.getElementById('heditName').value=h.name||'';
+  document.getElementById('heditNote').value=h.note||'';
+  document.getElementById('heditStart').value=tsToTI(h.startTs);
+  document.getElementById('heditEnd').value=tsToTI(h.endTs);
+  buildCatChips('heditCats',h.cat||'');
+  openOv('ovHistEdit');
+  setTimeout(function(){document.getElementById('heditName').focus();},300);
 }
 
 // ── EXPORTS ──
@@ -1224,8 +1120,7 @@ function dlFile(content,filename,type){
 // STATS ENGINE
 // ─────────────────────────────────────────────────────────────
 let etalon = {}; // { 'TEMPS OBLIGATOIRE': 8, ... } h/day
-let statsView = 'week'; // 'day' | 'week' | 'month' | 'all'
-let statsDayKey = todayStr(); // current day for day view
+let statsView = 'week'; // 'week' | 'month' | 'all'
 let statsInitDone = false;
 
 // Load étalon from Firestore (doc: time-tracker/etalon, flat keys: cat keys → h/day)
@@ -1371,23 +1266,7 @@ function renderStats(){
   let dayKeys = [];
   let periodLabel = '';
 
-  if(statsView==='day'){
-    dayKeys = [statsDayKey];
-    const allE = getAllEntries();
-    entries = allE.filter(function(e){ return e.dayKey===statsDayKey; });
-    periodLabel = fmtDateShort(statsDayKey);
-    document.getElementById('dayLabel').textContent = fmtDateShort(statsDayKey);
-    // Enable/disable nav
-    const allKeys = getDayKeys(allE);
-    if(allKeys.indexOf(todayStr())<0) allKeys.push(todayStr());
-    allKeys.sort();
-    const idx = allKeys.indexOf(statsDayKey);
-    document.getElementById('dayPrev').disabled = idx <= 0;
-    document.getElementById('dayNext').disabled = idx >= allKeys.length-1;
-    // Store for nav
-    document.getElementById('dayPrev')._allKeys = allKeys;
-    document.getElementById('dayNext')._allKeys = allKeys;
-  } else if(statsView==='week'){
+  if(statsView==='week'){
     const wk = document.getElementById('weekSel').value;
     if(!wk){ document.getElementById('stBars').innerHTML='<div class="st-empty">Aucune semaine disponible.</div>'; return; }
     const {mon,sun} = weekBounds(wk);
@@ -1537,7 +1416,6 @@ async function initStats(){
     statsView='week';
     document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});
     this.classList.add('active');
-    document.getElementById('daySel').style.display='none';
     document.getElementById('weekSel').style.display='';
     document.getElementById('monthSel').style.display='none';
     renderStats();
@@ -1546,7 +1424,6 @@ async function initStats(){
     statsView='month';
     document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});
     this.classList.add('active');
-    document.getElementById('daySel').style.display='none';
     document.getElementById('weekSel').style.display='none';
     document.getElementById('monthSel').style.display='';
     renderStats();
@@ -1555,7 +1432,6 @@ async function initStats(){
     statsView='all';
     document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});
     this.classList.add('active');
-    document.getElementById('daySel').style.display='none';
     document.getElementById('weekSel').style.display='none';
     document.getElementById('monthSel').style.display='none';
     renderStats();
@@ -1564,34 +1440,13 @@ async function initStats(){
   document.getElementById('weekSel').onchange   = renderStats;
   document.getElementById('monthSel').onchange  = renderStats;
   document.getElementById('saveEtalonBtn').onclick = saveEtalon;
-
-  document.getElementById('svDay').onclick = function(){
-    statsView='day'; statsDayKey=todayStr();
-    document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});
-    this.classList.add('active');
-    document.getElementById('daySel').style.display='flex';
-    document.getElementById('weekSel').style.display='none';
-    document.getElementById('monthSel').style.display='none';
-    renderStats();
-  };
-  document.getElementById('dayPrev').onclick = function(){
-    const keys=this._allKeys||[];
-    const idx=keys.indexOf(statsDayKey);
-    if(idx>0){statsDayKey=keys[idx-1];renderStats();}
-  };
-  document.getElementById('dayNext').onclick = function(){
-    const keys=this._allKeys||[];
-    const idx=keys.indexOf(statsDayKey);
-    if(idx<keys.length-1){statsDayKey=keys[idx+1];renderStats();}
-  };
 }
 
 // ── HEDIT CONFIRM ──
 document.getElementById('heditName').addEventListener('keydown',function(e){if(e.key==='Escape')closeOv('ovHistEdit');});
 document.getElementById('heditConfirm').onclick = function(){
   if(histEditEi<0)return;
-  var typeKey=getSelType('heditTypes');
-  var cat=getResolvedCat('heditTypes','heditCatPicker');
+  var cat=getSelCat('heditCats');
   var name=document.getElementById('heditName').value.trim();
   var note=document.getElementById('heditNote').value.trim();
   var sv=document.getElementById('heditStart').value;
@@ -1604,7 +1459,7 @@ document.getElementById('heditConfirm').onclick = function(){
   if(endTs<=startTs)endTs+=86400000;
   var dur=Math.floor((endTs-startTs)/1000);
   if(dur<60){alert('Durée minimum : 1 minute.');return;}
-  entries[histEditEi]={type:typeKey,cat:cat||'',name:name,note:note,startTs:startTs,endTs:endTs,duration:dur,manual:true};
+  entries[histEditEi]={cat:cat||'',name:name,note:note,startTs:startTs,endTs:endTs,duration:dur,manual:true};
   entries.sort(function(a,b){return a.startTs-b.startTs;});
   var comment=Array.isArray(dayData)?'':(dayData.comment||'');
   allDays[histEditDk]={entries:entries,comment:comment};

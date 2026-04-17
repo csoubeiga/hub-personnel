@@ -212,6 +212,10 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 .mini-seg{height:100%}
 .de-acts{display:flex;gap:2px;flex-shrink:0;margin-left:4px}
 .de-acts .hbtn{font-size:12px;padding:3px 5px}
+.st-nav-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:5px 13px;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;cursor:pointer;color:var(--ink);line-height:1;transition:all .13s}
+.st-nav-btn:hover{background:var(--ink);color:white;border-color:var(--ink)}
+.st-nav-btn:disabled{opacity:.3;cursor:not-allowed}
+.st-day-label{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--ink);min-width:130px;text-align:center}
 .sync-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;text-align:center;background:rgba(245,242,237,.95);backdrop-filter:blur(6px);border-top:1px solid var(--border);color:var(--ink-muted);transition:color .3s}
 .sync-bar.ok{color:var(--green)}.sync-bar.err{color:var(--accent)}
 .hist-empty{text-align:center;padding:60px 20px;color:var(--ink-muted);font-size:13px;line-height:1.7}
@@ -283,12 +287,18 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 <div class="stats-tab-wrap">
   <div class="st-controls">
     <div class="st-view-btns">
+      <button class="st-view-btn" id="svDay">Jour</button>
       <button class="st-view-btn active" id="svWeek">Semaine</button>
       <button class="st-view-btn" id="svMonth">Mois</button>
       <button class="st-view-btn" id="svAll">All time</button>
     </div>
     <div class="st-right-controls">
       <label class="st-toggle-label"><input type="checkbox" id="toggleWE" checked><span>Week-end inclus</span></label>
+      <div id="daySel" style="display:none;align-items:center;gap:8px">
+        <button class="st-nav-btn" id="dayPrev">‹</button>
+        <span class="st-day-label" id="dayLabel">—</span>
+        <button class="st-nav-btn" id="dayNext">›</button>
+      </div>
       <select class="st-week-sel" id="weekSel"></select>
       <select class="st-week-sel" id="monthSel" style="display:none"></select>
     </div>
@@ -315,12 +325,12 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="msub" id="stopSub"></div>
     <label class="flbl">Type de temps</label>
     <div class="type-grid" id="stopTypes"></div>
-    <input class="field" id="stopCustom" type="text" placeholder="Ou saisissez un type libre…" maxlength="40" style="margin-bottom:10px">
-    <label class="flbl">Catégorie <span style="font-weight:400;opacity:.6">(auto, modifiable)</span></label>
+    <input class="field" id="stopCustom" type="text" placeholder="Type libre" maxlength="40" style="margin-bottom:10px">
+    <label class="flbl">Catégorie</label>
     <div class="cat-row" id="stopCats"></div>
-    <label class="flbl">Détail <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Détail</label>
     <input class="field" id="stopDetail" type="text" placeholder="Ex : réunion budget, yoga…" maxlength="80">
-    <label class="flbl">Note <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Note</label>
     <textarea class="field note-field" id="stopNote" placeholder="Précisions…" maxlength="300"></textarea>
     <button class="confirm-btn" id="stopConfirm">✓ Enregistrer et continuer</button>
   </div>
@@ -347,10 +357,10 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="msub" id="stopPartSub"></div>
     <label class="flbl">Type de temps</label>
     <div class="type-grid" id="stopPartTypes"></div>
-    <input class="field" id="stopPartCustom" type="text" placeholder="Ou saisissez un type libre…" maxlength="40" style="margin-bottom:10px">
-    <label class="flbl">Catégorie <span style="font-weight:400;opacity:.6">(auto, modifiable)</span></label>
+    <input class="field" id="stopPartCustom" type="text" placeholder="Type libre" maxlength="40" style="margin-bottom:10px">
+    <label class="flbl">Catégorie</label>
     <div class="cat-row" id="stopPartCats"></div>
-    <label class="flbl">Détail <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Détail</label>
     <input class="field" id="stopPartDetail" type="text" maxlength="80">
     <button class="confirm-btn" id="stopPartConfirm">✓ Suivant</button>
   </div>
@@ -364,12 +374,12 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="msub">Renseignez le type et la plage horaire</div>
     <label class="flbl">Type de temps</label>
     <div class="type-grid" id="manTypes"></div>
-    <input class="field" id="manCustom" type="text" placeholder="Ou saisissez un type libre…" maxlength="40" style="margin-bottom:10px">
-    <label class="flbl">Catégorie <span style="font-weight:400;opacity:.6">(auto, modifiable)</span></label>
+    <input class="field" id="manCustom" type="text" placeholder="Type libre" maxlength="40" style="margin-bottom:10px">
+    <label class="flbl">Catégorie</label>
     <div class="cat-row" id="manCats"></div>
-    <label class="flbl">Détail <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Détail</label>
     <input class="field" id="manDetail" type="text" maxlength="80">
-    <label class="flbl">Note <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Note</label>
     <textarea class="field note-field" id="manNote" maxlength="300"></textarea>
     <label class="flbl">Plage horaire</label>
     <div class="field-row"><input class="field" id="manStart" type="time"><input class="field" id="manEnd" type="time"></div>
@@ -385,12 +395,12 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="msub" id="editSub"></div>
     <label class="flbl">Type de temps</label>
     <div class="type-grid" id="editTypes"></div>
-    <input class="field" id="editCustom" type="text" placeholder="Ou saisissez un type libre…" maxlength="40" style="margin-bottom:10px">
-    <label class="flbl">Catégorie <span style="font-weight:400;opacity:.6">(auto, modifiable)</span></label>
+    <input class="field" id="editCustom" type="text" placeholder="Type libre" maxlength="40" style="margin-bottom:10px">
+    <label class="flbl">Catégorie</label>
     <div class="cat-row" id="editCats"></div>
-    <label class="flbl">Détail <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Détail</label>
     <input class="field" id="editDetail" type="text" maxlength="80">
-    <label class="flbl">Note <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Note</label>
     <textarea class="field note-field" id="editNote" maxlength="300"></textarea>
     <label class="flbl">Plage horaire</label>
     <div class="field-row"><input class="field" id="editStart" type="time"><input class="field" id="editEnd" type="time"></div>
@@ -406,12 +416,12 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="msub" id="heditSub"></div>
     <label class="flbl">Type de temps</label>
     <div class="type-grid" id="heditTypes"></div>
-    <input class="field" id="heditCustom" type="text" placeholder="Ou saisissez un type libre…" maxlength="40" style="margin-bottom:10px">
-    <label class="flbl">Catégorie <span style="font-weight:400;opacity:.6">(auto, modifiable)</span></label>
+    <input class="field" id="heditCustom" type="text" placeholder="Type libre" maxlength="40" style="margin-bottom:10px">
+    <label class="flbl">Catégorie</label>
     <div class="cat-row" id="heditCats"></div>
-    <label class="flbl">Détail <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Détail</label>
     <input class="field" id="heditDetail" type="text" maxlength="80">
-    <label class="flbl">Note <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Note</label>
     <textarea class="field note-field" id="heditNote" maxlength="300"></textarea>
     <label class="flbl">Plage horaire</label>
     <div class="field-row"><input class="field" id="heditStart" type="time"><input class="field" id="heditEnd" type="time"></div>
@@ -425,7 +435,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="handle"></div>
     <div class="mtitle">🗓 Archiver la journée</div>
     <div class="msub" id="newDaySub"></div>
-    <label class="flbl">Commentaire <span style="font-weight:400;opacity:.6">(optionnel)</span></label>
+    <label class="flbl">Commentaire</label>
     <input class="field" id="newDayComment" type="text" placeholder="Ex: Journée au bureau, Dimanche en famille…" maxlength="100">
     <div id="midnightWarning" style="display:none;background:#FDF0EC;border:1.5px solid rgba(232,80,42,.3);border-radius:11px;padding:12px 14px;margin-bottom:13px;font-size:13px;line-height:1.5">
       <strong style="color:var(--accent)">⚠ Activité à cheval sur minuit</strong><br>
@@ -477,11 +487,11 @@ const TYPES = [
   {label:'Famille',     cat:'TEMPS PERSONNEL'},
   {label:'Couple',      cat:'TEMPS PERSONNEL'},
   {label:'Amis',        cat:'TEMPS PERSONNEL'},
-  {label:'Temps perso', cat:'TEMPS PERSONNEL'},
+  {label:'Perso', cat:'TEMPS PERSONNEL'},
   {label:'Sport',       cat:'TEMPS POUR SOI'},
   {label:'Lecture',     cat:'TEMPS POUR SOI'},
-  {label:'Réseaux',     cat:'TEMPS PERDU'},
-  {label:'Temps perdu', cat:'TEMPS PERDU'},
+  {label:'Scroll',     cat:'TEMPS PERDU'},
+  {label:'Perdu', cat:'TEMPS PERDU'},
   {label:'Transport',   cat:null},
   {label:'Autre',       cat:null},
 ];
@@ -500,6 +510,7 @@ let state   = {startTs: Date.now(), history: []};
 let allDays = {};
 let etalon  = {};
 let statsView = 'week';
+let statsDayKey = todayStr();
 let statsInitDone = false;
 
 // ─── SYNC STATUS ──────────────────────────────────────────────
@@ -666,19 +677,27 @@ function buildTypeChips(gridId, customId, catRowId, selType) {
   grid.innerHTML = '';
   TYPES.forEach(function(t){
     const el = document.createElement('div');
-    el.className = 'type-chip' + (t.label===selType?' on':'');
+    const cc = t.cat ? catColor(t.cat) : '#C8C4BF';
+    const isOn = t.label===selType;
+    el.className = 'type-chip' + (isOn?' on':'');
     el.textContent = t.label;
-    if(t.label===selType){
-      const cc = t.cat ? catColor(t.cat) : '#C8C4BF';
-      el.style.background = cc;
-    }
+    // Color: border always shows category color; background filled when selected
+    el.style.borderColor = cc;
+    el.style.color = isOn ? 'white' : cc;
+    if(isOn) el.style.background = cc;
     el.addEventListener('click', function(){
       grid.querySelectorAll('.type-chip').forEach(function(x){
-        x.classList.remove('on'); x.style.background='';
+        x.classList.remove('on');
+        x.style.background = '';
+        // Restore border+text color for each chip
+        const xt = TYPES.find(function(tt){ return tt.label===x.textContent; });
+        const xcc = xt && xt.cat ? catColor(xt.cat) : '#C8C4BF';
+        x.style.borderColor = xcc;
+        x.style.color = xcc;
       });
       el.classList.add('on');
-      const cc = t.cat ? catColor(t.cat) : '#C8C4BF';
       el.style.background = cc;
+      el.style.color = 'white';
       if(customId) document.getElementById(customId).value = '';
       // Auto-set category
       if(t.cat) setCatChip(catRowId, t.cat);
@@ -1359,7 +1378,22 @@ function renderStats(){
     return;
   }
   let entries=[],dayKeys=[],periodLabel='';
-  if(statsView==='week'){
+  if(statsView==='day'){
+    const allE=getAllEntries();
+    let allDK=getDayKeys(allE);
+    if(allDK.indexOf(todayStr())<0)allDK.push(todayStr());
+    allDK.sort();
+    if(allDK.indexOf(statsDayKey)<0)statsDayKey=allDK[allDK.length-1];
+    dayKeys=[statsDayKey];
+    entries=allE.filter(function(e){return e.dayKey===statsDayKey;});
+    periodLabel=fmtDateShort(statsDayKey);
+    const idx=allDK.indexOf(statsDayKey);
+    const prev=document.getElementById('dayPrev');
+    const next=document.getElementById('dayNext');
+    prev.disabled=idx<=0; next.disabled=idx>=allDK.length-1;
+    prev._keys=allDK; next._keys=allDK;
+    document.getElementById('dayLabel').textContent=fmtDateShort(statsDayKey);
+  } else if(statsView==='week'){
     const wk=document.getElementById('weekSel').value;
     if(!wk){document.getElementById('stBars').innerHTML='<div class="st-empty">Aucune semaine.</div>';return;}
     const{mon,sun}=weekBounds(wk);
@@ -1467,9 +1501,26 @@ function buildEtalonEditor(){
 async function initStats(){
   if(!statsInitDone){await loadEtalon();statsInitDone=true;}
   buildWeekSel(); buildMonthSel(); buildEtalonEditor(); renderStats();
-  document.getElementById('svWeek').onclick=function(){statsView='week';document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});this.classList.add('active');document.getElementById('weekSel').style.display='';document.getElementById('monthSel').style.display='none';renderStats();};
-  document.getElementById('svMonth').onclick=function(){statsView='month';document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});this.classList.add('active');document.getElementById('weekSel').style.display='none';document.getElementById('monthSel').style.display='';renderStats();};
-  document.getElementById('svAll').onclick=function(){statsView='all';document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});this.classList.add('active');document.getElementById('weekSel').style.display='none';document.getElementById('monthSel').style.display='none';renderStats();};
+  document.getElementById('svDay').onclick=function(){
+    statsView='day'; statsDayKey=todayStr();
+    document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});
+    this.classList.add('active');
+    document.getElementById('daySel').style.display='flex';
+    document.getElementById('weekSel').style.display='none';
+    document.getElementById('monthSel').style.display='none';
+    renderStats();
+  };
+  document.getElementById('dayPrev').onclick=function(){
+    const keys=this._keys||[]; const idx=keys.indexOf(statsDayKey);
+    if(idx>0){statsDayKey=keys[idx-1];renderStats();}
+  };
+  document.getElementById('dayNext').onclick=function(){
+    const keys=this._keys||[]; const idx=keys.indexOf(statsDayKey);
+    if(idx<keys.length-1){statsDayKey=keys[idx+1];renderStats();}
+  };
+  document.getElementById('svWeek').onclick=function(){statsView='week';document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});this.classList.add('active');document.getElementById('daySel').style.display='none';document.getElementById('weekSel').style.display='';document.getElementById('monthSel').style.display='none';renderStats();};
+  document.getElementById('svMonth').onclick=function(){statsView='month';document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});this.classList.add('active');document.getElementById('daySel').style.display='none';document.getElementById('weekSel').style.display='none';document.getElementById('monthSel').style.display='';renderStats();};
+  document.getElementById('svAll').onclick=function(){statsView='all';document.querySelectorAll('.st-view-btn').forEach(function(b){b.classList.remove('active');});this.classList.add('active');document.getElementById('daySel').style.display='none';document.getElementById('weekSel').style.display='none';document.getElementById('monthSel').style.display='none';renderStats();};
   document.getElementById('toggleWE').onchange=renderStats;
   document.getElementById('weekSel').onchange=renderStats;
   document.getElementById('monthSel').onchange=renderStats;
