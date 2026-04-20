@@ -202,6 +202,19 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 .st-day-label{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--ink);min-width:130px;text-align:center}
 .sync-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;text-align:center;background:rgba(245,242,237,.95);backdrop-filter:blur(6px);border-top:1px solid var(--border);color:var(--ink-muted);transition:color .3s}
 .sync-bar.ok{color:var(--green)}.sync-bar.err{color:var(--accent)}
+/* DAY COMMENT INLINE */
+.day-comment-wrap{padding:0 16px 12px}
+.day-comment-input{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'DM Mono',monospace;font-size:12px;color:var(--ink-muted);background:var(--bg);outline:none;transition:border-color .18s}
+.day-comment-input:focus{border-color:var(--ink);color:var(--ink)}
+.day-comment-input::placeholder{color:var(--border)}
+/* NOTES TAB */
+.notes-wrap{max-width:700px;margin:0 auto;padding:28px 18px 60px}
+@media(min-width:700px){.notes-wrap{padding:32px 28px 60px}}
+.notes-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.notes-title{font-size:15px;font-weight:700}
+.notes-sync{font-family:'DM Mono',monospace;font-size:11px;color:var(--ink-muted)}
+.notes-area{width:100%;min-height:calc(100dvh - 200px);padding:18px;border:2px solid var(--border);border-radius:16px;font-family:'DM Mono',monospace;font-size:14px;line-height:1.7;color:var(--ink);background:var(--surface);outline:none;resize:none;transition:border-color .18s;box-shadow:var(--shadow)}
+.notes-area:focus{border-color:var(--ink)}
 </style>
 </head>
 <body>
@@ -210,6 +223,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
   <button class="tab-btn active" id="tabToday">Aujourd'hui</button>
   <button class="tab-btn" id="tabHistory">Historique</button>
   <button class="tab-btn" id="tabStats">Statistiques</button>
+  <button class="tab-btn" id="tabNotes">Notes</button>
 </div>
 
 <!-- TAB TODAY -->
@@ -418,8 +432,6 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="handle"></div>
     <div class="mtitle">🗓 Archiver la journée</div>
     <div class="msub" id="newDaySub"></div>
-    <label class="flbl">Commentaire</label>
-    <input class="field" id="newDayComment" type="text" placeholder="Ex: Journée au bureau, Dimanche en famille…" maxlength="100">
     <div id="midnightWarning" style="display:none;background:#FDF0EC;border:1.5px solid rgba(232,80,42,.3);border-radius:11px;padding:12px 14px;margin-bottom:13px;font-size:13px;line-height:1.5">
       <strong style="color:var(--accent)">⚠ Activité à cheval sur minuit</strong><br>
       <span id="midnightDetail"></span>
@@ -429,6 +441,17 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 </div>
 
 <div class="sync-bar" id="syncBar">Chargement…</div>
+
+<!-- TAB NOTES -->
+<div class="tab-panel" id="panelNotes">
+<div class="notes-wrap">
+  <div class="notes-header">
+    <div class="notes-title">📝 Notes</div>
+    <div class="notes-sync" id="notesSyncLbl"></div>
+  </div>
+  <textarea class="notes-area" id="notesArea" placeholder="Tes notes libres ici — réflexions, observations, idées…"></textarea>
+</div>
+</div>
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -1016,17 +1039,27 @@ function renderHistory(){
     byDay[h.dayKey].push(h);
   });
   const days=Object.keys(byDay).sort(function(a,b){return b.localeCompare(a);});
-  let html='<div style="overflow-x:auto"><table class="tk-table">' +
-    '<thead><tr><th>Type</th><th>Catégorie</th><th>Détail</th><th>Début</th><th>Fin</th><th>Durée</th><th></th></tr></thead><tbody>';
+  // Render each day as a block: header label + comment input + table
+  let html='';
   days.forEach(function(dk){
     const entries=byDay[dk].slice().sort(function(a,b){return a.startTs-b.startTs;});
     const dayData=allDays[dk];
     const comment=(!Array.isArray(dayData)&&dayData&&dayData.comment)||'';
-    const dayLabel=fmtDateShort(dk)+(comment?' — '+comment:'');
-    html+='<tr class="day-sep"><td colspan="7">'+escH(dayLabel)+'</td></tr>';
+    const isArchived=dk!==todayStr();
+    html+='<div style="margin-bottom:28px">';
+    // Day header
+    html+='<div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">'+escH(fmtDateShort(dk))+'</div>';
+    // Inline comment input (only for archived days)
+    if(isArchived){
+      html+='<div class="day-comment-wrap" style="padding:0 0 10px 0">'+
+        '<input class="day-comment-input" type="text" data-dk="'+escH(dk)+'" placeholder="Ajouter un commentaire…" maxlength="120" value="'+escH(comment)+'">'+
+      '</div>';
+    }
+    // Table
+    html+='<div style="overflow-x:auto"><table class="tk-table">'+
+      '<thead><tr><th>Type</th><th>Catégorie</th><th>Détail</th><th>Début</th><th>Fin</th><th>Durée</th><th></th></tr></thead><tbody>';
     entries.forEach(function(h,ei){
       const col=catColor(h.cat);
-      const isArchived=dk!==todayStr();
       const actBtns=isArchived
         ?'<button class="hbtn" data-dk="'+escH(dk)+'" data-ei="'+ei+'" data-ha="hedit">✏️</button><button class="hbtn del" data-dk="'+escH(dk)+'" data-ei="'+ei+'" data-ha="hdel">✕</button>'
         :'';
@@ -1040,9 +1073,23 @@ function renderHistory(){
         '<td class="td-acts de-acts">'+actBtns+'</td>'+
       '</tr>';
     });
+    html+='</tbody></table></div></div>';
   });
-  html+='</tbody></table></div>';
   container.innerHTML=html;
+
+  // Wire comment inputs — debounced save
+  let commentTimer = null;
+  container.querySelectorAll('.day-comment-input').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      const dk = this.getAttribute('data-dk');
+      const val = this.value.trim();
+      clearTimeout(commentTimer);
+      commentTimer = setTimeout(function(){
+        saveDayComment(dk, val);
+      }, 1000);
+    });
+  });
+
   container.querySelectorAll('[data-ha]').forEach(function(btn){
     btn.addEventListener('click',function(){
       const dk=this.getAttribute('data-dk');
@@ -1114,7 +1161,20 @@ document.getElementById('heditConfirm').onclick = function(){
   histEditDk=''; histEditEi=-1;
 };
 
-// ── EXPORTS ──────────────────────────────────────────────────
+// ── DAY COMMENT SAVE ─────────────────────────────────────────
+function saveDayComment(dk, val){
+  const dayData = allDays[dk];
+  const entries = Array.isArray(dayData) ? dayData : (dayData ? dayData.entries||[] : []);
+  allDays[dk] = {entries: entries, comment: val};
+  lsSaveHis();
+  if(db){
+    const d = entriesToDoc(entries);
+    d.dayComment = val;
+    setDoc(doc(db,'time-tracker-archive',dk), d).catch(function(e){console.warn(e);});
+  }
+}
+
+
 function rowsCsv(entries,dk){
   return entries.map(function(h){
     const t=(h.type||'').replace(/"/g,'""');
@@ -1195,7 +1255,6 @@ document.getElementById('btnReset').onclick = function(){
   });
   const sub=state.history.length+' activité'+(state.history.length>1?'s':'')+' · '+fmtDur(state.history.reduce(function(a,h){return a+h.duration;},0));
   document.getElementById('newDaySub').textContent=sub;
-  document.getElementById('newDayComment').value='';
   const warn=document.getElementById('midnightWarning');
   if(crossers.length>0){
     warn.style.display='block';
@@ -1203,17 +1262,11 @@ document.getElementById('btnReset').onclick = function(){
       crossers.length+' activité'+(crossers.length>1?'s':'')+' à cheval sur minuit — sera découpée automatiquement.';
   } else { warn.style.display='none'; }
   openOv('ovNewDay');
-  setTimeout(function(){document.getElementById('newDayComment').focus();},300);
 };
-document.getElementById('newDayComment').addEventListener('keydown',function(e){
-  if(e.key==='Enter')doNewDay();
-  if(e.key==='Escape')closeOv('ovNewDay');
-});
 document.getElementById('newDayConfirm').onclick = doNewDay;
 
 async function doNewDay(){
   const dk      = todayStr();
-  const comment = document.getElementById('newDayComment').value.trim();
   const midnight = getMidnightTs();
 
   // Séparer les entrées selon la règle unifiée
@@ -1254,7 +1307,7 @@ async function doNewDay(){
   }
 
   // Archiver les entrées du jour courant sous dk
-  await archiveDayEntries(dk, forToday, comment);
+  await archiveDayEntries(dk, forToday, '');
 
   // Réinitialiser state
   state.history = [];
@@ -1499,27 +1552,67 @@ async function initStats(){
   document.getElementById('saveEtalonBtn').onclick=saveEtalon;
 }
 
+// ── NOTES ────────────────────────────────────────────────────
+let notesLoaded = false;
+let notesSaveTimer = null;
+
+async function loadNotes(){
+  if(db){
+    try{
+      const snap = await getDoc(doc(db,'time-tracker-current','notes'));
+      if(snap.exists()){
+        document.getElementById('notesArea').value = snap.data().text || '';
+      }
+    }catch(e){ /* use empty */ }
+  }
+  notesLoaded = true;
+}
+
+async function saveNotes(){
+  const text = document.getElementById('notesArea').value;
+  const lbl = document.getElementById('notesSyncLbl');
+  lbl.textContent = 'Enregistrement…';
+  try{ localStorage.setItem('tk_v1_notes', text); }catch(e){}
+  if(db){
+    try{
+      await setDoc(doc(db,'time-tracker-current','notes'), {text: text, updatedAt: Date.now()});
+      lbl.textContent = '✓ Enregistré';
+    }catch(e){ lbl.textContent = '⚠ Erreur'; }
+  } else {
+    lbl.textContent = '⚠ Local seulement';
+  }
+  setTimeout(function(){ lbl.textContent = ''; }, 2500);
+}
+
+document.getElementById('notesArea').addEventListener('input', function(){
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer = setTimeout(saveNotes, 1200);
+});
+
+async function initNotes(){
+  if(!notesLoaded){
+    // Try localStorage first for instant display
+    try{
+      const ls = localStorage.getItem('tk_v1_notes');
+      if(ls) document.getElementById('notesArea').value = ls;
+    }catch(e){}
+    await loadNotes();
+  }
+}
+
 // ── TABS ─────────────────────────────────────────────────────
-document.getElementById('tabToday').onclick=function(){
-  ['tabToday','tabHistory','tabStats'].forEach(function(id){document.getElementById(id).classList.remove('active');});
-  ['panelToday','panelHistory','panelStats'].forEach(function(id){document.getElementById(id).classList.remove('active');});
-  document.getElementById('tabToday').classList.add('active');
-  document.getElementById('panelToday').classList.add('active');
-};
-document.getElementById('tabHistory').onclick=function(){
-  ['tabToday','tabHistory','tabStats'].forEach(function(id){document.getElementById(id).classList.remove('active');});
-  ['panelToday','panelHistory','panelStats'].forEach(function(id){document.getElementById(id).classList.remove('active');});
-  document.getElementById('tabHistory').classList.add('active');
-  document.getElementById('panelHistory').classList.add('active');
-  renderHistory();
-};
-document.getElementById('tabStats').onclick=function(){
-  ['tabToday','tabHistory','tabStats'].forEach(function(id){document.getElementById(id).classList.remove('active');});
-  ['panelToday','panelHistory','panelStats'].forEach(function(id){document.getElementById(id).classList.remove('active');});
-  document.getElementById('tabStats').classList.add('active');
-  document.getElementById('panelStats').classList.add('active');
-  initStats();
-};
+const ALL_TABS = ['tabToday','tabHistory','tabStats','tabNotes'];
+const ALL_PANELS = ['panelToday','panelHistory','panelStats','panelNotes'];
+function switchTab(tab, panel){
+  ALL_TABS.forEach(function(id){ document.getElementById(id).classList.remove('active'); });
+  ALL_PANELS.forEach(function(id){ document.getElementById(id).classList.remove('active'); });
+  document.getElementById(tab).classList.add('active');
+  document.getElementById(panel).classList.add('active');
+}
+document.getElementById('tabToday').onclick   = function(){ switchTab('tabToday','panelToday'); };
+document.getElementById('tabHistory').onclick = function(){ switchTab('tabHistory','panelHistory'); renderHistory(); };
+document.getElementById('tabStats').onclick   = function(){ switchTab('tabStats','panelStats'); initStats(); };
+document.getElementById('tabNotes').onclick   = function(){ switchTab('tabNotes','panelNotes'); initNotes(); };
 
 // ── BOOT ─────────────────────────────────────────────────────
 try{
