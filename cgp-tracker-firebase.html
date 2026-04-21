@@ -124,7 +124,8 @@ let S={
   showProspectForm:false,editProspectId:null,
   prospectForm:{nom:'',produits:[],notes:'',encours:'',comm:'',honor:'',hors_stats:false},
   filterStatut:'tous',
-  accordion:{}, // {kpiKey: bool}
+  accordion:{},
+  weekNotes:{},
 };
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
@@ -375,7 +376,8 @@ function buildSaisie(){
   ];
   const thead=el('thead',{},el('tr',{style:{background:C.g800}},
     el('th',{style:{padding:'9px 12px',color:C.white,fontSize:'12px',fontWeight:'700'}},'Sem.'),
-    ...COLS.map(c=>el('th',{style:{padding:'9px 6px',textAlign:'center',color:C.white,fontSize:'11px',fontWeight:'600',minWidth:'68px'}},c.l))
+    ...COLS.map(c=>el('th',{style:{padding:'9px 6px',textAlign:'center',color:C.white,fontSize:'11px',fontWeight:'600',minWidth:'68px'}},c.l)),
+    el('th',{style:{padding:'9px 12px',color:C.white,fontSize:'11px',fontWeight:'600',minWidth:'160px'}},'Commentaires')
   ));
   const tbody=el('tbody',{},
     ...qWeeks.map(w=>{
@@ -391,14 +393,28 @@ function buildSaisie(){
       COLS.forEach(c=>{
         const v=dw[c.k]||0;
         tr.appendChild(el('td',{style:{padding:'8px 5px',textAlign:'center',fontSize:'12px',
-          fontWeight:v>0?'700':'400',color:v>0?c.c:C.g400}},v>0?(c.e?fmtE(v):String(v)):'—'));
+          fontWeight:v>0?'700':'400',color:v>0?c.c:C.g400}},v>0?(c.e?fmtE(v):String(v)):'--'));
       });
+      const ctd=el('td',{style:{padding:'5px 10px'}});
+      const ninp=el('input',{type:'text',value:S.weekNotes[w]||'',placeholder:'Note...',
+        style:{width:'100%',border:'1.5px solid #E2E8F0',borderRadius:'8px',padding:'5px 9px',
+               fontSize:'11px',outline:'none',background:'#FFFFFF',boxSizing:'border-box',
+               color:'#475569',fontFamily:'inherit'}});
+      ninp.addEventListener('focus',()=>{ninp.style.borderColor='#2563EB';});
+      ninp.addEventListener('blur',()=>{ninp.style.borderColor='#E2E8F0';});
+      ninp.addEventListener('input',e=>{
+        S.weekNotes[w]=e.target.value;
+        fbSave('cgp-weeknotes',S.weekNotes,1200);
+      });
+      ctd.appendChild(ninp);
+      tr.appendChild(ctd);
       return tr;
     })
   );
   const tfoot=el('tfoot',{},el('tr',{style:{background:C.g800}},
     el('td',{style:{padding:'9px 12px',color:C.white,fontWeight:'700',fontSize:'12px'}},`Total ${q.l}`),
-    ...COLS.map(c=>el('td',{style:{padding:'9px 5px',textAlign:'center',color:C.white,fontWeight:'700',fontSize:'12px'}},c.e?fmtE(qt[c.k]):String(qt[c.k])))
+    ...COLS.map(c=>el('td',{style:{padding:'9px 5px',textAlign:'center',color:C.white,fontWeight:'700',fontSize:'12px'}},c.e?fmtE(qt[c.k]):String(qt[c.k]))),
+    el('td',{})
   ));
   const qnav=dv({display:'flex',gap:'6px',marginBottom:'10px',alignItems:'center',flexWrap:'wrap'},
     el('button',{onclick:()=>{S.qIdx=Math.max(0,S.qIdx-1);render();},style:{width:'28px',height:'28px',borderRadius:'8px',border:`1px solid ${C.g200}`,background:C.white,fontSize:'14px',color:C.g600}},'‹'),
@@ -410,7 +426,7 @@ function buildSaisie(){
   );
   const recapSection=dv({marginBottom:'26px'},
     dv({fontSize:'14px',fontWeight:'700',color:C.g800,marginBottom:'10px'},'📊 Récap hebdomadaire'),
-    qnav,card({overflow:'hidden'},dv({overflowX:'auto'},el('table',{style:{minWidth:'540px'}},thead,tbody,tfoot)))
+    qnav,card({overflow:'hidden'},dv({overflowX:'auto'},el('table',{style:{minWidth:'720px'}},thead,tbody,tfoot)))
   );
 
   // ── Historique EN BAS ──
@@ -675,85 +691,109 @@ function buildDashboard(){
     );
   }
 
-  // Graphique Pipeline avec 3 courbes + axe mois
+  // Pipeline barres empilees + CA cumule par mois
   const wVals=Array.from({length:lw},(_,i)=>wd[i+1]||{});
-  const mkMultiSparkline=h=>{
-    const W=600,H=h,p=4;
-    const series=[
-      {key:'r0',color:C.blue,vals:wVals.map(w=>w.r0||0)},
-      {key:'r1',color:C.indigo,vals:wVals.map(w=>w.r1||0)},
-      {key:'r2',color:C.violet,vals:wVals.map(w=>w.r2||0)},
-    ];
-    const allVals=series.flatMap(s=>s.vals);
-    const max=Math.max(...allVals,1);
-    const xOf=i=>p+i*(W-2*p)/(Math.max(wVals.length-1,1));
-    const yOf=v=>H-p-16-(v/max)*(H-2*p-20); // reserve 16px bottom for labels
-
-    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-    svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.style.cssText=`width:100%;height:${H}px`;
-
-    // Zones de fond et lignes de grille légères
-    for(let g=0;g<=4;g++){
-      const y=H-p-16-(g/4)*(H-2*p-20);
-      const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-      line.setAttribute('x1',p);line.setAttribute('x2',W-p);
-      line.setAttribute('y1',y);line.setAttribute('y2',y);
-      line.setAttribute('stroke','#E2E8F0');line.setAttribute('stroke-width','0.5');
-      svg.appendChild(line);
+  const curMonth=new Date().getMonth();
+  const monthData=Array.from({length:12},()=>({r0:0,r1:0,r2:0,sig:0,ca:0}));
+  wVals.forEach((w,i)=>{
+    const m=weekToMonth(i+1);
+    if(m>=0&&m<12){
+      monthData[m].r0+=(w.r0||0);monthData[m].r1+=(w.r1||0);
+      monthData[m].r2+=(w.r2||0);monthData[m].sig+=(w.sig||0);
+      monthData[m].ca+=((w.comm||0)+(w.honor||0));
     }
+  });
+  const activeMths=monthData.slice(0,curMonth+1);
 
-    // Axe mois
-    const monthsShown=new Set();
-    wVals.forEach((_,i)=>{
-      const m=weekToMonth(i+1);
-      if(!monthsShown.has(m)){
-        monthsShown.add(m);
-        const x=xOf(i);
-        const tick=document.createElementNS('http://www.w3.org/2000/svg','text');
-        tick.setAttribute('x',x);tick.setAttribute('y',H-2);
-        tick.setAttribute('text-anchor','middle');tick.setAttribute('font-size','9');
-        tick.setAttribute('fill','#94A3B8');tick.setAttribute('font-family','DM Sans,sans-serif');
-        tick.textContent=MOIS[m];
-        svg.appendChild(tick);
-      }
+  const mkStackedBars=()=>{
+    const n=activeMths.length;
+    if(!n)return dv({height:'130px',display:'flex',alignItems:'center',justifyContent:'center',color:'#94A3B8',fontSize:'12px'},'Pas encore de donnees');
+    const W=560,H=130,padB=18,gap=8;
+    const bw=Math.max(Math.floor((W-gap*(n+1))/n),4);
+    const maxStack=Math.max(...activeMths.map(m=>m.r0+m.r1+m.r2+m.sig),1);
+    const chartH=H-padB-4;
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.style.cssText='width:100%;height:130px';
+    [0,1,2,3].forEach(g=>{
+      const y=4+(g/3)*chartH;
+      const gl=document.createElementNS('http://www.w3.org/2000/svg','line');
+      gl.setAttribute('x1','0');gl.setAttribute('x2',W);gl.setAttribute('y1',y);gl.setAttribute('y2',y);
+      gl.setAttribute('stroke','#E2E8F0');gl.setAttribute('stroke-width','0.5');svg.appendChild(gl);
     });
-
-    // Courbes
-    series.forEach(s=>{
-      const pts=s.vals.map((v,i)=>`${xOf(i)},${yOf(v)}`).join(' ');
-      const area=`M${xOf(0)},${yOf(0)} `+s.vals.map((v,i)=>`L${xOf(i)},${yOf(v)}`).join(' ')+` L${xOf(s.vals.length-1)},${H-p-16} L${xOf(0)},${H-p-16} Z`;
-      const fp=document.createElementNS('http://www.w3.org/2000/svg','path');
-      fp.setAttribute('d',area);fp.setAttribute('fill',s.color);fp.setAttribute('fill-opacity','0.08');svg.appendChild(fp);
-      const lp=document.createElementNS('http://www.w3.org/2000/svg','polyline');
-      lp.setAttribute('points',pts);lp.setAttribute('fill','none');lp.setAttribute('stroke',s.color);
-      lp.setAttribute('stroke-width','2');lp.setAttribute('stroke-linejoin','round');svg.appendChild(lp);
+    activeMths.forEach((m,i)=>{
+      const x=gap+i*(bw+gap);
+      const segs=[{v:m.r0,c:'#2563EB'},{v:m.r1,c:'#6366F1'},{v:m.r2,c:'#7C3AED'},{v:m.sig,c:'#059669'}];
+      let cumH=0;
+      segs.forEach(seg=>{
+        if(!seg.v)return;
+        const sh=(seg.v/maxStack)*chartH;
+        const ry=chartH+4-cumH-sh;
+        const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('x',x);rect.setAttribute('width',bw);
+        rect.setAttribute('y',ry);rect.setAttribute('height',sh);
+        rect.setAttribute('fill',seg.c);rect.setAttribute('rx','2');svg.appendChild(rect);
+        if(sh>=11){
+          const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+          t.setAttribute('x',x+bw/2);t.setAttribute('y',ry+sh/2+4);
+          t.setAttribute('text-anchor','middle');t.setAttribute('font-size','9');
+          t.setAttribute('fill','rgba(255,255,255,.9)');t.setAttribute('font-weight','700');
+          t.setAttribute('font-family','DM Sans,sans-serif');t.textContent=String(seg.v);svg.appendChild(t);
+        }
+        cumH+=sh;
+      });
+      const tl=document.createElementNS('http://www.w3.org/2000/svg','text');
+      tl.setAttribute('x',x+bw/2);tl.setAttribute('y',H-3);
+      tl.setAttribute('text-anchor','middle');tl.setAttribute('font-size','9');
+      tl.setAttribute('fill','#94A3B8');tl.setAttribute('font-family','DM Sans,sans-serif');
+      tl.textContent=MOIS[i];svg.appendChild(tl);
     });
     return svg;
   };
 
-  let cumCA=0;const caVals=wVals.map(w=>{cumCA+=((w.comm||0)+(w.honor||0));return cumCA;});
-  const mkSparkline=(vals,color,h=80)=>{
-    const max=Math.max(...vals,1);const W=300,H=h,p=3;
-    const pts=vals.map((v,i)=>`${p+i*(W-2*p)/(Math.max(vals.length-1,1))},${H-p-(v/max)*(H-2*p)}`).join(' ');
-    const area=`M${p},${H-p} `+vals.map((v,i)=>`L${p+i*(W-2*p)/(Math.max(vals.length-1,1))},${H-p-(v/max)*(H-2*p)}`).join(' ')+` L${W-p},${H-p} Z`;
+  const mkCACumule=()=>{
+    const W=300,H=110,padB=18,p=6;
+    let cum=0;
+    const pts=activeMths.map((m,i)=>{cum+=m.ca;return{x:p+i*(W-2*p)/Math.max(activeMths.length-1,1),y:cum,m:i};});
+    const maxCA=Math.max(cum,1);
+    const toY=v=>H-padB-(v/maxCA)*(H-padB-p);
     const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-    svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.style.cssText=`width:100%;height:${H}px`;
-    const fp=document.createElementNS('http://www.w3.org/2000/svg','path');fp.setAttribute('d',area);fp.setAttribute('fill',color);fp.setAttribute('fill-opacity','0.15');svg.appendChild(fp);
-    const lp=document.createElementNS('http://www.w3.org/2000/svg','polyline');lp.setAttribute('points',pts);lp.setAttribute('fill','none');lp.setAttribute('stroke',color);lp.setAttribute('stroke-width','2.5');lp.setAttribute('stroke-linejoin','round');svg.appendChild(lp);
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.style.cssText='width:100%;height:110px';
+    if(pts.length<2){
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',W/2);t.setAttribute('y',H/2);t.setAttribute('text-anchor','middle');
+      t.setAttribute('font-size','10');t.setAttribute('fill','#94A3B8');t.textContent='Pas encore de donnees';
+      svg.appendChild(t);return svg;
+    }
+    const area='M'+pts[0].x+','+toY(0)+' '+pts.map(pt=>'L'+pt.x+','+toY(pt.y)).join(' ')+
+      ' L'+pts[pts.length-1].x+','+(H-padB)+' L'+pts[0].x+','+(H-padB)+' Z';
+    const fp=document.createElementNS('http://www.w3.org/2000/svg','path');
+    fp.setAttribute('d',area);fp.setAttribute('fill','#059669');fp.setAttribute('fill-opacity','0.15');svg.appendChild(fp);
+    const lp=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    lp.setAttribute('points',pts.map(pt=>pt.x+','+toY(pt.y)).join(' '));
+    lp.setAttribute('fill','none');lp.setAttribute('stroke','#059669');
+    lp.setAttribute('stroke-width','2.5');lp.setAttribute('stroke-linejoin','round');svg.appendChild(lp);
+    pts.forEach(pt=>{
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',pt.x);t.setAttribute('y',H-3);
+      t.setAttribute('text-anchor','middle');t.setAttribute('font-size','9');
+      t.setAttribute('fill','#94A3B8');t.setAttribute('font-family','DM Sans,sans-serif');
+      t.textContent=MOIS[pt.m];svg.appendChild(t);
+    });
     return svg;
   };
 
   const charts=dv({display:'grid',gridTemplateColumns:'3fr 2fr',gap:'14px',marginBottom:'18px'},
     card({padding:'20px'},
-      dv({fontSize:'13px',fontWeight:'700',color:C.g800,marginBottom:'10px'},'📅 Pipeline RDV par mois'),
-      mkMultiSparkline(100),
-      dv({display:'flex',gap:'14px',marginTop:'8px',fontSize:'11px'},
-        sp({color:C.blue,fontWeight:'600'},'● R0'),sp({color:C.indigo,fontWeight:'600'},'● R1'),sp({color:C.violet,fontWeight:'600'},'● R2'))
+      dv({fontSize:'13px',fontWeight:'700',color:C.g800,marginBottom:'10px'},'Pipeline RDV par mois'),
+      mkStackedBars(),
+      dv({display:'flex',gap:'12px',marginTop:'6px',fontSize:'11px'},
+        sp({color:'#2563EB',fontWeight:'600'},'R0'),sp({color:'#6366F1',fontWeight:'600'},'R1'),
+        sp({color:'#7C3AED',fontWeight:'600'},'R2'),sp({color:'#059669',fontWeight:'600'},'Sig.'))
     ),
     card({padding:'20px'},
-      dv({fontSize:'13px',fontWeight:'700',color:C.g800,marginBottom:'10px'},'💰 CA cumulé'),
-      mkSparkline(caVals,C.green,80),
-      dv({fontSize:'11px',color:C.g400,marginTop:'6px'},`CA total : ${fmtE(ca)}`)
+      dv({fontSize:'13px',fontWeight:'700',color:C.g800,marginBottom:'10px'},'CA cumule'),
+      mkCACumule(),
+      dv({fontSize:'11px',color:C.g400,marginTop:'4px'},'CA total : '+fmtE(ca))
     )
   );
 
@@ -821,7 +861,7 @@ function buildObjectifs(){
     bar.appendChild(barWrap);
     bar.appendChild(dv({display:'flex',justifyContent:'space-between',marginTop:'6px'},
       sp({fontSize:'11px',color:C.g400},`${p.toFixed(1)}% atteint · Objectif à date : ${atDatePct.toFixed(0)}%`),
-      sp({fontSize:'11px',fontWeight:'700',color:ahead?C.green:C.red},ahead?`✓ En avance (+${(p-atDatePct).toFixed(0)}pp)`:`⚠ En retard (${(p-atDatePct).toFixed(0)}pp)`)
+      sp({fontSize:'11px',fontWeight:'700',color:ahead?C.green:C.red},ahead?'✓ En avance':'⚠ En retard')
     ));
     return bar;
   };
@@ -1061,8 +1101,8 @@ function buildStats(){
 // ═══════════════════════════════════════════════════════════════════
 async function boot(){
   try{
-    const[pros,evs,obj]=await Promise.all([fbLoad('cgp-prospects'),fbLoad('cgp-events'),fbLoad('cgp-objectives')]);
-    if(pros)S.prospects=pros;if(evs)S.events=evs;if(obj)S.obj=obj;
+    const[pros,evs,obj,wkn]=await Promise.all([fbLoad('cgp-prospects'),fbLoad('cgp-events'),fbLoad('cgp-objectives'),fbLoad('cgp-weeknotes')]);
+    if(pros)S.prospects=pros;if(evs)S.events=evs;if(obj)S.obj=obj;if(wkn)S.weekNotes=wkn;
     sb('sb-ok','✓ Synchronisé');
   }catch(e){sb('sb-error','⚠ Erreur de chargement');}
   render();
