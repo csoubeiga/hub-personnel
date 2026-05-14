@@ -611,7 +611,6 @@ function setSyncStatus(st, msg) {
 function serialize(s)   { return { payload: JSON.stringify(s) }; }
 function deserialize(d) { try { return JSON.parse(d.payload); } catch { return null; } }
 
-let saveTimer = null;
 function scheduleAutoSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveData, 1200);
