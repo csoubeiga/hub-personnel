@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connexion — Hub Personnel</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f1117;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .card {
+      background: #1a1f2e;
+      border: 1px solid #2d3748;
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .logo {
+      text-align: center;
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-bottom: 0.4rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      margin-bottom: 1.25rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus { border-color: #6366f1; }
+
+    button {
+      width: 100%;
+      padding: 0.85rem;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    button:hover { background: #4f46e5; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error {
+      display: none;
+      background: #2d1515;
+      border: 1px solid #7f1d1d;
+      color: #fca5a5;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      text-align: center;
+    }
+
+    .persist-note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #475569;
+      margin-top: 1.25rem;
+      line-height: 1.5;
+    }
+
+    .persist-note span { color: #6366f1; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">🔐</div>
+  <h1>Hub Personnel</h1>
+  <p class="subtitle">Accès privé — connexion unique par appareil</p>
+
+  <label for="email">Email</label>
+  <input type="email" id="email" placeholder="ton@email.com" autocomplete="email" />
+
+  <label for="password">Mot de passe</label>
+  <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+
+  <button id="btn-login">Se connecter</button>
+
+  <div class="error" id="error-msg"></div>
+
+  <p class="persist-note">
+    <span>Session persistante</span> — tu ne te reconnecteras pas<br/>
+    sauf si tu vides le cache de ce navigateur.
+  </p>
+</div>
+
+<script type="module">
+  import { initializeApp }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+  const FB_CONFIG = {
+    apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+    authDomain: "hub-personnel-firebase.firebaseapp.com",
+    projectId: "hub-personnel-firebase",
+    storageBucket: "hub-personnel-firebase.firebasestorage.app",
+    messagingSenderId: "394129070920",
+    appId: "1:394129070920:web:10f3303c22adcda47cf17d"
+  };
+
+  const app  = initializeApp(FB_CONFIG);
+  const auth = getAuth(app);
+
+  // Si déjà connecté → redirect immédiat
+  onAuthStateChanged(auth, function(user) {
+    if (user) {
+      const dest = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
+      window.location.href = dest;
+    }
+  });
+
+  const btnLogin  = document.getElementById('btn-login');
+  const errorMsg  = document.getElementById('error-msg');
+  const emailEl   = document.getElementById('email');
+  const passwordEl = document.getElementById('password');
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.style.display = 'block';
+  }
+
+  function hideError() {
+    errorMsg.style.display = 'none';
+  }
+
+  async function doLogin() {
+    hideError();
+    const email    = emailEl.value.trim();
+    const password = passwordEl.value;
+
+    if (!email || !password) {
+      showError('Remplis les deux champs.');
+      return;
+    }
+
+    btnLogin.disabled  = true;
+    btnLogin.textContent = 'Connexion…';
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged prend le relais et redirige
+    } catch (err) {
+      const messages = {
+        'auth/invalid-credential':    'Email ou mot de passe incorrect.',
+        'auth/user-not-found':        'Aucun compte avec cet email.',
+        'auth/wrong-password':        'Mot de passe incorrect.',
+        'auth/too-many-requests':     'Trop de tentatives. Réessaie dans quelques minutes.',
+        'auth/network-request-failed':'Problème réseau. Vérifie ta connexion.',
+      };
+      showError(messages[err.code] || 'Erreur : ' + err.message);
+      btnLogin.disabled    = false;
+      btnLogin.textContent = 'Se connecter';
+    }
+  }
+
+  btnLogin.onclick = doLogin;
+
+  // Connexion au clavier (Entrée)
+  passwordEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+  });
+</script>
+</body>
+</html>
