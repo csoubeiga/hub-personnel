@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- CGP Tracker v8.2 — 2026-05-16 | Tooltip survol noms prospects + objectif proratisé -->
+<!-- CGP Tracker v8.3 — 2026-05-16 | Onglet Notes ajouté -->
 <html lang="fr">
 <head>
   <meta charset="UTF-8"/>
@@ -127,6 +127,7 @@ let S={
   prospectForm:{nom:'',produits:[],notes:'',encours:'',comm:'',honor:'',hors_stats:false},
   filterStatut:'tous',
   accordion:{},
+  notesPad:'',
   weekNotes:{},
 };
 
@@ -309,6 +310,7 @@ function buildApp(){
     {id:'objectifs',icon:'🎯',label:'Objectifs'},
     {id:'cohorte',  icon:'👤',label:'Prospects'},
     {id:'stats',    icon:'📊',label:'Stats'},
+    {id:'notes',    icon:'📝',label:'Notes'},
   ];
   const header=dv({background:C.white,borderBottom:`1px solid ${C.g200}`,padding:'0',
     position:'sticky',top:'0',zIndex:'100',boxShadow:'0 1px 4px rgba(0,0,0,.05)'},
@@ -339,7 +341,8 @@ function buildApp(){
   else if(S.tab==='dashboard')  content=buildDashboard();
   else if(S.tab==='objectifs')  content=buildObjectifs();
   else if(S.tab==='cohorte')    content=buildCohorte();
-  else                          content=buildStats();
+  else if(S.tab==='stats')      content=buildStats();
+  else                          content=buildNotes();
 
   const modals=dv({});
   if(S.showEventForm)    modals.appendChild(buildEventModal());
@@ -1114,10 +1117,38 @@ function buildStats(){
 // ═══════════════════════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// NOTES — bloc-notes libre
+// ═══════════════════════════════════════════════════════════════════
+function buildNotes(){
+  const wrap=dv({display:'flex',flexDirection:'column',gap:'16px'});
+  wrap.appendChild(dv({},
+    dv({fontSize:'17px',fontWeight:'700',color:C.g800,marginBottom:'4px'},'📝 Notes & Réflexions'),
+    dv({fontSize:'12px',color:C.g400},'Espace libre pour vos idées, optimisations, réflexions business')
+  ));
+  const ta=el('textarea',{placeholder:'Vos réflexions ici…',
+    style:{width:'100%',minHeight:'480px',border:'1.5px solid #E2E8F0',borderRadius:'14px',
+           padding:'18px',fontSize:'14px',lineHeight:'1.7',outline:'none',resize:'vertical',
+           fontFamily:'DM Sans,sans-serif',color:'#1E293B',background:'#FFFFFF',
+           boxShadow:'inset 0 1px 3px rgba(0,0,0,.04)',boxSizing:'border-box'}});
+  ta.value=S.notesPad||'';
+  const counter=dv({fontSize:'11px',color:'#94A3B8',textAlign:'right',marginTop:'6px'},
+    (S.notesPad?S.notesPad.length+' caractères':'0 caractère')+' · Sauvegarde automatique');
+  ta.addEventListener('input',e=>{
+    S.notesPad=e.target.value;
+    counter.textContent=e.target.value.length+' caractères · Sauvegarde automatique';
+    fbSave('cgp-notes',{content:S.notesPad},1200);
+  });
+  ta.addEventListener('focus',()=>{ta.style.borderColor='#2563EB';});
+  ta.addEventListener('blur',()=>{ta.style.borderColor='#E2E8F0';});
+  wrap.appendChild(dv({},ta,counter));
+  return wrap;
+}
+
 async function boot(){
   try{
-    const[pros,evs,obj,wkn]=await Promise.all([fbLoad('cgp-prospects'),fbLoad('cgp-events'),fbLoad('cgp-objectives'),fbLoad('cgp-weeknotes')]);
-    if(pros)S.prospects=pros;if(evs)S.events=evs;if(obj)S.obj=obj;if(wkn)S.weekNotes=wkn;
+    const[pros,evs,obj,wkn,nts]=await Promise.all([fbLoad('cgp-prospects'),fbLoad('cgp-events'),fbLoad('cgp-objectives'),fbLoad('cgp-weeknotes'),fbLoad('cgp-notes')]);
+    if(pros)S.prospects=pros;if(evs)S.events=evs;if(obj)S.obj=obj;if(wkn)S.weekNotes=wkn;if(nts)S.notesPad=nts.content||'';
     sb('sb-ok','✓ Synchronisé');
   }catch(e){sb('sb-error','⚠ Erreur de chargement');}
   render();
