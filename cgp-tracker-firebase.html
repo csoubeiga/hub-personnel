@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- CGP Tracker v8.2 — 2026-05-16 | Tooltip survol noms prospects + objectif proratisé -->
 <html lang="fr">
 <head>
   <meta charset="UTF-8"/>
@@ -160,18 +161,20 @@ const calcStatut=pid=>{
 
 const computeWeekData=()=>{
   const data={};
-  for(let w=1;w<=52;w++)data[w]={r0:0,r1:0,r2:0,sig:0,suivi:0,enc:0,comm:0,honor:0};
+  for(let w=1;w<=52;w++)data[w]={r0:0,r1:0,r2:0,sig:0,suivi:0,enc:0,comm:0,honor:0,_r0:[],_r1:[],_r2:[],_sig:[],_suivi:[]};
   S.events.filter(e=>e.effectue).forEach(e=>{
     const w=weekNum(e.date);if(!w)return;
     const p=S.prospects.find(x=>x.id===e.prospectId);
     if(p&&p.hors_stats)return; // Exclure hors_stats
     const d=data[w];
-    if(e.type==='R0')d.r0++;
-    else if(e.type==='R1')d.r1++;
-    else if(e.type==='R2')d.r2++;
-    else if(e.type==='Suivi')d.suivi++;
+    const nom=p?p.nom:'(supprimé)';
+    const det=e.commentaire?nom+' — '+e.commentaire:nom;
+    if(e.type==='R0'){d.r0++;d._r0.push(det);}
+    else if(e.type==='R1'){d.r1++;d._r1.push(det);}
+    else if(e.type==='R2'){d.r2++;d._r2.push(det);}
+    else if(e.type==='Suivi'){d.suivi++;d._suivi.push(det);}
     else if(e.type==='Signature'){
-      d.sig++;
+      d.sig++;d._sig.push(det);
       if(p){d.enc+=nv(p.encours);d.comm+=nv(p.comm);d.honor+=nv(p.honor);}
     }
   });
@@ -394,8 +397,12 @@ function buildSaisie(){
           `S${w}${isCurr?' ◀':''}`)));
       COLS.forEach(c=>{
         const v=dw[c.k]||0;
-        tr.appendChild(el('td',{style:{padding:'8px 5px',textAlign:'center',fontSize:'12px',
-          fontWeight:v>0?'700':'400',color:v>0?c.c:C.g400}},v>0?(c.e?fmtE(v):String(v)):'--'));
+        const names=(dw['_'+c.k]||[]);
+        const td=el('td',{style:{padding:'8px 5px',textAlign:'center',fontSize:'12px',
+          fontWeight:v>0?'700':'400',color:v>0?c.c:C.g400,cursor:names.length?'help':'default'}});
+        if(names.length)td.title=names.join('\n');
+        td.appendChild(document.createTextNode(v>0?(c.e?fmtE(v):String(v)):'--'));
+        tr.appendChild(td);
       });
       const ctd=el('td',{style:{padding:'5px 10px'}});
       const ninp=el('input',{type:'text',value:S.weekNotes[w]||'',placeholder:'Note...',
@@ -862,9 +869,14 @@ function buildObjectifs(){
       width:'0',height:'0',borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderTop:`6px solid ${C.g600}`});
     barWrap.appendChild(triangle);
     bar.appendChild(barWrap);
+    const targetToDate=Math.round(target*atDatePct/100);
+    const fmtVal=v=>euro?fmtF(v):v;
+    const statusTxt=ahead
+      ?`✓ En avance · ${fmtVal(current)} / ${fmtVal(targetToDate)} à date`
+      :`⚠ En retard · ${fmtVal(current)} / ${fmtVal(targetToDate)} à date`;
     bar.appendChild(dv({display:'flex',justifyContent:'space-between',marginTop:'6px'},
       sp({fontSize:'11px',color:C.g400},`${p.toFixed(1)}% atteint · Objectif à date : ${atDatePct.toFixed(0)}%`),
-      sp({fontSize:'11px',fontWeight:'700',color:ahead?C.green:C.red},ahead?'✓ En avance':'⚠ En retard')
+      sp({fontSize:'11px',fontWeight:'700',color:ahead?C.green:C.red},statusTxt)
     ));
     return bar;
   };
