@@ -160,7 +160,7 @@ const calcStatut=pid=>{
 
 const computeWeekData=()=>{
   const data={};
-  for(let w=1;w<=52;w++)data[w]={r0:0,r1:0,r2:0,sig:0,enc:0,comm:0,honor:0};
+  for(let w=1;w<=52;w++)data[w]={r0:0,r1:0,r2:0,sig:0,suivi:0,enc:0,comm:0,honor:0};
   S.events.filter(e=>e.effectue).forEach(e=>{
     const w=weekNum(e.date);if(!w)return;
     const p=S.prospects.find(x=>x.id===e.prospectId);
@@ -169,6 +169,7 @@ const computeWeekData=()=>{
     if(e.type==='R0')d.r0++;
     else if(e.type==='R1')d.r1++;
     else if(e.type==='R2')d.r2++;
+    else if(e.type==='Suivi')d.suivi++;
     else if(e.type==='Signature'){
       d.sig++;
       if(p){d.enc+=nv(p.encours);d.comm+=nv(p.comm);d.honor+=nv(p.honor);}
@@ -178,7 +179,7 @@ const computeWeekData=()=>{
 };
 
 const totalWeekData=wd=>{
-  const T={r0:0,r1:0,r2:0,sig:0,enc:0,comm:0,honor:0};
+  const T={r0:0,r1:0,r2:0,sig:0,suivi:0,enc:0,comm:0,honor:0};
   Object.values(wd).forEach(w=>Object.keys(T).forEach(k=>{T[k]+=(w[k]||0);}));
   return T;
 };
@@ -369,10 +370,10 @@ function buildSaisie(){
   const wd=computeWeekData();
   const q=QUARTERS[S.qIdx];
   const qWeeks=Array.from({length:q.b-q.a+1},(_,i)=>q.a+i);
-  const qt={r0:0,r1:0,r2:0,sig:0,enc:0,comm:0,honor:0};
+  const qt={r0:0,r1:0,r2:0,sig:0,suivi:0,enc:0,comm:0,honor:0};
   qWeeks.forEach(w=>{const d2=wd[w]||{};Object.keys(qt).forEach(k=>{qt[k]+=(d2[k]||0);});});
   const COLS=[
-    {k:'r0',l:'R0',c:C.blue},{k:'r1',l:'R1',c:C.indigo},{k:'r2',l:'R2',c:C.violet},{k:'sig',l:'Sig.',c:C.green},
+    {k:'r0',l:'R0',c:C.blue},{k:'r1',l:'R1',c:C.indigo},{k:'r2',l:'R2',c:C.violet},{k:'sig',l:'Sig.',c:C.green},{k:'suivi',l:'Suivi',c:C.amber},
     {k:'enc',l:'Encours',c:C.amber,e:true},{k:'comm',l:'Comm.',c:C.green,e:true},{k:'honor',l:'Honor.',c:C.blue,e:true},
   ];
   const thead=el('thead',{},el('tr',{style:{background:C.g800}},
@@ -695,12 +696,13 @@ function buildDashboard(){
   // Pipeline barres empilees + CA cumule par mois
   const wVals=Array.from({length:lw},(_,i)=>wd[i+1]||{});
   const curMonth=new Date().getMonth();
-  const monthData=Array.from({length:12},()=>({r0:0,r1:0,r2:0,sig:0,ca:0}));
+  const monthData=Array.from({length:12},()=>({r0:0,r1:0,r2:0,sig:0,suivi:0,ca:0}));
   wVals.forEach((w,i)=>{
     const m=weekToMonth(i+1);
     if(m>=0&&m<12){
       monthData[m].r0+=(w.r0||0);monthData[m].r1+=(w.r1||0);
       monthData[m].r2+=(w.r2||0);monthData[m].sig+=(w.sig||0);
+      monthData[m].suivi+=(w.suivi||0);
       monthData[m].ca+=((w.comm||0)+(w.honor||0));
     }
   });
@@ -711,7 +713,7 @@ function buildDashboard(){
     if(!n)return dv({height:'130px',display:'flex',alignItems:'center',justifyContent:'center',color:'#94A3B8',fontSize:'12px'},'Pas encore de donnees');
     const W=560,H=130,padB=18,gap=8;
     const bw=Math.max(Math.floor((W-gap*(n+1))/n),4);
-    const maxStack=Math.max(...activeMths.map(m=>m.r0+m.r1+m.r2+m.sig),1);
+    const maxStack=Math.max(...activeMths.map(m=>m.r0+m.r1+m.r2+m.sig+m.suivi),1);
     const chartH=H-padB-4;
     const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
     svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.style.cssText='width:100%;height:130px';
@@ -723,7 +725,7 @@ function buildDashboard(){
     });
     activeMths.forEach((m,i)=>{
       const x=gap+i*(bw+gap);
-      const segs=[{v:m.r0,c:'#2563EB'},{v:m.r1,c:'#6366F1'},{v:m.r2,c:'#7C3AED'},{v:m.sig,c:'#059669'}];
+      const segs=[{v:m.r0,c:'#2563EB'},{v:m.r1,c:'#6366F1'},{v:m.r2,c:'#7C3AED'},{v:m.sig,c:'#059669'},{v:m.suivi,c:'#D97706'}];
       let cumH=0;
       segs.forEach(seg=>{
         if(!seg.v)return;
@@ -789,7 +791,7 @@ function buildDashboard(){
       mkStackedBars(),
       dv({display:'flex',gap:'12px',marginTop:'6px',fontSize:'11px'},
         sp({color:'#2563EB',fontWeight:'600'},'R0'),sp({color:'#6366F1',fontWeight:'600'},'R1'),
-        sp({color:'#7C3AED',fontWeight:'600'},'R2'),sp({color:'#059669',fontWeight:'600'},'Sig.'))
+        sp({color:'#7C3AED',fontWeight:'600'},'R2'),sp({color:'#059669',fontWeight:'600'},'Sig.'),sp({color:'#D97706',fontWeight:'600'},'Suivi'))
     ),
     card({padding:'20px'},
       dv({fontSize:'13px',fontWeight:'700',color:C.g800,marginBottom:'10px'},'CA cumule'),
