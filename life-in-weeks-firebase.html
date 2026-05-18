@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Life in Weeks</title>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --white:      #ffffff;
+      --bg:         #f5f4f0;
+      --bg-hd:      #fafaf8;
+      --border:     #d0cec8;
+      --border-lt:  #e8e6e0;
+      --text:       #1a1917;
+      --text-md:    #7a7770;
+      --text-lt:    #b0ada8;
+
+      --ec:  #f5e6a3; --ecb: #d4b84a;
+      --ea:  #e8a8a8; --eab: #b85050;
+      --ee:  #c9a8d4; --eeb: #8a5a9a;
+      --em:  #a8c4d4; --emb: #5a7a8a;
+      --eu:  #a8c4a8; --eub: #5a7a5a;
+      --el:  #c8c8c8; --elb: #888888;
+
+      --pf:  #ff6b35; --pb: #cc4a1a;
+      --ff:  #f0eeea; --fb: #ccc9c2;
+      --mf:  #fffde0; --mb: #f0c040;
+
+      --cell: 11px;
+      --gap:  2px;
+      --sh:   32px;
+
+      --font: 'Inter', system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 12px;
+      line-height: 1.4;
+      min-height: 100vh;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: var(--bg-hd);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      flex-wrap: wrap;
+    }
+
+    .hub-back {
+      color: var(--text-md);
+      text-decoration: none;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: color .15s;
+    }
+    .hub-back:hover { color: var(--text); }
+
+    .tb-title { font-size: 13px; font-weight: 500; }
+
+    .tb-sep { width: 1px; height: 14px; background: var(--border); flex-shrink: 0; }
+
+    .tb-stats { display: flex; gap: 14px; margin-left: auto; align-items: center; flex-wrap: wrap; }
+
+    .tst { display: flex; align-items: baseline; gap: 3px; }
+    .tst-v { font-size: 13px; font-weight: 500; }
+    .tst-l { font-size: 9px; color: var(--text-md); }
+
+    /* ── CONTROLS ── */
+    .controls {
+      background: var(--bg-hd);
+      border-bottom: 1px solid var(--border-lt);
+      padding: 7px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .cl { font-size: 9px; color: var(--text-md); text-transform: uppercase; letter-spacing: .07em; }
+
+    .ci {
+      background: var(--white);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 3px 7px;
+      font-family: var(--font);
+      font-size: 11px;
+      border-radius: 3px;
+      height: 26px;
+    }
+    .ci:focus { outline: none; border-color: var(--pb); }
+
+    .cb {
+      background: var(--white);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 3px 10px;
+      font-family: var(--font);
+      font-size: 11px;
+      border-radius: 3px;
+      cursor: pointer;
+      height: 26px;
+      transition: background .12s;
+    }
+    .cb:hover { background: var(--bg); }
+    .cb.pr { background: var(--text); border-color: var(--text); color: var(--white); }
+    .cb.pr:hover { background: #333; }
+    .csp { flex: 1; }
+
+    /* ── MILESTONE FORM ── */
+    .ms-form {
+      background: #fffdf0;
+      border-bottom: 1px solid #e8e0a0;
+      padding: 7px 20px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ms-form.open { display: flex; }
+
+    /* ── LEGEND ── */
+    .legend {
+      padding: 6px 20px;
+      background: var(--bg-hd);
+      border-bottom: 1px solid var(--border-lt);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .lg { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--text-md); }
+    .lb { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── GRID ── */
+    .grid-wrap {
+      padding: 14px 20px;
+      padding-bottom: calc(var(--sh) + 14px);
+      overflow-x: auto;
+    }
+
+    .grid-outer { display: inline-flex; align-items: flex-start; }
+
+    .ax-left { width: 30px; padding-top: 20px; flex-shrink: 0; margin-right: 4px; }
+
+    .axc {
+      height: calc(var(--cell) + var(--gap));
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      font-size: 8px;
+      color: var(--text-lt);
+      padding-right: 3px;
+    }
+
+    .grid-inner { display: flex; flex-direction: column; gap: var(--gap); }
+
+    .wk-hdr { display: flex; gap: var(--gap); margin-bottom: 3px; }
+
+    .wn {
+      width: var(--cell);
+      font-size: 7px;
+      color: var(--text-lt);
+      text-align: center;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .yr-row { display: flex; gap: var(--gap); }
+
+    .wk {
+      width: var(--cell);
+      height: var(--cell);
+      border-radius: 2px;
+      flex-shrink: 0;
+      cursor: default;
+      transition: transform .08s;
+    }
+    .wk:hover { transform: scale(2); z-index: 20; position: relative; }
+
+    .pc { background: var(--ec); border: 1px solid var(--ecb); }
+    .pa { background: var(--ea); border: 1px solid var(--eab); }
+    .pe { background: var(--ee); border: 1px solid var(--eeb); }
+    .pm { background: var(--em); border: 1px solid var(--emb); }
+    .pu { background: var(--eu); border: 1px solid var(--eub); }
+    .pl { background: var(--el); border: 1px solid var(--elb); }
+
+    .present {
+      background: var(--pf) !important;
+      border: 1px solid var(--pb) !important;
+      animation: pp 1.8s ease-in-out infinite;
+    }
+    @keyframes pp {
+      0%,100% { box-shadow: 0 0 0 2px rgba(255,107,53,.25); }
+      50%      { box-shadow: 0 0 0 3px rgba(255,107,53,.5); }
+    }
+
+    .future { background: var(--ff); border: 1px solid var(--fb); }
+    .ms     { background: var(--mf) !important; border: 1px solid var(--mb) !important; }
+
+    /* ── ERA LABELS ── */
+    .era-labels {
+      padding-top: 20px;
+      margin-left: 8px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+    }
+    .era-slot { height: calc(var(--cell) + var(--gap)); display: flex; align-items: center; }
+    .era-tag {
+      font-size: 8px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-md);
+      white-space: nowrap;
+      border-left: 2px solid var(--border);
+      padding-left: 5px;
+      line-height: 1;
+      border-radius: 0;
+    }
+
+    /* ── TOOLTIP ── */
+    .tt {
+      position: fixed;
+      background: var(--white);
+      border: 1px solid var(--border);
+      padding: 5px 9px;
+      border-radius: 4px;
+      font-family: var(--font);
+      font-size: 10px;
+      color: var(--text);
+      pointer-events: none;
+      z-index: 200;
+      display: none;
+      max-width: 200px;
+      line-height: 1.5;
+      box-shadow: 0 2px 8px rgba(0,0,0,.1);
+    }
+    .tt.show { display: block; }
+    .tt-t { font-weight: 500; margin-bottom: 2px; }
+    .tt-m { color: var(--text-md); font-size: 9px; }
+
+    /* ── STATUS BAR ── */
+    .sbar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--sh);
+      background: var(--bg-hd);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--text-md);
+      z-index: 100;
+    }
+    .sd { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .sl { background: #aaa; animation: blink 1s infinite; }
+    .sy { background: #4a9a5a; }
+    .se { background: #c04040; }
+    .so { background: #d09040; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 620px) {
+      :root { --cell: 7px; --gap: 1px; }
+      .tb-stats { display: none; }
+      .grid-wrap, .topbar, .controls, .legend { padding-left: 10px; padding-right: 10px; }
+    }
+    @media (max-width: 420px) {
+      :root { --cell: 5px; --gap: 1px; }
+      .ax-left, .era-labels { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <a href="index.html" class="hub-back">← Hub</a>
+    <div class="tb-sep"></div>
+    <span class="tb-title">Life in Weeks</span>
+    <div class="tb-stats">
+      <div class="tst"><span class="tst-v" id="s-lived">—</span><span class="tst-l">semaines vécues</span></div>
+      <div class="tb-sep"></div>
+      <div class="tst"><span class="tst-v" id="s-left">—</span><span class="tst-l">restantes</span></div>
+      <div class="tb-sep"></div>
+      <div class="tst"><span class="tst-v" id="s-pct">—</span><span class="tst-l">vie écoulée</span></div>
+      <div class="tb-sep"></div>
+      <div class="tst"><span class="tst-v" id="s-age">—</span><span class="tst-l">ans</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <span class="cl">Naissance</span>
+    <input type="date" class="ci" id="inp-dob" value="1990-04-13" style="width:130px" />
+    <span class="cl">Espérance</span>
+    <input type="number" class="ci" id="inp-life" value="90" min="60" max="120" style="width:52px" />
+    <span style="font-size:9px;color:var(--text-md)">ans</span>
+    <button class="cb pr" onclick="applySettings()">Recalculer</button>
+    <button class="cb" onclick="toggleMsForm()">+ Milestone</button>
+    <span class="csp"></span>
+    <button class="cb" onclick="saveData()">↑ Sauvegarder</button>
+  </div>
+
+  <div class="ms-form" id="ms-form">
+    <span class="cl">Date</span>
+    <input type="date" class="ci" id="ms-d" />
+    <span class="cl">Événement</span>
+    <input type="text" class="ci" id="ms-l" placeholder="ex : Diplôme, Mariage…" style="width:180px" />
+    <span class="cl">Icône</span>
+    <input type="text" class="ci" id="ms-e" placeholder="🎓" style="width:40px" />
+    <button class="cb pr" onclick="addMilestone()">Ajouter</button>
+    <button class="cb" onclick="toggleMsForm()">Annuler</button>
+  </div>
+
+  <div class="legend">
+    <div class="lg"><div class="lb" style="background:var(--ec);border:1px solid var(--ecb)"></div>Childhood (0–12)</div>
+    <div class="lg"><div class="lb" style="background:var(--ea);border:1px solid var(--eab)"></div>Adolescence (13–19)</div>
+    <div class="lg"><div class="lb" style="background:var(--ee);border:1px solid var(--eeb)"></div>Early adulthood (20–34)</div>
+    <div class="lg"><div class="lb" style="background:var(--em);border:1px solid var(--emb)"></div>Middle adulthood (35–49)</div>
+    <div class="lg"><div class="lb" style="background:var(--eu);border:1px solid var(--eub)"></div>Mature adulthood (50–69)</div>
+    <div class="lg"><div class="lb" style="background:var(--el);border:1px solid var(--elb)"></div>Late adulthood (70+)</div>
+    <div class="lg"><div class="lb" style="background:var(--pf);border:1px solid var(--pb)"></div>Cette semaine</div>
+    <div class="lg"><div class="lb" style="background:var(--ff);border:1px solid var(--fb)"></div>Futur</div>
+    <div class="lg"><div class="lb" style="background:var(--mf);border:1px solid var(--mb)"></div>Milestone</div>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="grid-outer">
+      <div class="ax-left" id="ax-left"></div>
+      <div class="grid-inner" id="gi">
+        <div class="wk-hdr" id="wk-hdr"></div>
+      </div>
+      <div class="era-labels" id="era-labels"></div>
+    </div>
+  </div>
+
+  <div class="tt" id="tt">
+    <div class="tt-t" id="tt-t"></div>
+    <div class="tt-m" id="tt-m"></div>
+  </div>
+
+  <div class="sbar">
+    <div class="sd sl" id="s-dot"></div>
+    <span id="s-txt">Chargement…</span>
+  </div>
+
+  <script>
+    const FB_CONFIG = {
+      apiKey:            "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+      authDomain:        "hub-personnel-firebase.firebaseapp.com",
+      projectId:         "hub-personnel-firebase",
+      storageBucket:     "hub-personnel-firebase.firebasestorage.app",
+      messagingSenderId: "394129070920",
+      appId:             "1:394129070920:web:10f3303c22adcda47cf17d"
+    };
+
+    firebase.initializeApp(FB_CONFIG);
+    const DB   = firebase.firestore();
+    const LS   = 'liw-v2';
+    const COLL = 'life-in-weeks';
+    const DOC  = 'data';
+
+    let saveTimer = null;
+
+    let S = {
+      dob:        '1990-04-13',
+      lifespan:   90,
+      milestones: { '2015-04-13': { label: 'Rencontre Flo', emoji: '❤️' } }
+    };
+
+    const ERAS = [
+      { label: 'Childhood',        start: 0,  end: 12,  cls: 'pc' },
+      { label: 'Adolescence',      start: 13, end: 19,  cls: 'pa' },
+      { label: 'Early adulthood',  start: 20, end: 34,  cls: 'pe' },
+      { label: 'Middle adulthood', start: 35, end: 49,  cls: 'pm' },
+      { label: 'Mature adulthood', start: 50, end: 69,  cls: 'pu' },
+      { label: 'Late adulthood',   start: 70, end: 120, cls: 'pl' }
+    ];
+
+    function eraFor(age) {
+      return ERAS.find(function(e) { return age >= e.start && age <= e.end; }) || ERAS[ERAS.length - 1];
+    }
+
+    function monday(d) {
+      const x = new Date(d);
+      const day = x.getDay();
+      x.setDate(x.getDate() + (day === 0 ? -6 : 1 - day));
+      x.setHours(0, 0, 0, 0);
+      return x;
+    }
+
+    function wksBetween(a, b) {
+      return Math.floor((b - a) / 604800000);
+    }
+
+    function wkStart(bm, w) {
+      const d = new Date(bm);
+      d.setDate(d.getDate() + w * 7);
+      return d;
+    }
+
+    function fmt(d) {
+      return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function buildMsMap(bm, total) {
+      const m = {};
+      const keys = Object.keys(S.milestones);
+      for (let i = 0; i < keys.length; i++) {
+        const ds  = keys[i];
+        const ms  = S.milestones[ds];
+        const idx = wksBetween(bm, monday(new Date(ds)));
+        if (idx >= 0 && idx < total) m[idx] = { label: ms.label, emoji: ms.emoji, date: ds };
+      }
+      return m;
+    }
+
+    function setStatus(type, msg) {
+      const dot = document.getElementById('s-dot');
+      dot.className = 'sd s' + type.charAt(0);
+      document.getElementById('s-txt').textContent = msg;
+    }
+
+    function render() {
+      const bm    = monday(new Date(S.dob));
+      const tm    = monday(new Date());
+      const cur   = wksBetween(bm, tm);
+      const total = S.lifespan * 52;
+      const lived = Math.min(cur, total);
+      const left  = Math.max(total - lived - 1, 0);
+      const pct   = ((lived / total) * 100).toFixed(1);
+      const age   = Math.floor((Date.now() - new Date(S.dob).getTime()) / 31557600000);
+      const msMap = buildMsMap(bm, total);
+
+      document.getElementById('s-lived').textContent = lived.toLocaleString('fr');
+      document.getElementById('s-left').textContent  = left.toLocaleString('fr');
+      document.getElementById('s-pct').textContent   = pct + '%';
+      document.getElementById('s-age').textContent   = age;
+      document.getElementById('inp-dob').value       = S.dob;
+      document.getElementById('inp-life').value      = S.lifespan;
+
+      const hdr = document.getElementById('wk-hdr');
+      hdr.innerHTML = '';
+      for (let w = 1; w <= 52; w++) {
+        const s = document.createElement('span');
+        s.className   = 'wn';
+        s.textContent = (w % 4 === 0) ? w : '';
+        hdr.appendChild(s);
+      }
+
+      const axLeft  = document.getElementById('ax-left');
+      const gi      = document.getElementById('gi');
+      const eraDiv  = document.getElementById('era-labels');
+      axLeft.innerHTML = '';
+      eraDiv.innerHTML = '';
+      const oldRows = gi.querySelectorAll('.yr-row');
+      for (let i = 0; i < oldRows.length; i++) oldRows[i].remove();
+
+      const tt  = document.getElementById('tt');
+      const ttT = document.getElementById('tt-t');
+      const ttM = document.getElementById('tt-m');
+
+      function showTT(e, t, m) {
+        ttT.textContent = t;
+        ttM.textContent = m;
+        tt.classList.add('show');
+        moveTT(e);
+      }
+      function moveTT(e) {
+        let x = e.clientX + 12, y = e.clientY + 12;
+        if (x + 210 > window.innerWidth)  x = e.clientX - 210 - 8;
+        if (y + 52  > window.innerHeight) y = e.clientY - 52  - 8;
+        tt.style.left = x + 'px';
+        tt.style.top  = y + 'px';
+      }
+      function hideTT() { tt.classList.remove('show'); }
+
+      let lastEra = '';
+
+      for (let yr = 0; yr < S.lifespan; yr++) {
+        const era = eraFor(yr);
+
+        const lbl = document.createElement('div');
+        lbl.className   = 'axc';
+        lbl.textContent = (yr % 5 === 0) ? yr : '';
+        axLeft.appendChild(lbl);
+
+        const row = document.createElement('div');
+        row.className = 'yr-row';
+
+        for (let w = 0; w < 52; w++) {
+          const idx  = yr * 52 + w;
+          const cell = document.createElement('div');
+          cell.className = 'wk';
+
+          if      (idx === cur) cell.classList.add('present');
+          else if (idx < cur)   cell.classList.add(era.cls);
+          else                  cell.classList.add('future');
+
+          if (msMap[idx]) cell.classList.add('ms');
+
+          (function(i, y, wk, ms) {
+            const d = wkStart(bm, i);
+            cell.onclick = null;
+            cell.addEventListener('mouseenter', function(e) {
+              showTT(e,
+                ms ? (ms.emoji || '📌') + ' ' + ms.label : 'Age ' + y + ' · Semaine ' + (wk + 1),
+                fmt(d)
+              );
+            });
+            cell.addEventListener('mousemove', moveTT);
+            cell.addEventListener('mouseleave', hideTT);
+          })(idx, yr, w, msMap[idx] || null);
+
+          row.appendChild(cell);
+        }
+        gi.appendChild(row);
+
+        const slot = document.createElement('div');
+        slot.className = 'era-slot';
+        if (era.label !== lastEra) {
+          const tag       = document.createElement('span');
+          tag.className   = 'era-tag';
+          tag.textContent = era.label;
+          slot.appendChild(tag);
+          lastEra = era.label;
+        }
+        eraDiv.appendChild(slot);
+      }
+    }
+
+    function toFlat() {
+      const f = {
+        dob:       S.dob,
+        lifespan:  S.lifespan,
+        updatedAt: new Date().toISOString()
+      };
+      const keys = Object.keys(S.milestones);
+      for (let i = 0; i < keys.length; i++) {
+        const ds = keys[i];
+        f['ms:' + ds + ':label'] = S.milestones[ds].label;
+        f['ms:' + ds + ':emoji'] = S.milestones[ds].emoji || '📌';
+      }
+      return f;
+    }
+
+    function fromFlat(f) {
+      const s = { dob: f.dob || '1990-04-13', lifespan: f.lifespan || 90, milestones: {} };
+      const keys = Object.keys(f);
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        if (!k.startsWith('ms:')) continue;
+        const parts = k.split(':');
+        const ds    = parts[1];
+        const field = parts[2];
+        if (!s.milestones[ds]) s.milestones[ds] = { label: '', emoji: '📌' };
+        s.milestones[ds][field] = f[k];
+      }
+      return s;
+    }
+
+    function loadData() {
+      DB.collection(COLL).doc(DOC).get().then(function(snap) {
+        if (snap.exists) {
+          S = fromFlat(snap.data());
+          localStorage.setItem(LS, JSON.stringify(S));
+          setStatus('y', '✓ Synchronisé · ' + new Date().toLocaleTimeString('fr'));
+        } else {
+          setStatus('y', 'Données par défaut');
+        }
+        render();
+      }).catch(function(err) {
+        console.warn('Firestore load error:', err);
+        const raw = localStorage.getItem(LS);
+        if (raw) { try { S = JSON.parse(raw); } catch(_) {} }
+        setStatus('o', '⚠ Mode hors-ligne (localStorage)');
+        render();
+      });
+    }
+
+    function persistData() {
+      localStorage.setItem(LS, JSON.stringify(S));
+      setStatus('l', 'Sauvegarde…');
+      DB.collection(COLL).doc(DOC).set(toFlat()).then(function() {
+        setStatus('y', '✓ Synchronisé · ' + new Date().toLocaleTimeString('fr'));
+      }).catch(function(err) {
+        console.error('Firestore save error:', err);
+        setStatus('e', '⚠ Erreur Firebase — retry dans 5s');
+        setTimeout(persistData, 5000);
+      });
+    }
+
+    function scheduleSave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(persistData, 1200);
+    }
+
+    function applySettings() {
+      const dob  = document.getElementById('inp-dob').value;
+      const life = parseInt(document.getElementById('inp-life').value, 10);
+      if (!dob || isNaN(life)) return;
+      S.dob      = dob;
+      S.lifespan = life;
+      render();
+      scheduleSave();
+    }
+
+    function toggleMsForm() {
+      document.getElementById('ms-form').classList.toggle('open');
+    }
+
+    function addMilestone() {
+      const date  = document.getElementById('ms-d').value;
+      const label = document.getElementById('ms-l').value.trim();
+      const emoji = document.getElementById('ms-e').value.trim() || '📌';
+      if (!date || !label) return;
+      S.milestones[date] = { label: label, emoji: emoji };
+      document.getElementById('ms-d').value = '';
+      document.getElementById('ms-l').value = '';
+      document.getElementById('ms-e').value = '';
+      document.getElementById('ms-form').classList.remove('open');
+      render();
+      scheduleSave();
+    }
+
+    function saveData() { persistData(); }
+
+    render();
+
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (!user) {
+        window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
+        return;
+      }
+      loadData();
+    });
+  </script>
+</body>
+</html>
