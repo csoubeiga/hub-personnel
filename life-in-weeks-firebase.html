@@ -82,11 +82,26 @@
 
     .tb-sep { width: 1px; height: 14px; background: var(--border); flex-shrink: 0; }
 
-    .tb-stats { display: flex; gap: 14px; margin-left: auto; align-items: center; flex-wrap: wrap; }
-
-    .tst { display: flex; align-items: baseline; gap: 3px; }
-    .tst-v { font-size: 13px; font-weight: 500; }
-    .tst-l { font-size: 9px; color: var(--text-md); }
+    /* ── STATS BAND ── */
+    .stats-band {
+      background: var(--white);
+      border-bottom: 1px solid var(--border-lt);
+      padding: 0;
+      display: flex;
+      gap: 0;
+    }
+    .tst {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 6px;
+      border-right: 1px solid var(--border-lt);
+    }
+    .tst:last-child { border-right: none; }
+    .tst-v { font-size: 15px; font-weight: 500; line-height: 1; }
+    .tst-l { font-size: 9px; color: var(--text-md); text-align: center; }
 
     /* ── CONTROLS ── */
     .controls {
@@ -286,11 +301,66 @@
     .so { background: #d09040; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
+    /* ── MILESTONE PANEL ── */
+    .ms-panel {
+      background: #fffdf0;
+      border-bottom: 1px solid #e8e0a0;
+      padding: 0 20px;
+      display: none;
+    }
+    .ms-panel.open { display: block; }
+    .ms-panel-title {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-md);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      padding: 8px 0 6px;
+      border-bottom: 1px solid #e8e0a0;
+    }
+    .ms-list { padding: 4px 0; max-height: 200px; overflow-y: auto; }
+    .ms-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid #f0e8a8;
+      font-size: 11px;
+    }
+    .ms-item:last-child { border-bottom: none; }
+    .ms-item-emoji { font-size: 13px; flex-shrink: 0; }
+    .ms-item-label { flex: 1; color: var(--text); font-weight: 500; }
+    .ms-item-date  { color: var(--text-md); font-size: 10px; flex-shrink: 0; }
+    .ms-item-del {
+      background: none;
+      border: 1px solid #d0a0a0;
+      color: #a04040;
+      font-size: 10px;
+      border-radius: 3px;
+      padding: 2px 7px;
+      cursor: pointer;
+      font-family: var(--font);
+      flex-shrink: 0;
+    }
+    .ms-item-del:hover { background: #fde8e8; }
+    .ms-item-edit {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-md);
+      font-size: 10px;
+      border-radius: 3px;
+      padding: 2px 7px;
+      cursor: pointer;
+      font-family: var(--font);
+      flex-shrink: 0;
+    }
+    .ms-item-edit:hover { background: var(--bg); }
+    .ms-empty { font-size: 11px; color: var(--text-lt); padding: 10px 0; text-align: center; }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 620px) {
       :root { --cell: 7px; --gap: 1px; }
-      .tb-stats { display: none; }
-      .grid-wrap, .topbar, .controls, .legend { padding-left: 10px; padding-right: 10px; }
+      .grid-wrap, .topbar, .controls, .legend, .stats-band, .ms-form, .ms-panel { padding-left: 10px; padding-right: 10px; }
     }
     @media (max-width: 420px) {
       :root { --cell: 5px; --gap: 1px; }
@@ -304,15 +374,13 @@
     <a href="index.html" class="hub-back">← Hub</a>
     <div class="tb-sep"></div>
     <span class="tb-title">Life in Weeks</span>
-    <div class="tb-stats">
-      <div class="tst"><span class="tst-v" id="s-lived">—</span><span class="tst-l">semaines vécues</span></div>
-      <div class="tb-sep"></div>
-      <div class="tst"><span class="tst-v" id="s-left">—</span><span class="tst-l">restantes</span></div>
-      <div class="tb-sep"></div>
-      <div class="tst"><span class="tst-v" id="s-pct">—</span><span class="tst-l">vie écoulée</span></div>
-      <div class="tb-sep"></div>
-      <div class="tst"><span class="tst-v" id="s-age">—</span><span class="tst-l">ans</span></div>
-    </div>
+  </div>
+
+  <div class="stats-band">
+    <div class="tst"><span class="tst-v" id="s-lived">—</span><span class="tst-l">semaines vécues</span></div>
+    <div class="tst"><span class="tst-v" id="s-left">—</span><span class="tst-l">restantes</span></div>
+    <div class="tst"><span class="tst-v" id="s-pct">—</span><span class="tst-l">vie écoulée</span></div>
+    <div class="tst"><span class="tst-v" id="s-age">—</span><span class="tst-l">ans aujourd'hui</span></div>
   </div>
 
   <div class="controls">
@@ -323,6 +391,7 @@
     <span style="font-size:9px;color:var(--text-md)">ans</span>
     <button class="cb pr" onclick="applySettings()">Recalculer</button>
     <button class="cb" onclick="toggleMsForm()">+ Milestone</button>
+    <button class="cb" onclick="toggleMsPanel()" id="btn-ms-panel">Gérer milestones</button>
     <span class="csp"></span>
     <button class="cb" onclick="saveData()">↑ Sauvegarder</button>
   </div>
@@ -336,6 +405,11 @@
     <input type="text" class="ci" id="ms-e" placeholder="🎓" style="width:40px" />
     <button class="cb pr" onclick="addMilestone()">Ajouter</button>
     <button class="cb" onclick="toggleMsForm()">Annuler</button>
+  </div>
+
+  <div class="ms-panel" id="ms-panel">
+    <div class="ms-panel-title">Milestones enregistrés</div>
+    <div class="ms-list" id="ms-list"></div>
   </div>
 
   <div class="legend">
@@ -633,6 +707,84 @@
 
     function toggleMsForm() {
       document.getElementById('ms-form').classList.toggle('open');
+      document.getElementById('ms-panel').classList.remove('open');
+    }
+
+    function toggleMsPanel() {
+      const panel = document.getElementById('ms-panel');
+      panel.classList.toggle('open');
+      document.getElementById('ms-form').classList.remove('open');
+      if (panel.classList.contains('open')) renderMsPanel();
+    }
+
+    function renderMsPanel() {
+      const list = document.getElementById('ms-list');
+      list.innerHTML = '';
+      const keys = Object.keys(S.milestones).sort();
+      if (keys.length === 0) {
+        const empty = document.createElement('div');
+        empty.className   = 'ms-empty';
+        empty.textContent = 'Aucun milestone enregistré.';
+        list.appendChild(empty);
+        return;
+      }
+      keys.forEach(function(ds) {
+        const ms   = S.milestones[ds];
+        const item = document.createElement('div');
+        item.className = 'ms-item';
+
+        const emoji = document.createElement('span');
+        emoji.className   = 'ms-item-emoji';
+        emoji.textContent = ms.emoji || '📌';
+
+        const lbl = document.createElement('span');
+        lbl.className   = 'ms-item-label';
+        lbl.textContent = ms.label;
+
+        const date = document.createElement('span');
+        date.className   = 'ms-item-date';
+        date.textContent = ds;
+
+        const btnEdit = document.createElement('button');
+        btnEdit.className   = 'ms-item-edit';
+        btnEdit.textContent = 'Éditer';
+        btnEdit.onclick = (function(d, m) {
+          return function() { editMilestone(d, m); };
+        })(ds, ms);
+
+        const btnDel = document.createElement('button');
+        btnDel.className   = 'ms-item-del';
+        btnDel.textContent = 'Supprimer';
+        btnDel.onclick = (function(d) {
+          return function() { deleteMilestone(d); };
+        })(ds);
+
+        item.appendChild(emoji);
+        item.appendChild(lbl);
+        item.appendChild(date);
+        item.appendChild(btnEdit);
+        item.appendChild(btnDel);
+        list.appendChild(item);
+      });
+    }
+
+    function deleteMilestone(ds) {
+      if (!confirm('Supprimer « ' + S.milestones[ds].label + ' » ?')) return;
+      delete S.milestones[ds];
+      renderMsPanel();
+      render();
+      scheduleSave();
+    }
+
+    function editMilestone(ds, ms) {
+      document.getElementById('ms-d').value = ds;
+      document.getElementById('ms-l').value = ms.label;
+      document.getElementById('ms-e').value = ms.emoji || '';
+      delete S.milestones[ds];
+      renderMsPanel();
+      document.getElementById('ms-panel').classList.remove('open');
+      document.getElementById('ms-form').classList.add('open');
+      render();
     }
 
     function addMilestone() {
