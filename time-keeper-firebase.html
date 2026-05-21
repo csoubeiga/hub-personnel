@@ -204,7 +204,17 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 /* SYNC BAR */
 .sync-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;text-align:center;background:rgba(245,242,237,.95);backdrop-filter:blur(6px);border-top:1px solid var(--border);color:var(--ink-muted);transition:color .3s}
 .sync-bar.ok{color:var(--green)}.sync-bar.err{color:var(--accent)}
+/* DAY NAME */
+.day-name-wrap{padding:0 18px 14px;margin-top:-8px}
+@media(min-width:700px){.day-name-wrap{padding:0 0 14px}}
+.day-name-input{width:100%;padding:7px 12px;border:none;border-bottom:1.5px solid var(--border);border-radius:0;font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--ink-muted);background:transparent;outline:none;transition:border-color .18s,color .18s}
+.day-name-input:focus{border-bottom-color:var(--ink);color:var(--ink)}
+.day-name-input::placeholder{color:var(--border)}
 </style>
+<!-- Firebase compat UMD — ordre obligatoire -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 <a href="index.html" class="hub-link">← Hub</a>
@@ -221,6 +231,9 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
   <div class="header">
     <div><div class="header-title">⏱ Time Keeper</div><div class="header-date" id="hDate"></div></div>
     <div class="header-total" id="hTotal"></div>
+  </div>
+  <div class="day-name-wrap">
+    <input class="day-name-input" id="dayNameInput" type="text" placeholder="Nom de la journée — Jour de TT, Off, Anniversaire…" maxlength="60" autocomplete="off">
   </div>
   <div class="columns">
     <div class="col-left">
@@ -322,11 +335,10 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="msub" id="stopSub"></div>
     <label class="flbl">Type de temps</label>
     <div class="type-grid" id="stopTypes"></div>
-    <input class="field" id="stopCustom" type="text" placeholder="Type libre" maxlength="40" style="margin-bottom:10px">
+    <label class="flbl">Détail</label>
+    <input class="field" id="stopDetail" type="text" placeholder="Ex : réunion budget, yoga…" maxlength="80" autocomplete="off">
     <label class="flbl">Catégorie</label>
     <div class="cat-row" id="stopCats"></div>
-    <label class="flbl">Détail</label>
-    <input class="field" id="stopDetail" type="text" placeholder="Ex : réunion budget, yoga…" maxlength="80">
     <label class="flbl">Note</label>
     <textarea class="field note-field" id="stopNote" placeholder="Précisions…" maxlength="300"></textarea>
     <button class="confirm-btn" id="stopConfirm">✓ Enregistrer et continuer</button>
@@ -354,11 +366,10 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="msub" id="stopPartSub"></div>
     <label class="flbl">Type de temps</label>
     <div class="type-grid" id="stopPartTypes"></div>
-    <input class="field" id="stopPartCustom" type="text" placeholder="Type libre" maxlength="40" style="margin-bottom:10px">
+    <label class="flbl">Détail</label>
+    <input class="field" id="stopPartDetail" type="text" maxlength="80" autocomplete="off">
     <label class="flbl">Catégorie</label>
     <div class="cat-row" id="stopPartCats"></div>
-    <label class="flbl">Détail</label>
-    <input class="field" id="stopPartDetail" type="text" maxlength="80">
     <button class="confirm-btn" id="stopPartConfirm">✓ Suivant</button>
   </div>
 </div>
@@ -371,11 +382,10 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="msub">Renseignez le type et la plage horaire</div>
     <label class="flbl">Type de temps</label>
     <div class="type-grid" id="manTypes"></div>
-    <input class="field" id="manCustom" type="text" placeholder="Type libre" maxlength="40" style="margin-bottom:10px">
+    <label class="flbl">Détail</label>
+    <input class="field" id="manDetail" type="text" maxlength="80" autocomplete="off">
     <label class="flbl">Catégorie</label>
     <div class="cat-row" id="manCats"></div>
-    <label class="flbl">Détail</label>
-    <input class="field" id="manDetail" type="text" maxlength="80">
     <label class="flbl">Note</label>
     <textarea class="field note-field" id="manNote" maxlength="300"></textarea>
     <label class="flbl">Plage horaire</label>
@@ -392,11 +402,10 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
     <div class="msub" id="editSub"></div>
     <label class="flbl">Type de temps</label>
     <div class="type-grid" id="editTypes"></div>
-    <input class="field" id="editCustom" type="text" placeholder="Type libre" maxlength="40" style="margin-bottom:10px">
+    <label class="flbl">Détail</label>
+    <input class="field" id="editDetail" type="text" maxlength="80" autocomplete="off">
     <label class="flbl">Catégorie</label>
     <div class="cat-row" id="editCats"></div>
-    <label class="flbl">Détail</label>
-    <input class="field" id="editDetail" type="text" maxlength="80">
     <label class="flbl">Note</label>
     <textarea class="field note-field" id="editNote" maxlength="300"></textarea>
     <label class="flbl">Plage horaire</label>
@@ -407,11 +416,16 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 
 <div class="sync-bar" id="syncBar">Chargement…</div>
 
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, collection, getDocs }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+<script>
+// ─────────────────────────────────────────────────────────────────────────
+// ⏱ Time Keeper — v2.1.0
+// Architecture : archivage immédiat par commitEntry(), date fait foi
+// Auth         : Firebase Email/Password, UID YFXOziOajjRoNE9i9GocvrEIsqB3
+// Firestore    : time-tracker-archive/YYYY-MM-DD · time-tracker-current/live
+//                time-tracker-current/etalon · time-tracker-current/notes
+// localStorage : tk_v2_live · tk_v2_archive · tk_v2_notes (fallback)
+// Màj          : 2026-05-21 — Nom journée, Détail remonté, Type libre supprimé
+// ─────────────────────────────────────────────────────────────────────────
 
 const FB_CONFIG = {
   apiKey:"AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
@@ -534,7 +548,7 @@ function saveLive(){
   clearTimeout(saveTimer);
   saveTimer=setTimeout(async function(){
     if(!db)return;
-    try{await setDoc(doc(db,'time-tracker-current','live'),{startTs:live.startTs});}
+    try{await db.collection('time-tracker-current').doc('live').set({startTs:live.startTs});}
     catch(e){console.warn('live save failed',e);}
   },1200);
 }
@@ -562,7 +576,7 @@ async function writeDayToFirestore(dk){
     const d=entriesToDoc(allDays[dk].entries);
     d.dayComment=allDays[dk].comment||'';
     d.updatedAt=Date.now();
-    await setDoc(doc(db,'time-tracker-archive',dk),d);
+    await db.collection('time-tracker-archive').doc(dk).set(d);
     syncStatus('✓ Synchronisé','ok');
   }catch(e){
     syncStatus('⚠ Erreur sync','err');
@@ -590,13 +604,13 @@ async function loadAll(){
   if(db){
     // 2. Live depuis Firestore
     try{
-      const snap=await getDoc(doc(db,'time-tracker-current','live'));
-      if(snap.exists()&&snap.data().startTs) live={startTs:snap.data().startTs};
+      const snap=await db.collection('time-tracker-current').doc('live').get();
+      if(snap.exists&&snap.data().startTs) live={startTs:snap.data().startTs};
     }catch(e){}
 
     // 3. Archives depuis Firestore (source de vérité)
     try{
-      const col=await getDocs(collection(db,'time-tracker-archive'));
+      const col=await db.collection('time-tracker-archive').get();
       col.forEach(function(snap){
         const dk=snap.id;
         if(!/^\d{4}-\d{2}-\d{2}$/.test(dk))return;
@@ -624,6 +638,14 @@ function tick(){
 setInterval(tick,1000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)tick();});
 
+// Fix mobile : scroll champ visible au-dessus du clavier
+document.querySelectorAll('.overlay .field').forEach(function(inp){
+  inp.addEventListener('focus',function(){
+    const el=this;
+    setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'center'});},300);
+  });
+});
+
 // ── OVERLAYS ─────────────────────────────────────────────────
 function openOv(id){document.getElementById(id).classList.add('on');}
 function closeOv(id){document.getElementById(id).classList.remove('on');}
@@ -632,7 +654,7 @@ function closeOv(id){document.getElementById(id).classList.remove('on');}
 });
 
 // ── TYPE CHIPS ───────────────────────────────────────────────
-function buildTypeChips(gridId,customId,catRowId,selType){
+function buildTypeChips(gridId,catRowId,selType){
   const grid=document.getElementById(gridId);
   grid.innerHTML='';
   TYPES.forEach(function(t){
@@ -652,30 +674,18 @@ function buildTypeChips(gridId,customId,catRowId,selType){
         x.style.borderColor=xcc;x.style.color=xcc;
       });
       el.classList.add('on');el.style.background=cc;el.style.color='white';
-      if(customId)document.getElementById(customId).value='';
+
       if(t.cat)setCatChip(catRowId,t.cat);
       else clearCatChip(catRowId);
     });
     grid.appendChild(el);
   });
 }
-function getSelType(gridId,customId){
+function getSelType(gridId){
   const chip=document.querySelector('#'+gridId+' .type-chip.on');
-  if(chip)return chip.textContent;
-  const c=document.getElementById(customId);
-  return c&&c.value.trim()?c.value.trim():'';
+  return chip?chip.textContent:'';
 }
-['stopCustom','manCustom','editCustom','stopPartCustom'].forEach(function(id){
-  const el=document.getElementById(id);
-  if(!el)return;
-  el.addEventListener('input',function(){
-    if(this.value.trim()){
-      const gm={stopCustom:'stopTypes',manCustom:'manTypes',editCustom:'editTypes',stopPartCustom:'stopPartTypes'};
-      const g=document.getElementById(gm[id]);
-      if(g)g.querySelectorAll('.type-chip').forEach(function(x){x.classList.remove('on');x.style.background='';});
-    }
-  });
-});
+// type-libre supprimé
 
 // ── CAT CHIPS ────────────────────────────────────────────────
 function buildCatChips(rowId,selCat){
@@ -750,16 +760,15 @@ function cancelStartEdit(){
 document.getElementById('stopBtn').onclick=function(){
   document.getElementById('stopSub').textContent=
     'Durée : '+fmtDur(Math.floor((Date.now()-live.startTs)/1000))+' · Début : '+fmtTime(live.startTs);
-  buildTypeChips('stopTypes','stopCustom','stopCats','');
+  buildTypeChips('stopTypes','stopCats','');
   buildCatChips('stopCats','');
   document.getElementById('stopDetail').value='';
   document.getElementById('stopNote').value='';
-  document.getElementById('stopCustom').value='';
   openOv('ovStop');
 };
 document.getElementById('stopConfirm').onclick=doStop;
 async function doStop(){
-  const type=getSelType('stopTypes','stopCustom');
+  const type=getSelType('stopTypes');
   const cat=getSelCat('stopCats');
   const detail=document.getElementById('stopDetail').value.trim();
   const note=document.getElementById('stopNote').value.trim();
@@ -795,14 +804,13 @@ function openSplitPart(part,startTs,endTs){
   document.getElementById('stopPartTitle').textContent='Partie '+part+'/2';
   document.getElementById('stopPartSub').textContent=
     fmtTime(startTs)+' → '+fmtTime(endTs)+'  ('+fmtDur(Math.floor((endTs-startTs)/1000))+')';
-  buildTypeChips('stopPartTypes','stopPartCustom','stopPartCats','');
+  buildTypeChips('stopPartTypes','stopPartCats','');
   buildCatChips('stopPartCats','');
   document.getElementById('stopPartDetail').value='';
-  document.getElementById('stopPartCustom').value='';
   openOv('ovStopPart');
 }
 document.getElementById('stopPartConfirm').onclick=async function(){
-  const type=getSelType('stopPartTypes','stopPartCustom');
+  const type=getSelType('stopPartTypes');
   const cat=getSelCat('stopPartCats');
   const detail=document.getElementById('stopPartDetail').value.trim();
   if(splitPart===1){
@@ -828,11 +836,10 @@ document.getElementById('stopPartConfirm').onclick=async function(){
 
 // ── MANUAL ───────────────────────────────────────────────────
 document.getElementById('addBtn').onclick=function(){
-  buildTypeChips('manTypes','manCustom','manCats','');
+  buildTypeChips('manTypes','manCats','');
   buildCatChips('manCats','');
   document.getElementById('manDetail').value='';
   document.getElementById('manNote').value='';
-  document.getElementById('manCustom').value='';
   const tk=todayStr();
   const todayEntries=getTodayEntries();
   const lastEnd=todayEntries.length>0?todayEntries[todayEntries.length-1].endTs:null;
@@ -841,7 +848,7 @@ document.getElementById('addBtn').onclick=function(){
   openOv('ovManual');
 };
 document.getElementById('manConfirm').onclick=async function(){
-  const type=getSelType('manTypes','manCustom');
+  const type=getSelType('manTypes');
   const cat=getSelCat('manCats');
   const detail=document.getElementById('manDetail').value.trim();
   const note=document.getElementById('manNote').value.trim();
@@ -869,15 +876,14 @@ function openEdit(dk,ei){
   buildCatChips('editCats',h.cat||'');
   document.getElementById('editDetail').value=h.detail||'';
   document.getElementById('editNote').value=h.note||'';
-  document.getElementById('editCustom').value=
-    TYPES.find(function(t){return t.label===h.type;})?'':h.type||'';
+
   document.getElementById('editStart').value=tsToTI(h.startTs);
   document.getElementById('editEnd').value=tsToTI(h.endTs);
   openOv('ovEdit');
 }
 document.getElementById('editConfirm').onclick=async function(){
   if(!editDk||editEi<0)return;
-  const type=getSelType('editTypes','editCustom');
+  const type=getSelType('editTypes');
   const cat=getSelCat('editCats');
   const detail=document.getElementById('editDetail').value.trim();
   const note=document.getElementById('editNote').value.trim();
@@ -999,6 +1005,35 @@ document.getElementById('btnPurge').onclick=function(){
 };
 
 // ── EXPORTS ──────────────────────────────────────────────────
+// ── DAY NAME ─────────────────────────────────────────────────
+let dayNameTimer = null;
+
+function loadDayName(){
+  const tk = todayStr();
+  const val = allDays[tk] ? (allDays[tk].comment || '') : '';
+  const inp = document.getElementById('dayNameInput');
+  if(inp) inp.value = val;
+}
+
+async function saveDayName(val){
+  const tk = todayStr();
+  if(!allDays[tk]) allDays[tk] = {entries:[], comment:''};
+  allDays[tk].comment = val;
+  lsSaveArchive();
+  await writeDayToFirestore(tk);
+}
+
+document.getElementById('dayNameInput').addEventListener('input', function(){
+  clearTimeout(dayNameTimer);
+  const val = this.value;
+  dayNameTimer = setTimeout(function(){ saveDayName(val); }, 800);
+});
+
+// Scroll into view on focus (fix mobile clavier)
+document.getElementById('dayNameInput').addEventListener('focus', function(){
+  setTimeout(function(){ document.getElementById('dayNameInput').scrollIntoView({behavior:'smooth',block:'center'}); }, 300);
+});
+
 function getAllEntries(){
   const all=[];
   Object.keys(allDays).sort().forEach(function(dk){
@@ -1011,7 +1046,8 @@ function getAllEntries(){
 function rowsCsv(entries){
   return entries.map(function(h){
     const esc=function(s){return'"'+String(s||'').replace(/"/g,'""')+'"';};
-    return esc(h.dayKey)+','+esc(h.type)+','+esc(h.cat)+','+esc(h.detail)+','+esc(h.note)+','+
+    const dayComment = allDays[h.dayKey] ? (allDays[h.dayKey].comment||'') : '';
+    return esc(h.dayKey)+','+esc(dayComment)+','+esc(h.type)+','+esc(h.cat)+','+esc(h.detail)+','+esc(h.note)+','+
       esc(new Date(h.startTs).toLocaleString('fr-FR'))+','+
       esc(new Date(h.endTs).toLocaleString('fr-FR'))+','+
       (h.duration/60).toFixed(1)+','+esc(fmtDur(h.duration));
@@ -1025,7 +1061,7 @@ function dlFile(content,filename,type){
   document.body.appendChild(a);a.click();
   setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},200);
 }
-const CSV_HEADER='Date,Type,Catégorie,Détail,Note,Début,Fin,Durée (min),Durée';
+const CSV_HEADER='Date,Nom journée,Type,Catégorie,Détail,Note,Début,Fin,Durée (min),Durée';
 
 document.getElementById('btnCsv').onclick=function(){
   const entries=getTodayEntries();
@@ -1147,8 +1183,8 @@ async function loadEtalon(){
   const defaults={};CATEGORIES.forEach(function(c){defaults[c.key]=0;});
   if(!db){etalon=defaults;return;}
   try{
-    const snap=await getDoc(doc(db,'time-tracker-current','etalon'));
-    if(snap.exists()){CATEGORIES.forEach(function(c){etalon[c.key]=parseFloat(snap.data()[c.key]||0)||0;});}
+    const snap=await db.collection('time-tracker-current').doc('etalon').get();
+    if(snap.exists){CATEGORIES.forEach(function(c){etalon[c.key]=parseFloat(snap.data()[c.key]||0)||0;});}
     else etalon=defaults;
   }catch(e){etalon=defaults;}
 }
@@ -1160,7 +1196,7 @@ async function saveEtalon(){
   if(!db){alert('Firebase non connecté.');return;}
   try{
     const d={};CATEGORIES.forEach(function(c){d[c.key]=etalon[c.key]||0;});
-    await setDoc(doc(db,'time-tracker-current','etalon'),d);
+    await db.collection('time-tracker-current').doc('etalon').set(d);
     syncStatus('✓ Étalon enregistré','ok');renderStats();
   }catch(e){syncStatus('⚠ Erreur sauvegarde étalon','err');}
 }
@@ -1377,8 +1413,8 @@ async function initNotes(){
     try{const ls=localStorage.getItem('tk_v2_notes');if(ls)document.getElementById('notesArea').value=ls;}catch(e){}
     if(db){
       try{
-        const snap=await getDoc(doc(db,'time-tracker-current','notes'));
-        if(snap.exists())document.getElementById('notesArea').value=snap.data().text||'';
+        const snap=await db.collection('time-tracker-current').doc('notes').get();
+        if(snap.exists)document.getElementById('notesArea').value=snap.data().text||'';
       }catch(e){}
     }
     notesLoaded=true;
@@ -1391,7 +1427,7 @@ async function saveNotes(){
   try{localStorage.setItem('tk_v2_notes',text);}catch(e){}
   if(db){
     try{
-      await setDoc(doc(db,'time-tracker-current','notes'),{text,updatedAt:Date.now()});
+      await db.collection('time-tracker-current').doc('notes').set({text,updatedAt:Date.now()});
       lbl.textContent='✓ Enregistré';
     }catch(e){lbl.textContent='⚠ Erreur';}
   }else{lbl.textContent='⚠ Local seulement';}
@@ -1416,21 +1452,21 @@ document.getElementById('tabStats').onclick  =function(){switchTab('tabStats','p
 document.getElementById('tabNotes').onclick  =function(){switchTab('tabNotes','panelNotes');initNotes();};
 
 // ── BOOT ─────────────────────────────────────────────────────
-const _app = initializeApp(FB_CONFIG);
-const _auth = getAuth(_app);
+firebase.initializeApp(FB_CONFIG);
 
-onAuthStateChanged(_auth, function(user){
+firebase.auth().onAuthStateChanged(function(user){
   if(!user || user.uid !== 'YFXOziOajjRoNE9i9GocvrEIsqB3'){
     window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
     return;
   }
-  db = getFirestore(_app);
+  db = firebase.firestore();
   (async function boot(){
     syncStatus('Chargement…');
     try{
       await loadAll();
     }finally{
       renderToday();
+      loadDayName();
       setTimeout(flushRetryQ,3000);
       syncStatus('✓ Synchronisé','ok');
     }
