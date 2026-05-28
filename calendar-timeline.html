@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calendrier — Hub</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK 10.12.0 compat UMD — ordre obligatoire -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 <style>
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -83,11 +90,11 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
 /* Avancée année */
 #progress-wrap { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 #progress-pct {
-  font-family: var(--font-serif); font-size: 22px; font-style: italic;
+  font-family: var(--font-sans); font-size: 20px; font-weight: 600;
   color: var(--accent); line-height: 1;
 }
 #progress-detail {
-  font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); line-height: 1.4;
+  font-family: var(--font-sans); font-size: 9px; font-weight: 400; color: var(--text-muted); line-height: 1.4;
 }
 #progress-track { width: 80px; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; }
 #progress-fill  { height: 100%; background: var(--accent); border-radius: 2px; transition: width .5s; }
@@ -95,8 +102,64 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
 /* ══════════════════════════════════════
    GRILLE ANNUELLE (vue principale)
 ══════════════════════════════════════ */
-#cal-wrap { padding: 20px 28px; display: flex; flex-direction: column; gap: 12px; }
+#cal-wrap { padding: 20px 28px; display: flex; flex-direction: column; gap: 10px; }
+#cal-months { display: flex; flex-direction: column; gap: 10px; }
 .trimestre-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+
+/* ── Bloc "À venir" — compact strip ── */
+#upcoming-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 4px; overflow: hidden;
+}
+#upcoming-wrap-header {
+  padding: 9px 14px 8px; display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--border-light);
+}
+#upcoming-wrap-label {
+  font-family: var(--font-sans); font-size: 10px; font-weight: 500;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
+}
+.up-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; border-bottom: 1px solid var(--border-light);
+  cursor: pointer; transition: background .1s;
+}
+.up-row:last-child { border-bottom: none; }
+.up-row:hover { background: var(--bg); }
+.up-dot   { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.up-label {
+  font-family: var(--font-sans); font-size: 10px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--accent);
+  flex-shrink: 0; min-width: 70px;
+}
+.up-label.is-today { color: var(--accent); }
+.up-label.is-soon  { color: #d4830a; }
+.up-label.is-later { color: var(--text-muted); }
+.up-title-row {
+  font-family: var(--font-sans); font-size: 13px; font-weight: 400;
+  color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.up-date-row {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); flex-shrink: 0;
+}
+.up-empty-row {
+  padding: 10px 14px; font-size: 12px; color: var(--text-light); font-style: italic;
+}
+
+/* ── Checkbox événement (liste) ── */
+.ev-check {
+  width: 15px; height: 15px; border: 1.5px solid var(--border);
+  border-radius: 4px; flex-shrink: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .12s, border-color .12s; background: var(--surface);
+}
+.ev-check:hover { border-color: var(--accent); }
+.ev-check.checked { background: var(--accent); border-color: var(--accent); }
+.ev-check.checked::after {
+  content: '✓'; color: #fff; font-size: 10px; line-height: 1; font-weight: bold;
+}
+.ev-list-item.done .ev-list-title { text-decoration: line-through; color: var(--text-light); }
+.ev-list-item.done .ev-list-dot   { opacity: .4; }
 
 /* Carte mois */
 .month-card {
@@ -108,7 +171,7 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
   padding: 10px 14px 4px;
 }
 .month-name-el {
-  font-family: var(--font-serif); font-size: 17px; font-weight: normal;
+  font-family: var(--font-sans); font-size: 16px; font-weight: 500;
   color: var(--text); cursor: pointer; transition: color .12s;
   text-decoration-line: underline; text-decoration-style: dotted;
   text-decoration-color: transparent; text-underline-offset: 3px;
@@ -198,10 +261,10 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
 
 /* Titre modal façon référence */
 .modal-box h2 {
-  font-family: var(--font-serif); font-size: 22px; font-weight: normal;
+  font-family: var(--font-sans); font-size: 20px; font-weight: 600;
   letter-spacing: -.01em; color: var(--text); margin-bottom: 20px;
 }
-.modal-box h2 em { font-style: italic; color: var(--accent); }
+.modal-box h2 em { font-style: italic; color: var(--accent); font-weight: 400; }
 
 .field { margin-bottom: 14px; }
 .field label {
@@ -274,8 +337,8 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
   padding: 14px 40px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
 }
 #zoom-month-name {
-  font-family: var(--font-serif); font-style: italic; font-weight: normal;
-  font-size: 28px; letter-spacing: -.02em; line-height: 1;
+  font-family: var(--font-sans); font-weight: 600;
+  font-size: 24px; letter-spacing: -.02em; line-height: 1;
 }
 #zoom-month-name.current-month { color: var(--accent); }
 #zoom-month-year {
@@ -366,9 +429,9 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
   margin-bottom: 1.8rem;
 }
 .zcal-cal-title {
-  font-family: var(--font-serif); font-size: 2rem; letter-spacing: -.02em; line-height: 1;
+  font-family: var(--font-sans); font-size: 1.6rem; font-weight: 600; letter-spacing: -.02em; line-height: 1;
 }
-.zcal-cal-title em { font-style: italic; color: var(--accent); }
+.zcal-cal-title em { font-style: italic; color: var(--accent); font-weight: 400; }
 .zcal-nav-month { display: flex; align-items: center; gap: 1rem; }
 .zcal-nav-month button {
   width: 36px; height: 36px; border: 1px solid var(--border);
@@ -462,6 +525,22 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
 .zcal-event-body { flex: 1; min-width: 0; }
 .zcal-event-title { font-weight: 500; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zcal-event-note  { font-size: .8rem; color: var(--text-muted); margin-top: .2rem; font-weight: 300; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zcal-event-item.done .zcal-event-title { text-decoration: line-through; color: var(--text-light); }
+.zcal-event-check {
+  width: 16px; height: 16px; border: 1.5px solid var(--border); border-radius: 4px;
+  flex-shrink: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  transition: background .12s, border-color .12s; align-self: center; background: var(--surface);
+}
+.zcal-event-check:hover { border-color: var(--accent); }
+.zcal-event-check.checked { background: var(--accent); border-color: var(--accent); }
+.zcal-event-check.checked::after { content: '✓'; color: #fff; font-size: 10px; font-weight: bold; }
+
+/* Anniversaire dans la grille */
+.zcal-pill.bday {
+  background: transparent; color: var(--text); padding-left: 2px; font-weight: 500;
+}
+.zcal-bday-cake { font-size: 11px; }
+.zcal-event-bday-icon { font-size: 14px; align-self: center; }
 
 @media (max-width: 700px) {
   .zcal-container { padding: .8rem .8rem 0; }
@@ -531,6 +610,7 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
   .zcal-cell { min-height: 85px !important; break-inside: avoid; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
 </style>
 </head>
 <body>
@@ -556,6 +636,7 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
     ↑ Import
     <input type="file" id="btn-import" accept=".json" style="display:none;">
   </label>
+  <button class="hbtn" id="btn-bdays" title="Gérer les anniversaires">🎂 Anniv.</button>
   <div id="progress-wrap">
     <span id="progress-pct"></span>
     <div style="display:flex;flex-direction:column;gap:3px;">
@@ -567,7 +648,15 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
   </div>
 </header>
 
-<div id="cal-wrap"></div>
+<div id="cal-wrap">
+  <div id="upcoming-wrap">
+    <div id="upcoming-wrap-header">
+      <span id="upcoming-wrap-label">À venir</span>
+    </div>
+    <div id="upcoming"></div>
+  </div>
+  <div id="cal-months"></div>
+</div>
 
 <!-- Modal ajout / édition -->
 <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -578,10 +667,11 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
       <div class="toggle-group">
         <button id="type-single" aria-pressed="true">Ponctuel</button>
         <button id="type-range"  aria-pressed="false">Période</button>
+        <button id="type-birthday" aria-pressed="false">🎂 Anniv.</button>
       </div>
     </div>
     <div class="field">
-      <label for="ev-title">Titre *</label>
+      <label for="ev-title" id="lbl-title">Titre *</label>
       <input id="ev-title" type="text" maxlength="80" placeholder="Nom de l'événement">
       <div class="err-msg" id="err-title">Le titre est obligatoire.</div>
     </div>
@@ -598,6 +688,29 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
         <label for="ev-end">Fin</label>
         <input id="ev-end" type="date">
         <div class="err-msg" id="err-range">La date de fin doit être ≥ au début.</div>
+      </div>
+    </div>
+    <div id="field-birthday" style="display:none">
+      <div class="field">
+        <label>Jour & mois (récurrent chaque année)</label>
+        <div style="display:flex;gap:10px;">
+          <input id="ev-bday-day" type="number" min="1" max="31" placeholder="Jour" style="flex:1;">
+          <select id="ev-bday-month" style="flex:2;font-family:var(--font-sans);font-size:14px;font-weight:300;border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;background:var(--bg);color:var(--text);outline:none;">
+          </select>
+        </div>
+        <div class="err-msg" id="err-bday">Jour et mois requis.</div>
+      </div>
+      <div class="field">
+        <label for="ev-bday-year">Année de naissance <span style="font-weight:300;text-transform:none;letter-spacing:0">(optionnel — pour voir l'âge)</span></label>
+        <input id="ev-bday-year" type="number" min="1900" max="2024" placeholder="ex : 1990">
+      </div>
+      <div class="field">
+        <label>Importance</label>
+        <div class="toggle-group">
+          <button id="bday-important" aria-pressed="false">⭐ Important</button>
+          <button id="bday-info" class="active" aria-pressed="true">· Info</button>
+        </div>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:5px;">Seuls les "Important" apparaissent dans À venir et dans les cartes mois.</p>
       </div>
     </div>
     <div class="field">
@@ -645,41 +758,55 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
   <div id="zoom-inner"></div>
 </div>
 
+<!-- Panneau anniversaires -->
+<div id="bday-overlay" class="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:540px;">
+    <h2>🎂 <em>Anniversaires</em></h2>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Gérez tous vos anniversaires. Les ⭐ importants apparaissent dans À venir et les cartes mois.</p>
+    <div id="bday-list"></div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <p style="font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Ajouter en bulk</p>
+      <textarea id="bday-bulk-input" placeholder="Une personne par ligne :&#10;Laurine, 07, 06, 1994, important&#10;Papa, 15, 03, 1958, info&#10;Marc, 22, 11,, important" style="width:100%;font-family:var(--font-mono);font-size:12px;border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--bg);color:var(--text);min-height:90px;resize:vertical;outline:none;"></textarea>
+      <p style="font-size:10px;color:var(--text-light);margin:5px 0 10px;">Format : <code>Prénom, jour, mois, année (optionnel), important|info</code></p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn" id="bday-cancel">Fermer</button>
+        <button class="btn btn-primary" id="bday-bulk-save">Importer la liste</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="sync-bar" class="hidden"></div>
 
-<script type="module">
-import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
+<script>
 /* ══════════════════════════════════════════════════
-   CALENDRIER — v4 Firebase
+   CALENDRIER — VERSION TEST (localStorage)
    Timeline annuelle + zoom (timeline / grille mois)
 ══════════════════════════════════════════════════ */
 
 /* ── Config Firebase ── */
 const FB_CONFIG = {
-  apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
-  authDomain: "hub-personnel-firebase.firebaseapp.com",
-  projectId: "hub-personnel-firebase",
-  storageBucket: "hub-personnel-firebase.firebasestorage.app",
+  apiKey:            "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+  authDomain:        "hub-personnel-firebase.firebaseapp.com",
+  projectId:         "hub-personnel-firebase",
+  storageBucket:     "hub-personnel-firebase.firebasestorage.app",
   messagingSenderId: "394129070920",
-  appId: "1:394129070920:web:10f3303c22adcda47cf17d"
+  appId:             "1:394129070920:web:10f3303c22adcda47cf17d"
 };
-const fbApp = initializeApp(FB_CONFIG);
-const db    = getFirestore(fbApp);
-const FB_DOC = 'calendrier/data';  // structure plate : doc unique
+firebase.initializeApp(FB_CONFIG);
+const DB = firebase.firestore();
 
-/* ── Sync status ── */
-let syncTimer = null;
+/* ── Sync status bar ── */
+let _syncTimer = null;
 function setSync(state, msg) {
   const bar = document.getElementById('sync-bar');
   bar.textContent = msg;
   bar.className = state;
-  clearTimeout(syncTimer);
-  if (state === 'ok') syncTimer = setTimeout(()=>{ bar.className='hidden'; }, 2500);
+  clearTimeout(_syncTimer);
+  if (state === 'ok') _syncTimer = setTimeout(function() { bar.className = 'hidden'; }, 2500);
 }
 
-/* ── Persistence Firebase avec fallback localStorage ── */
+/* ── État global ── */
 let events      = [];
 let currentYear = new Date().getFullYear();
 let searchQuery = '';
@@ -687,50 +814,62 @@ let editingId   = null;
 let zoomMode    = 'timeline';
 let zoomCtx     = null;
 
-async function loadData() {
-  setSync('loading', 'Chargement…');
-  try {
-    const snap = await getDoc(doc(db, 'calendrier', 'data'));
-    if (snap.exists()) {
-      const raw = snap.data();
-      events = Object.values(raw).filter(v => v && typeof v === 'object' && v.id);
-    } else {
-      // Première utilisation : migration depuis localStorage si dispo
-      const ls = localStorage.getItem('minimal_calendar_v2') || localStorage.getItem('minimal_calendar_v1');
-      events = ls ? JSON.parse(ls) : [];
-    }
-    setSync('ok', '✓ Synchronisé');
-  } catch(e) {
-    console.warn('Firebase load error, fallback localStorage', e);
-    try { events = JSON.parse(localStorage.getItem('minimal_calendar_v2') || '[]'); } catch { events = []; }
-    setSync('error', '⚠ Hors ligne — données locales');
-  }
-}
+/* ── Persistence Firebase ── */
+let _saveDebounce = null;
+let _saveRetry    = null;
 
-/* Debounce 1200ms — sauvegarde toute la liste en structure plate */
-let saveDebounce = null;
-let saveRetry    = null;
+function loadData() {
+  setSync('loading', 'Chargement…');
+  DB.collection('calendrier').doc('data').get()
+    .then(function(snap) {
+      if (snap.exists) {
+        const raw = snap.data();
+        events = Object.values(raw).filter(function(v) { return v && typeof v === 'object' && v.id; });
+      } else {
+        try {
+          const ls = localStorage.getItem('minimal_calendar_v2') || localStorage.getItem('minimal_calendar_v1');
+          events = ls ? JSON.parse(ls) : [];
+        } catch(e) { events = []; }
+      }
+      setSync('ok', '✓ Synchronisé');
+      renderAll();
+    })
+    .catch(function(e) {
+      console.warn('Firebase load error', e);
+      try { events = JSON.parse(localStorage.getItem('minimal_calendar_v2') || '[]'); } catch(e2) { events = []; }
+      setSync('error', '⚠ Hors ligne — données locales');
+      renderAll();
+    });
+}
 
 function saveAll() {
-  // Fallback localStorage immédiat
-  try { localStorage.setItem('minimal_calendar_v2', JSON.stringify(events)); } catch {}
-
-  clearTimeout(saveDebounce);
-  saveDebounce = setTimeout(async () => {
+  try { localStorage.setItem('minimal_calendar_v2', JSON.stringify(events)); } catch(e) {}
+  clearTimeout(_saveDebounce);
+  _saveDebounce = setTimeout(function() {
     setSync('loading', 'Enregistrement…');
     const flat = {};
-    events.forEach(ev => { flat[ev.id] = ev; });
-    try {
-      await setDoc(doc(db, 'calendrier', 'data'), flat);
-      setSync('ok', '✓ Synchronisé');
-      clearTimeout(saveRetry);
-    } catch(e) {
-      setSync('error', '⚠ Erreur — nouvelle tentative dans 5s');
-      clearTimeout(saveRetry);
-      saveRetry = setTimeout(saveAll, 5000);
-    }
+    events.forEach(function(ev) { flat[ev.id] = ev; });
+    DB.collection('calendrier').doc('data').set(flat)
+      .then(function() {
+        setSync('ok', '✓ Synchronisé');
+        clearTimeout(_saveRetry);
+      })
+      .catch(function(e) {
+        setSync('error', '⚠ Erreur — nouvelle tentative dans 5s');
+        clearTimeout(_saveRetry);
+        _saveRetry = setTimeout(saveAll, 5000);
+      });
   }, 1200);
 }
+
+
+
+
+
+/* ══════════════════════════════════════════════════
+   CALENDRIER — v4 Firebase
+   Timeline annuelle + zoom (timeline / grille mois)
+══════════════════════════════════════════════════ */
 
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
@@ -800,7 +939,8 @@ function eventsInMonth(y,m) {
 const BAR_H=7,BAR_GAP=2,DOT_D=7,ROW_TOP=4,RULER_H=26;
 
 function renderAll() {
-  const wrap=document.getElementById('cal-wrap');
+  renderUpcoming();
+  const wrap=document.getElementById('cal-months');
   wrap.innerHTML='';
   const today=todayYMD();
   for(let q=0;q<4;q++){
@@ -808,6 +948,76 @@ function renderAll() {
     for(let mi=0;mi<3;mi++) row.appendChild(buildMonth(currentYear,q*3+mi,today));
     wrap.appendChild(row);
   }
+}
+
+/* ── Bloc "À venir" : 3 prochains événements ── */
+function daysBetween(fromYMD, toYMD) {
+  const a=ymdParts(fromYMD), b=ymdParts(toYMD);
+  const da=new Date(a.y,a.m-1,a.d), db=new Date(b.y,b.m-1,b.d);
+  return Math.round((db-da)/86400000);
+}
+function relativeDays(n) {
+  if(n===0) return "Aujourd'hui";
+  if(n===1) return 'Demain';
+  if(n<7)   return `Dans ${n} jours`;
+  if(n<14)  return 'Dans 1 semaine';
+  if(n<31)  return `Dans ${Math.round(n/7)} semaines`;
+  if(n<60)  return 'Dans 1 mois';
+  return `Dans ${Math.round(n/30)} mois`;
+}
+/* Pour un anniversaire, calcule la prochaine occurrence (cette année ou l'an prochain) */
+function nextBirthdayYMD(ev, fromYMD) {
+  const f=ymdParts(fromYMD);
+  let y=f.y;
+  let cand=`${y}-${pad(ev.bMonth)}-${pad(ev.bDay)}`;
+  if(cand<fromYMD) cand=`${y+1}-${pad(ev.bMonth)}-${pad(ev.bDay)}`;
+  return cand;
+}
+function renderUpcoming() {
+  const box=document.getElementById('upcoming');
+  box.innerHTML='';
+  const today=todayYMD();
+
+  const items=[];
+  events.forEach(ev=>{
+    if(ev.done) return;
+    if(ev.type==='birthday'){
+      if(ev.bImportant!==true) return; // Info seulement : ne pas afficher
+      const d=nextBirthdayYMD(ev,today);
+      items.push({ev,date:d,isBday:true});
+    } else {
+      if(ev.start>=today) items.push({ev,date:ev.start,isBday:false});
+    }
+  });
+  items.sort((a,b)=>a.date.localeCompare(b.date));
+  const next3=items.slice(0,3);
+
+  if(!next3.length){
+    const e=document.createElement('div'); e.className='up-empty-row';
+    e.textContent='Aucun événement à venir.'; box.appendChild(e);
+    return;
+  }
+
+  next3.forEach(({ev,date,isBday})=>{
+    const n=daysBetween(today,date);
+    const row=document.createElement('div'); row.className='up-row';
+    row.addEventListener('click',()=>openDetail(ev.id));
+
+    const dot=document.createElement('div'); dot.className='up-dot'; dot.style.background=ev.color;
+
+    const label=document.createElement('div');
+    label.className='up-label'+(n===0?' is-today':n<=3?' is-soon':' is-later');
+    label.textContent=relativeDays(n);
+
+    const title=document.createElement('div'); title.className='up-title-row';
+    title.textContent=(isBday?'🎂 ':'')+ev.title;
+
+    const dateEl=document.createElement('div'); dateEl.className='up-date-row';
+    dateEl.textContent=fmtWithDow(date);
+
+    row.appendChild(dot); row.appendChild(label); row.appendChild(title); row.appendChild(dateEl);
+    box.appendChild(row);
+  });
 }
 
 function buildMonth(y,m,today){
@@ -926,12 +1136,22 @@ function buildMonth(y,m,today){
   card.appendChild(strip);
 
   /* Event list */
-  if(allEvs.length){
+  const listEvs = allEvs.filter(e=>e.type!=='birthday');
+  // Anniversaires ce mois-ci — importants uniquement dans la timeline
+  const bdayImportantMonth = events.filter(e=>e.type==='birthday'&&e.bMonth===m+1&&e.bImportant===true)
+    .sort((a,b)=>a.bDay-b.bDay);
+
+  const hasContent = listEvs.some(matchSearch) || bdayImportantMonth.length;
+  if(hasContent){
     const list=document.createElement('div'); list.className='ev-list';
-    [...allEvs].sort((a,b)=>a.start.localeCompare(b.start)).forEach(ev=>{
+
+    [...listEvs].sort((a,b)=>a.start.localeCompare(b.start)).forEach(ev=>{
       if(!matchSearch(ev)) return;
-      const item=document.createElement('div'); item.className='ev-list-item';
-      item.setAttribute('role','button'); item.setAttribute('tabindex','0');
+      const item=document.createElement('div'); item.className='ev-list-item'+(ev.done?' done':'');
+      const check=document.createElement('span');
+      check.className='ev-check'+(ev.done?' checked':'');
+      check.title=ev.done?'Marquer non fait':'Marquer comme fait';
+      check.addEventListener('click',e=>{e.stopPropagation();toggleDone(ev.id);});
       const dot=document.createElement('span'); dot.className='ev-list-dot'; dot.style.background=ev.color;
       const nameWrap=document.createElement('span'); nameWrap.className='ev-list-name';
       const title=document.createElement('span'); title.className='ev-list-title'; title.textContent=ev.title;
@@ -941,13 +1161,62 @@ function buildMonth(y,m,today){
       }
       const date=document.createElement('span'); date.className='ev-list-date';
       date.textContent=ev.type==='single'?fmtWithDow(ev.start):fmtWithDow(ev.start)+(ev.end&&ev.end!==ev.start?` – `+fmtWithDow(ev.end):'');
-      item.appendChild(dot); item.appendChild(nameWrap); item.appendChild(date);
+      item.appendChild(check); item.appendChild(dot); item.appendChild(nameWrap); item.appendChild(date);
       item.addEventListener('click',()=>openDetail(ev.id));
       list.appendChild(item);
     });
+
+    // Anniversaires ce mois-ci : importants d'abord, puis info
+    const bdayImportant = bdayImportantMonth;
+    const bdayInfo      = []; // Info : non affichés dans la timeline
+
+    function makeBdayRow(ev, isInfo){
+      const item=document.createElement('div'); item.className='ev-list-item';
+      if(isInfo) item.style.opacity='.6';
+      const icon=document.createElement('span'); icon.textContent='🎂'; icon.style.cssText='font-size:10px;flex-shrink:0;';
+      const nameWrap=document.createElement('span'); nameWrap.className='ev-list-name';
+      const title=document.createElement('span'); title.className='ev-list-title';
+      // Afficher l'âge si bYear renseigné
+      if(ev.bYear){
+        const nextAge = currentYear - ev.bYear;
+        title.textContent=`${ev.title} — ${nextAge} ans`;
+      } else {
+        title.textContent=ev.title;
+      }
+      nameWrap.appendChild(title);
+      const date=document.createElement('span'); date.className='ev-list-date';
+      date.textContent=`${pad(ev.bDay)} ${MONTH_SHORT[ev.bMonth-1]}`;
+      item.appendChild(icon); item.appendChild(nameWrap); item.appendChild(date);
+      item.addEventListener('click',()=>openDetail(ev.id));
+      return item;
+    }
+
+    if(bdayImportant.length){
+      // Séparateur "Anniversaires"
+      const sep=document.createElement('div');
+      sep.style.cssText='padding:4px 0 2px;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);border-top:1px solid var(--border-light);margin-top:2px;';
+      sep.textContent='Anniversaires';
+      list.appendChild(sep);
+      bdayImportant.forEach(ev=>list.appendChild(makeBdayRow(ev,false)));
+    }
+    if(bdayInfo.length){
+      const sep2=document.createElement('div');
+      sep2.style.cssText='padding:4px 0 2px;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-light);border-top:1px solid var(--border-light);margin-top:2px;';
+      sep2.textContent='Info';
+      list.appendChild(sep2);
+      bdayInfo.forEach(ev=>list.appendChild(makeBdayRow(ev,true)));
+    }
+
     if(list.children.length) card.appendChild(list);
   }
   return card;
+}
+
+/* ── Toggle "fait" ── */
+function toggleDone(id){
+  const ev=events.find(e=>e.id===id); if(!ev) return;
+  ev.done=!ev.done;
+  saveAll(); renderAll();
 }
 
 /* ══════════════════════════════════════
@@ -972,13 +1241,24 @@ function initPresets(){
 }
 function setColor(c){ document.getElementById('color-picker').value=c; document.getElementById('color-preview').style.background=c; }
 function setType(t){
-  const r=t==='range';
-  document.getElementById('type-single').classList.toggle('active',!r);
-  document.getElementById('type-range').classList.toggle('active',r);
-  document.getElementById('type-single').setAttribute('aria-pressed',String(!r));
-  document.getElementById('type-range').setAttribute('aria-pressed',String(r));
-  document.getElementById('field-single').style.display=r?'none':'';
-  document.getElementById('field-range').style.display=r?'':'none';
+  const isR=t==='range', isB=t==='birthday', isS=t==='single';
+  document.getElementById('type-single').classList.toggle('active',isS);
+  document.getElementById('type-range').classList.toggle('active',isR);
+  document.getElementById('type-birthday').classList.toggle('active',isB);
+  document.getElementById('type-single').setAttribute('aria-pressed',String(isS));
+  document.getElementById('type-range').setAttribute('aria-pressed',String(isR));
+  document.getElementById('type-birthday').setAttribute('aria-pressed',String(isB));
+  document.getElementById('field-single').style.display=isS?'':'none';
+  document.getElementById('field-range').style.display=isR?'':'none';
+  document.getElementById('field-birthday').style.display=isB?'':'none';
+  // Adapter le placeholder du titre
+  document.getElementById('ev-title').placeholder=isB?'Prénom (ex : Laurine)':"Nom de l'événement";
+}
+function setBdayImportance(isImportant){
+  document.getElementById('bday-important').classList.toggle('active', isImportant);
+  document.getElementById('bday-info').classList.toggle('active', !isImportant);
+  document.getElementById('bday-important').setAttribute('aria-pressed', String(isImportant));
+  document.getElementById('bday-info').setAttribute('aria-pressed', String(!isImportant));
 }
 function wireStartEnd(){
   const s=document.getElementById('ev-start'),e=document.getElementById('ev-end');
@@ -994,13 +1274,21 @@ function openModal(evObj,prefillDate){
   title.innerHTML=evObj?'Modifier <em>l\'événement</em>':'Nouvel <em>événement</em>';
   document.getElementById('err-title').classList.remove('show');
   document.getElementById('err-range').classList.remove('show');
+  document.getElementById('err-bday').classList.remove('show');
   if(evObj){
     setType(evObj.type);
     document.getElementById('ev-title').value=evObj.title;
-    document.getElementById('ev-date').value=evObj.start;
-    document.getElementById('ev-start').value=evObj.start;
-    document.getElementById('ev-end').value=evObj.end||'';
-    document.getElementById('ev-end').min=evObj.start?nextDayYMD(evObj.start):'';
+    if(evObj.type==='birthday'){
+      document.getElementById('ev-bday-day').value=evObj.bDay||'';
+      document.getElementById('ev-bday-month').value=evObj.bMonth||1;
+      document.getElementById('ev-bday-year').value=evObj.bYear||'';
+      setBdayImportance(!!evObj.bImportant); // false par défaut si absent
+    } else {
+      document.getElementById('ev-date').value=evObj.start;
+      document.getElementById('ev-start').value=evObj.start;
+      document.getElementById('ev-end').value=evObj.end||'';
+      document.getElementById('ev-end').min=evObj.start?nextDayYMD(evObj.start):'';
+    }
     setColor(evObj.color);
     document.getElementById('ev-notes').value=evObj.notes||'';
     document.getElementById('modal-delete').style.display='';
@@ -1013,6 +1301,11 @@ function openModal(evObj,prefillDate){
     const nd=nextDayYMD(d);
     document.getElementById('ev-end').value=nd;
     document.getElementById('ev-end').min=nd;
+    const p=ymdParts(d);
+    document.getElementById('ev-bday-day').value=p.d;
+    document.getElementById('ev-bday-month').value=p.m;
+    document.getElementById('ev-bday-year').value='';
+    setBdayImportance(false); // Info par défaut
     setColor(COLOR_HEXES[0]);
     document.getElementById('ev-notes').value='';
     document.getElementById('modal-delete').style.display='none';
@@ -1022,21 +1315,37 @@ function openModal(evObj,prefillDate){
 }
 function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); editingId=null; }
 function saveModal(){
-  const isR=document.getElementById('type-range').classList.contains('active');
-  const type=isR?'range':'single';
+  let type='single';
+  if(document.getElementById('type-range').classList.contains('active')) type='range';
+  else if(document.getElementById('type-birthday').classList.contains('active')) type='birthday';
   const title=document.getElementById('ev-title').value.trim();
-  const date=document.getElementById('ev-date').value;
-  const start=document.getElementById('ev-start').value;
-  const end=document.getElementById('ev-end').value;
   const color=document.getElementById('color-picker').value;
   const notes=document.getElementById('ev-notes').value.trim();
   let ok=true;
   if(!title){document.getElementById('err-title').classList.add('show');ok=false;}
   else document.getElementById('err-title').classList.remove('show');
-  if(type==='range'&&start&&end&&start>end){document.getElementById('err-range').classList.add('show');ok=false;}
-  else document.getElementById('err-range').classList.remove('show');
-  if(!ok) return;
-  const ev={id:editingId||uid(),type,title,color,start:type==='single'?date:start,end:type==='single'?null:(end||start),notes};
+
+  let ev;
+  if(type==='birthday'){
+    const bDay=parseInt(document.getElementById('ev-bday-day').value,10);
+    const bMonth=parseInt(document.getElementById('ev-bday-month').value,10);
+    const bYearRaw=document.getElementById('ev-bday-year').value;
+    const bYear=bYearRaw?parseInt(bYearRaw,10):null;
+    const bImportant=document.getElementById('bday-important').classList.contains('active');
+    if(!bDay||!bMonth||bDay<1||bDay>31){document.getElementById('err-bday').classList.add('show');ok=false;}
+    else document.getElementById('err-bday').classList.remove('show');
+    if(!ok) return;
+    ev={id:editingId||uid(),type:'birthday',title,color,bDay,bMonth,bYear,bImportant,notes,done:false};
+  } else {
+    const date=document.getElementById('ev-date').value;
+    const start=document.getElementById('ev-start').value;
+    const end=document.getElementById('ev-end').value;
+    if(type==='range'&&start&&end&&start>end){document.getElementById('err-range').classList.add('show');ok=false;}
+    else document.getElementById('err-range').classList.remove('show');
+    if(!ok) return;
+    const prev=editingId?events.find(e=>e.id===editingId):null;
+    ev={id:editingId||uid(),type,title,color,start:type==='single'?date:start,end:type==='single'?null:(end||start),notes,done:prev?!!prev.done:false};
+  }
   if(editingId){const i=events.findIndex(e=>e.id===editingId);if(i>=0)events[i]=ev;}
   else events.push(ev);
   saveAll(); closeModal(); renderAll();
@@ -1050,12 +1359,29 @@ function deleteEvent(id){
 /* ── Détail ── */
 function openDetail(id){
   const ev=events.find(e=>e.id===id); if(!ev) return;
-  const dateStr=ev.type==='single'?`${fmtShort(ev.start)} ${ymdYear(ev.start)}`:`${fmtShort(ev.start)} → ${fmtShort(ev.end||ev.start)} ${ymdYear(ev.start)}`;
+  let dateStr, typeStr;
+  if(ev.type==='birthday'){
+    const currentY = new Date().getFullYear();
+    let ageStr = '';
+    if(ev.bYear){
+      const age = currentY - ev.bYear;
+      const nextAge = age + (new Date() > new Date(currentY, ev.bMonth-1, ev.bDay) ? 0 : -1) + 1;
+      ageStr = ` · ${nextAge} ans cette année`;
+    }
+    dateStr=`${pad(ev.bDay)} ${MONTH_NAMES[ev.bMonth-1]}${ageStr} · récurrent`;
+    typeStr=(ev.bImportant!==false?'⭐ Anniversaire important':'· Anniversaire info');
+  } else if(ev.type==='single'){
+    dateStr=`${fmtShort(ev.start)} ${ymdYear(ev.start)}`;
+    typeStr='Ponctuel';
+  } else {
+    dateStr=`${fmtShort(ev.start)} → ${fmtShort(ev.end||ev.start)} ${ymdYear(ev.start)}`;
+    typeStr='Période';
+  }
   document.getElementById('detail-box').innerHTML=`
     <h2>Détail <em>événement</em></h2>
     <div class="detail-title"><span class="detail-swatch" style="background:${ev.color}"></span>${esc(ev.title)}</div>
     <div class="detail-row"><span class="detail-key">Date</span><span>${esc(dateStr)}</span></div>
-    <div class="detail-row"><span class="detail-key">Type</span><span>${ev.type==='single'?'Ponctuel':'Période'}</span></div>
+    <div class="detail-row"><span class="detail-key">Type</span><span>${typeStr}</span></div>
     ${ev.notes?`<div class="detail-notes">${esc(ev.notes)}</div>`:''}
     <div class="modal-actions">
       <button class="btn" id="d-close">Fermer</button>
@@ -1268,7 +1594,7 @@ function renderZoomGrid(y,m,inner){
     for(const wk of wks){if(!weekRowOcc[wk])weekRowOcc[wk]=[];weekRowOcc[wk].push({slot,from:ds,to:de,ev});}
     rangeSlots[ev.id]=slot;
   });
-  const dayData=Array.from({length:totalDays+1},()=>({ranges:[],singles:[]}));
+  const dayData=Array.from({length:totalDays+1},()=>({ranges:[],singles:[],bdays:[]}));
   allEvs.filter(ev=>ev.type==='range').forEach(ev=>{
     const bs=ev.start<mFirst?mFirst:ev.start;
     const be=(ev.end||ev.start)>mLast?mLast:(ev.end||ev.start);
@@ -1276,6 +1602,11 @@ function renderZoomGrid(y,m,inner){
   });
   allEvs.filter(ev=>ev.type==='single'&&ev.start>=mFirst&&ev.start<=mLast).forEach(ev=>{
     dayData[ymdDay(ev.start)].singles.push(ev);
+  });
+  // Anniversaires : récurrents annuels, affichés selon bMonth/bDay (mois courant = m+1)
+  const bdaysThisMonth = events.filter(ev=>ev.type==='birthday'&&ev.bMonth===m+1);
+  bdaysThisMonth.forEach(ev=>{
+    if(ev.bDay>=1&&ev.bDay<=totalDays) dayData[ev.bDay].bdays.push(ev);
   });
 
   // ── Container
@@ -1333,7 +1664,7 @@ function renderZoomGrid(y,m,inner){
   for(let d=1;d<=totalDays;d++){
     const ymd=`${y}-${pad(m+1)}-${pad(d)}`;
     const dow=dowMon(y,m,d),isToday=(ymd===today),isWE=(dow>=5);
-    const dayEvs=[...dayData[d].ranges,...dayData[d].singles];
+    const dayEvs=[...dayData[d].ranges,...dayData[d].singles,...dayData[d].bdays];
     const cell=document.createElement('div');
     cell.className='zcal-day-cell'+(isToday?' is-today':isWE?' is-we':'')+(dayEvs.length?' has-events':'');
     cell.addEventListener('click',()=>{closeZoom();openModal(null,ymd);});
@@ -1349,21 +1680,24 @@ function renderZoomGrid(y,m,inner){
     dayData[d].ranges.forEach(ev=>{const slot=rangeSlots[ev.id]||0;chips[slot]={ev,type:'range'};});
     let nextFree=maxSlot+1;
     dayData[d].singles.forEach(ev=>{while(chips[nextFree])nextFree++;chips[nextFree]={ev,type:'single'};nextFree++;});
+    dayData[d].bdays.forEach(ev=>{while(chips[nextFree])nextFree++;chips[nextFree]={ev,type:'bday'};nextFree++;});
 
     let rendered=0;
     chips.forEach(ch=>{
       if(!ch||rendered>=MAX_PILLS) return; rendered++;
-      const bs=ch.ev.start<mFirst?mFirst:ch.ev.start;
-      const be=(ch.ev.end||ch.ev.start)>mLast?mLast:(ch.ev.end||ch.ev.start);
-      const ds=ymdDay(bs),de=ymdDay(be);
       const pill=document.createElement('div');
-      if(ch.type==='single'){
+      if(ch.type==='bday'){
+        pill.className='zcal-pill bday';
+        pill.innerHTML='<span class="zcal-bday-cake">🎂</span> '+esc(ch.ev.title);
+      } else if(ch.type==='single'){
         pill.className='zcal-pill';
-        // Use event color as tint if not default accent
         pill.style.background=ch.ev.color+'22';
         pill.style.color=ch.ev.color;
         pill.textContent=ch.ev.title;
       } else {
+        const bs=ch.ev.start<mFirst?mFirst:ch.ev.start;
+        const be=(ch.ev.end||ch.ev.start)>mLast?mLast:(ch.ev.end||ch.ev.start);
+        const ds=ymdDay(bs),de=ymdDay(be);
         const isStart=(d===ds),isEnd=(d===de);
         pill.className='zcal-pill range'+(isStart?'':' no-start')+(isEnd?'':' no-end');
         pill.style.background=ch.ev.color;
@@ -1403,7 +1737,14 @@ function renderZoomGrid(y,m,inner){
     p.textContent='Aucun événement ce mois-ci.'; evList.appendChild(p);
   } else {
     sorted.forEach(ev=>{
-      const item=document.createElement('div'); item.className='zcal-event-item';
+      const item=document.createElement('div'); item.className='zcal-event-item'+(ev.done?' done':'');
+      const check=document.createElement('div');
+      check.className='zcal-event-check'+(ev.done?' checked':'');
+      check.title=ev.done?'Marquer non fait':'Marquer comme fait';
+      check.addEventListener('click',e=>{e.stopPropagation();toggleDone(ev.id);
+        // re-render grille sur place
+        inner.innerHTML=''; ov.classList.remove('mode-grid'); renderZoomGrid(y,m,inner);
+      });
       const sw=document.createElement('div'); sw.className='zcal-event-swatch'; sw.style.background=ev.color;
       const dateEl=document.createElement('div'); dateEl.className='zcal-event-date';
       dateEl.textContent=`${pad(ymdDay(ev.start))}/${pad(ymdMonth(ev.start))}`;
@@ -1411,11 +1752,33 @@ function renderZoomGrid(y,m,inner){
       const title=document.createElement('div'); title.className='zcal-event-title'; title.textContent=ev.title;
       body.appendChild(title);
       if(ev.notes){const note=document.createElement('div');note.className='zcal-event-note';note.textContent=ev.notes;body.appendChild(note);}
-      item.appendChild(sw); item.appendChild(dateEl); item.appendChild(body);
+      item.appendChild(check); item.appendChild(sw); item.appendChild(dateEl); item.appendChild(body);
       item.addEventListener('click',()=>{closeZoom();openDetail(ev.id);});
       evList.appendChild(item);
     });
   }
+
+  // ── Anniversaires du mois (section dédiée)
+  const monthBdays = events.filter(ev=>ev.type==='birthday'&&ev.bMonth===m+1)
+    .sort((a,b)=>a.bDay-b.bDay);
+  if(monthBdays.length){
+    const bh=document.createElement('h4'); bh.textContent='🎂 Anniversaires'; bh.style.marginTop='1.6rem';
+    evList.appendChild(bh);
+    monthBdays.forEach(ev=>{
+      const item=document.createElement('div'); item.className='zcal-event-item';
+      const icon=document.createElement('div'); icon.className='zcal-event-bday-icon'; icon.textContent='🎂';
+      const dateEl=document.createElement('div'); dateEl.className='zcal-event-date';
+      dateEl.textContent=`${pad(ev.bDay)}/${pad(ev.bMonth)}`;
+      const body=document.createElement('div'); body.className='zcal-event-body';
+      const title=document.createElement('div'); title.className='zcal-event-title'; title.textContent=ev.title;
+      body.appendChild(title);
+      if(ev.notes){const note=document.createElement('div');note.className='zcal-event-note';note.textContent=ev.notes;body.appendChild(note);}
+      item.appendChild(icon); item.appendChild(dateEl); item.appendChild(body);
+      item.addEventListener('click',()=>{closeZoom();openDetail(ev.id);});
+      evList.appendChild(item);
+    });
+  }
+
   container.appendChild(evList);
   inner.appendChild(container);
 }
@@ -1490,52 +1853,158 @@ function importJSON(file) {
   reader.readAsText(file);
 }
 
-// ── Boot asynchrone : Firebase d'abord, render ensuite ──
-// Le try/finally garantit que renderAll() s'exécute même si Firebase est bloqué
-(async () => {
-  initPresets(); initZoom(); setColor(COLOR_HEXES[0]); wireStartEnd();
-  document.getElementById('year-input').value=currentYear;
-  updateProgress();
 
-  try {
-    await loadData();
-  } catch(e) {
-    // Cas extrême : import Firebase bloqué (sandbox, offline total)
-    console.warn('loadData totally failed:', e);
-    try { events = JSON.parse(localStorage.getItem('minimal_calendar_v2') || '[]'); } catch { events=[]; }
-    setSync('error', '⚠ Firebase inaccessible — données locales');
-  } finally {
-    renderAll(); // toujours appelé
+
+/* ── Boot : render immédiat → auth → loadData ── */
+function render() {
+  document.getElementById('year-input').value = currentYear;
+  updateProgress();
+  renderAll();
+}
+
+render();
+
+firebase.auth().onAuthStateChanged(function(user) {
+  if (!user) {
+    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
+    return;
+  }
+  loadData();
+});
+
+/* ── Wire UI (handlers câblés en .onclick) ── */
+function boot() {
+  initPresets();
+  initZoom();
+  setColor(COLOR_HEXES[0]);
+  wireStartEnd();
+
+  document.getElementById('year-prev').onclick = function() { currentYear--; refresh(); };
+  document.getElementById('year-next').onclick = function() { currentYear++; refresh(); };
+  document.getElementById('year-input').onchange = function(e) {
+    const v = parseInt(e.target.value, 10);
+    if (v >= 1900 && v <= 2200) { currentYear = v; refresh(); }
+  };
+  document.getElementById('btn-add').onclick = function() { openModal(null); };
+  document.getElementById('search-input').oninput = function(e) { searchQuery = e.target.value.trim(); renderAll(); };
+  document.getElementById('search-input').onsearch = function(e) { searchQuery = e.target.value.trim(); renderAll(); };
+  document.getElementById('btn-clear-search').onclick = function() {
+    searchQuery = '';
+    const si = document.getElementById('search-input');
+    si.value = '';
+    renderAll();
+  };
+  document.getElementById('btn-reset').onclick = function() {
+    if (confirm('Réinitialiser tous les événements ?')) { events = []; saveAll(); renderAll(); }
+  };
+  document.getElementById('btn-export').onclick = exportJSON;
+  document.getElementById('btn-import').onchange = function(e) {
+    importJSON(e.target.files[0]);
+    e.target.value = '';
+  };
+  document.getElementById('type-single').onclick = function() { setType('single'); };
+  document.getElementById('type-range').onclick  = function() { setType('range'); };
+  document.getElementById('type-birthday').onclick = function() { setType('birthday'); };
+  document.getElementById('bday-important').onclick = function() { setBdayImportance(true); };
+  document.getElementById('bday-info').onclick      = function() { setBdayImportance(false); };
+
+  // Remplir le sélecteur de mois pour anniversaires
+  const monthSel=document.getElementById('ev-bday-month');
+  if(monthSel && !monthSel.children.length){
+    MONTH_NAMES.forEach((nm,i)=>{
+      const o=document.createElement('option'); o.value=i+1; o.textContent=nm; monthSel.appendChild(o);
+    });
   }
 
-  document.getElementById('year-prev').onclick=()=>{currentYear--;refresh();};
-  document.getElementById('year-next').onclick=()=>{currentYear++;refresh();};
-  document.getElementById('year-input').addEventListener('change',e=>{
-    const v=parseInt(e.target.value,10);if(v>=1900&&v<=2200){currentYear=v;refresh();}
+  // ── Panneau anniversaires ──
+  function openBdayPanel(){
+    renderBdayList();
+    document.getElementById('bday-overlay').classList.add('open');
+  }
+  function closeBdayPanel(){
+    document.getElementById('bday-overlay').classList.remove('open');
+    document.getElementById('bday-bulk-input').value='';
+  }
+  function renderBdayList(){
+    const container=document.getElementById('bday-list');
+    container.innerHTML='';
+    const all=events.filter(e=>e.type==='birthday')
+      .sort((a,b)=>a.bMonth!==b.bMonth?a.bMonth-b.bMonth:a.bDay-b.bDay);
+    if(!all.length){
+      container.innerHTML='<p style="font-size:12px;color:var(--text-muted);font-style:italic;padding:8px 0">Aucun anniversaire enregistré.</p>';
+      return;
+    }
+    all.forEach(ev=>{
+      const y=new Date().getFullYear();
+      const ageStr=ev.bYear?` — ${y-ev.bYear} ans`:'';
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light);';
+      const imp=document.createElement('span'); imp.title=ev.bImportant!==false?'Important':'Info';
+      imp.style.cssText='font-size:12px;cursor:pointer;flex-shrink:0;';
+      imp.textContent=ev.bImportant!==false?'⭐':'·';
+      imp.addEventListener('click',()=>{ev.bImportant=!ev.bImportant;saveAll();renderBdayList();renderAll();});
+      const name=document.createElement('span');
+      name.style.cssText='flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      name.textContent=`${ev.title}${ageStr}`;
+      const date=document.createElement('span');
+      date.style.cssText='font-family:var(--font-mono);font-size:11px;color:var(--text-muted);flex-shrink:0;';
+      date.textContent=`${pad(ev.bDay)} ${MONTH_SHORT[ev.bMonth-1]}`;
+      const editBtn=document.createElement('button');
+      editBtn.textContent='✏'; editBtn.title='Modifier';
+      editBtn.style.cssText='background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-muted);padding:2px 4px;';
+      editBtn.addEventListener('click',()=>{closeBdayPanel();openModal(ev);});
+      const delBtn=document.createElement('button');
+      delBtn.textContent='✕'; delBtn.title='Supprimer';
+      delBtn.style.cssText='background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-muted);padding:2px 4px;';
+      delBtn.addEventListener('click',()=>{if(confirm(`Supprimer ${ev.title} ?`)){deleteEvent(ev.id);renderBdayList();}});
+      row.appendChild(imp); row.appendChild(name); row.appendChild(date); row.appendChild(editBtn); row.appendChild(delBtn);
+      container.appendChild(row);
+    });
+  }
+  function bulkImportBdays(){
+    const lines=document.getElementById('bday-bulk-input').value.split('\n').map(l=>l.trim()).filter(Boolean);
+    let added=0;
+    lines.forEach(line=>{
+      const parts=line.split(',').map(s=>s.trim());
+      if(parts.length<3) return;
+      const title=parts[0];
+      const bDay=parseInt(parts[1],10);
+      const bMonth=parseInt(parts[2],10);
+      const bYear=parts[3]?parseInt(parts[3],10):null;
+      const bImportant=!parts[4]||(parts[4].toLowerCase()!=='info');
+      if(!title||!bDay||!bMonth||bDay<1||bDay>31||bMonth<1||bMonth>12) return;
+      events.push({id:uid(),type:'birthday',title,color:COLOR_HEXES[Math.floor(Math.random()*4)],bDay,bMonth,bYear,bImportant,notes:'',done:false});
+      added++;
+    });
+    if(added){saveAll();renderAll();renderBdayList();document.getElementById('bday-bulk-input').value='';setSync('ok',`✓ ${added} anniversaire(s) importé(s)`);}
+    else alert('Aucune ligne valide. Format : Prénom, jour, mois, année, important|info');
+  }
+
+  document.getElementById('btn-bdays').onclick = openBdayPanel;
+  document.getElementById('bday-cancel').onclick = closeBdayPanel;
+  document.getElementById('bday-bulk-save').onclick = bulkImportBdays;
+  document.getElementById('bday-overlay').addEventListener('click',function(e){
+    if(e.target===document.getElementById('bday-overlay')) closeBdayPanel();
   });
-  document.getElementById('btn-add').onclick=()=>openModal(null);
-  document.getElementById('search-input').addEventListener('input',e=>{searchQuery=e.target.value.trim();renderAll();});
-  document.getElementById('search-input').addEventListener('search',e=>{searchQuery=e.target.value.trim();renderAll();});
-  document.getElementById('btn-clear-search').onclick=()=>{
-    searchQuery='';const si=document.getElementById('search-input');
-    si.value='';si.dispatchEvent(new Event('input'));renderAll();
+
+  document.getElementById('modal-cancel').onclick = closeModal;
+  document.getElementById('modal-save').onclick   = saveModal;
+  document.getElementById('modal-delete').onclick = function() { deleteEvent(editingId); };
+  document.getElementById('color-picker').oninput = function(e) {
+    document.getElementById('color-preview').style.background = e.target.value;
   };
-  document.getElementById('btn-reset').onclick=()=>{if(confirm('Réinitialiser tous les événements ?')){events=[];saveAll();renderAll();}};
-  document.getElementById('btn-export').onclick=exportJSON;
-  document.getElementById('btn-import').addEventListener('change', e => {
-    importJSON(e.target.files[0]);
-    e.target.value = ''; // reset input pour pouvoir réimporter le même fichier
+  document.getElementById('modal-overlay').onclick = function(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  };
+  document.getElementById('detail-overlay').onclick = function(e) {
+    if (e.target === document.getElementById('detail-overlay')) closeDetail();
+  };
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeModal(); closeDetail(); closeBdayPanel(); }
   });
-  document.getElementById('type-single').onclick=()=>setType('single');
-  document.getElementById('type-range').onclick=()=>setType('range');
-  document.getElementById('modal-cancel').onclick=closeModal;
-  document.getElementById('modal-save').onclick=saveModal;
-  document.getElementById('modal-delete').onclick=()=>deleteEvent(editingId);
-  document.getElementById('color-picker').addEventListener('input',e=>{document.getElementById('color-preview').style.background=e.target.value;});
-  document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('modal-overlay'))closeModal();});
-  document.getElementById('detail-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('detail-overlay'))closeDetail();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();}});
-})();
+}
+
+boot();
 </script>
 </body>
 </html>
