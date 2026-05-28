@@ -4,6 +4,9 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Hub — Cédric</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -20,7 +23,6 @@
     }
     body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
 
-    /* HEADER */
     header {
       padding: 3rem 4rem 2rem;
       border-bottom: 1px solid var(--border);
@@ -35,19 +37,16 @@
       padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
       background: var(--card); font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
       font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.15s;
-      white-space: nowrap;
+      white-space: nowrap; display: none;
     }
     .btn-admin:hover { border-color: var(--accent); color: var(--accent); }
     .btn-admin.active { background: var(--accent); color: white; border-color: var(--accent); }
 
-    /* MAIN */
     main { padding: 3rem 4rem; max-width: 1100px; }
     .section-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 1.4rem; }
 
-    /* GRID */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.2rem; margin-bottom: 3.5rem; }
 
-    /* CARD */
     .card {
       background: var(--card); border: 1px solid var(--border); border-radius: 12px;
       padding: 1.6rem; text-decoration: none; color: inherit;
@@ -70,14 +69,10 @@
       background: var(--cream); color: var(--muted); border: 1px solid var(--border); align-self: flex-start;
     }
 
-    /* ADMIN MODE */
-    .card.admin-mode { cursor: default; }
+    .card.admin-mode { cursor: default; padding-right: 3rem; }
     .card.admin-mode:hover { transform: none; box-shadow: none; }
     .card.admin-mode::before { display: none; }
-    .card-admin-controls {
-      display: none; position: absolute; top: 0.6rem; right: 0.6rem;
-      gap: 0.3rem; flex-direction: column;
-    }
+    .card-admin-controls { display: none; position: absolute; top: 0.6rem; right: 0.6rem; gap: 0.3rem; flex-direction: column; }
     .admin-mode .card-admin-controls { display: flex; }
     .ctrl-btn {
       width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border);
@@ -86,9 +81,7 @@
     }
     .ctrl-btn:hover { border-color: var(--accent); background: var(--accent-light); }
     .ctrl-btn.del:hover { border-color: var(--danger); background: var(--danger-light); }
-    .card.admin-mode { padding-right: 3rem; }
 
-    /* ADMIN PANEL */
     .admin-panel {
       display: none; background: var(--card); border: 1px solid var(--border);
       border-radius: 14px; padding: 2rem; margin-bottom: 2rem;
@@ -99,7 +92,7 @@
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 0.8rem; }
     .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
     .form-group label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-    .form-group input, .form-group select {
+    .form-group input {
       padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: 8px;
       font-family: 'DM Sans', sans-serif; font-size: 0.88rem; background: var(--cream);
       color: var(--ink); outline: none; transition: border-color 0.15s;
@@ -115,18 +108,12 @@
     .btn-ghost { background: var(--cream); color: var(--muted); border: 1px solid var(--border); }
     .btn-ghost:hover { background: var(--border); }
 
-    /* EMPTY STATE */
     .empty-state { text-align: center; padding: 3rem 1rem; color: var(--muted); font-weight: 300; }
     .empty-state p { margin-bottom: 0.5rem; }
 
-    /* STATUS */
     #statusBar { text-align: center; padding: 0.5rem; font-size: 0.78rem; color: var(--muted); min-height: 24px; }
     #statusBar.ok { color: #16a34a; }
     #statusBar.err { color: var(--danger); }
-
-    /* LOADING SKELETON */
-    .skeleton { background: linear-gradient(90deg, #f0ede8 25%, #e8e4dc 50%, #f0ede8 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
     footer { padding: 2rem 4rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); font-weight: 300; }
 
@@ -152,8 +139,6 @@
 </header>
 
 <main>
-
-  <!-- ADMIN PANEL -->
   <div class="admin-panel" id="adminPanel">
     <h3>Ajouter un <em>outil</em></h3>
     <div class="form-row">
@@ -189,179 +174,176 @@
   <p class="section-label" id="sectionLabel">Chargement…</p>
   <div class="grid" id="toolsGrid"></div>
   <div id="statusBar"></div>
-
 </main>
 
 <footer>Hub personnel · GitHub Pages · Firebase Firestore</footer>
 
-<!-- FIREBASE -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import {
-    getFirestore, collection, doc, onSnapshot,
-    addDoc, updateDoc, deleteDoc, query, orderBy
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+<script>
+const FB_CONFIG = {
+  apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+  authDomain: "hub-personnel-firebase.firebaseapp.com",
+  projectId: "hub-personnel-firebase",
+  storageBucket: "hub-personnel-firebase.firebasestorage.app",
+  messagingSenderId: "394129070920",
+  appId: "1:394129070920:web:10f3303c22adcda47cf17d"
+};
 
-  const FB = {
-    apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
-    authDomain: "hub-personnel-firebase.firebaseapp.com",
-    projectId: "hub-personnel-firebase",
-    storageBucket: "hub-personnel-firebase.firebasestorage.app",
-    messagingSenderId: "394129070920",
-    appId: "1:394129070920:web:10f3303c22adcda47cf17d"
-  };
+firebase.initializeApp(FB_CONFIG);
+const auth = firebase.auth();
+const DB   = firebase.firestore();
 
-  const app = initializeApp(FB);
-  const db = getFirestore(app);
-  const toolsCol = collection(db, 'hub-tools');
+// ── DATE ──────────────────────────────────────────────────────
+const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+document.getElementById('dateDisplay').textContent =
+  new Date().toLocaleDateString('fr-FR', opts).replace(/^\w/, function(c){ return c.toUpperCase(); });
 
-  let tools = [];
-  let adminMode = false;
+// ── STATUS ────────────────────────────────────────────────────
+function setStatus(msg, type) {
+  const el = document.getElementById('statusBar');
+  el.textContent = msg;
+  el.className = type || '';
+  if (type === 'ok') setTimeout(function(){ el.textContent = ''; el.className = ''; }, 2000);
+}
 
-  // ── STATUS ────────────────────────────────────────────────────
-  function setStatus(msg, type='') {
-    const el = document.getElementById('statusBar');
-    el.textContent = msg; el.className = type;
-    if (type === 'ok') setTimeout(() => { el.textContent = ''; el.className = ''; }, 2000);
+// ── STATE ─────────────────────────────────────────────────────
+let tools = [];
+let adminMode = false;
+let isAuth = false;
+
+// ── RENDER ────────────────────────────────────────────────────
+function render() {
+  const grid  = document.getElementById('toolsGrid');
+  const label = document.getElementById('sectionLabel');
+  grid.innerHTML = '';
+
+  if (tools.length === 0) {
+    label.textContent = 'Aucun outil';
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Aucun outil pour l\'instant.</p>' +
+      (isAuth ? '<p>Clique sur <strong>⚙️ Gérer</strong> pour ajouter ton premier outil.</p>' : '') +
+      '</div>';
+    return;
   }
 
-  // ── DATE ──────────────────────────────────────────────────────
-  const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-  document.getElementById('dateDisplay').textContent =
-    new Date().toLocaleDateString('fr-FR', opts).replace(/^\w/, c => c.toUpperCase());
+  label.textContent = tools.length + ' outil' + (tools.length > 1 ? 's' : '');
 
-  // ── RENDER ────────────────────────────────────────────────────
-  function render() {
-    const grid = document.getElementById('toolsGrid');
-    const label = document.getElementById('sectionLabel');
-    grid.innerHTML = '';
+  tools.forEach(function(tool, idx) {
+    const card = document.createElement('div');
+    card.className = 'card' + (adminMode ? ' admin-mode' : '');
 
-    if (tools.length === 0) {
-      label.textContent = 'Aucun outil';
-      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-        <p>Aucun outil pour l'instant.</p>
-        <p>Clique sur <strong>⚙️ Gérer</strong> pour ajouter ton premier outil.</p>
-      </div>`;
-      return;
+    if (!adminMode) {
+      card.onclick = function(){ window.location.href = tool.file; };
     }
 
-    label.textContent = `${tools.length} outil${tools.length > 1 ? 's' : ''}`;
+    card.innerHTML =
+      '<div class="card-icon">' + (tool.emoji || '🔧') + '</div>' +
+      '<div class="card-title">' + tool.title + '</div>' +
+      '<div class="card-desc">' + (tool.desc || '') + '</div>' +
+      '<span class="card-tag">' + (tool.tag || '') + '</span>' +
+      (isAuth ? '<div class="card-admin-controls">' +
+        '<button class="ctrl-btn" data-action="up" data-id="' + tool.id + '" data-idx="' + idx + '">↑</button>' +
+        '<button class="ctrl-btn" data-action="down" data-id="' + tool.id + '" data-idx="' + idx + '">↓</button>' +
+        '<button class="ctrl-btn del" data-action="del" data-id="' + tool.id + '" data-idx="' + idx + '">✕</button>' +
+        '</div>' : '');
 
-    tools.forEach((tool, idx) => {
-      const card = document.createElement('div');
-      card.className = 'card' + (adminMode ? ' admin-mode' : '');
+    grid.appendChild(card);
+  });
 
-      if (!adminMode) {
-        card.onclick = () => window.location.href = tool.file;
-      }
+  // Wire controls
+  grid.querySelectorAll('.ctrl-btn').forEach(function(btn) {
+    btn.onclick = function(e) { e.stopPropagation(); handleControl(btn); };
+  });
+}
 
-      card.innerHTML = `
-        <div class="card-icon">${tool.emoji || '🔧'}</div>
-        <div class="card-title">${tool.title}</div>
-        <div class="card-desc">${tool.desc || ''}</div>
-        <span class="card-tag">${tool.tag || ''}</span>
-        <div class="card-admin-controls">
-          <button class="ctrl-btn" title="Monter" data-action="up" data-id="${tool.id}" data-idx="${idx}">↑</button>
-          <button class="ctrl-btn" title="Descendre" data-action="down" data-id="${tool.id}" data-idx="${idx}">↓</button>
-          <button class="ctrl-btn del" title="Supprimer" data-action="del" data-id="${tool.id}">✕</button>
-        </div>`;
+// ── ADMIN CONTROLS ────────────────────────────────────────────
+function handleControl(btn) {
+  const action = btn.dataset.action;
+  const id     = btn.dataset.id;
+  const idx    = parseInt(btn.dataset.idx);
 
-      grid.appendChild(card);
-    });
-
-    // Wire admin controls
-    grid.querySelectorAll('.ctrl-btn').forEach(btn => {
-      btn.onclick = (e) => { e.stopPropagation(); handleControl(btn); };
-    });
+  if (action === 'del') {
+    if (!confirm('Supprimer "' + tools[idx].title + '" du hub ?')) return;
+    DB.collection('hub-tools').doc(id).delete()
+      .then(function(){ setStatus('Outil supprimé', 'ok'); })
+      .catch(function(e){ setStatus('Erreur: ' + e.message, 'err'); });
   }
 
-  // ── ADMIN CONTROLS ────────────────────────────────────────────
-  async function handleControl(btn) {
-    const action = btn.dataset.action;
-    const id = btn.dataset.id;
-    const idx = parseInt(btn.dataset.idx);
-
-    if (action === 'del') {
-      if (!confirm(`Supprimer "${tools[idx]?.title}" du hub ?`)) return;
-      try {
-        await deleteDoc(doc(db, 'hub-tools', id));
-        setStatus('Outil supprimé', 'ok');
-      } catch(e) { setStatus('Erreur: ' + e.message, 'err'); }
-    }
-
-    if (action === 'up' && idx > 0) {
-      const a = tools[idx], b = tools[idx - 1];
-      try {
-        await updateDoc(doc(db, 'hub-tools', a.id), { order: b.order });
-        await updateDoc(doc(db, 'hub-tools', b.id), { order: a.order });
-      } catch(e) { setStatus('Erreur: ' + e.message, 'err'); }
-    }
-
-    if (action === 'down' && idx < tools.length - 1) {
-      const a = tools[idx], b = tools[idx + 1];
-      try {
-        await updateDoc(doc(db, 'hub-tools', a.id), { order: b.order });
-        await updateDoc(doc(db, 'hub-tools', b.id), { order: a.order });
-      } catch(e) { setStatus('Erreur: ' + e.message, 'err'); }
-    }
+  if (action === 'up' && idx > 0) {
+    const a = tools[idx], b = tools[idx - 1];
+    const batch = DB.batch();
+    batch.update(DB.collection('hub-tools').doc(a.id), { order: b.order });
+    batch.update(DB.collection('hub-tools').doc(b.id), { order: a.order });
+    batch.commit().catch(function(e){ setStatus('Erreur: ' + e.message, 'err'); });
   }
 
-  // ── TOGGLE ADMIN ──────────────────────────────────────────────
-  const btnAdmin = document.getElementById('btnAdmin');
-  const adminPanel = document.getElementById('adminPanel');
+  if (action === 'down' && idx < tools.length - 1) {
+    const a = tools[idx], b = tools[idx + 1];
+    const batch = DB.batch();
+    batch.update(DB.collection('hub-tools').doc(a.id), { order: b.order });
+    batch.update(DB.collection('hub-tools').doc(b.id), { order: a.order });
+    batch.commit().catch(function(e){ setStatus('Erreur: ' + e.message, 'err'); });
+  }
+}
 
-  btnAdmin.onclick = () => {
-    adminMode = !adminMode;
-    btnAdmin.textContent = adminMode ? '✕ Terminer' : '⚙️ Gérer';
-    btnAdmin.classList.toggle('active', adminMode);
-    adminPanel.classList.toggle('open', adminMode);
-    render();
-  };
+// ── TOGGLE ADMIN ──────────────────────────────────────────────
+document.getElementById('btnAdmin').onclick = function() {
+  adminMode = !adminMode;
+  const btn = document.getElementById('btnAdmin');
+  btn.textContent = adminMode ? '✕ Terminer' : '⚙️ Gérer';
+  btn.classList.toggle('active', adminMode);
+  document.getElementById('adminPanel').classList.toggle('open', adminMode);
+  render();
+};
 
-  document.getElementById('btnCancelAdmin').onclick = () => {
-    adminMode = false;
-    btnAdmin.textContent = '⚙️ Gérer';
-    btnAdmin.classList.remove('active');
-    adminPanel.classList.remove('open');
-    render();
-  };
+document.getElementById('btnCancelAdmin').onclick = function() {
+  adminMode = false;
+  document.getElementById('btnAdmin').textContent = '⚙️ Gérer';
+  document.getElementById('btnAdmin').classList.remove('active');
+  document.getElementById('adminPanel').classList.remove('open');
+  render();
+};
 
-  // ── ADD TOOL ──────────────────────────────────────────────────
-  document.getElementById('btnAdd').onclick = async () => {
-    const emoji = document.getElementById('inEmoji').value.trim();
-    const title = document.getElementById('inTitle').value.trim();
-    const desc  = document.getElementById('inDesc').value.trim();
-    const tag   = document.getElementById('inTag').value.trim();
-    const file  = document.getElementById('inFile').value.trim();
+// ── ADD TOOL ──────────────────────────────────────────────────
+document.getElementById('btnAdd').onclick = function() {
+  const emoji = document.getElementById('inEmoji').value.trim();
+  const title = document.getElementById('inTitle').value.trim();
+  const desc  = document.getElementById('inDesc').value.trim();
+  const tag   = document.getElementById('inTag').value.trim();
+  const file  = document.getElementById('inFile').value.trim();
 
-    if (!title || !file) {
-      setStatus('Titre et fichier sont obligatoires', 'err'); return;
-    }
+  if (!title || !file) { setStatus('Titre et fichier sont obligatoires', 'err'); return; }
 
-    const maxOrder = tools.length > 0 ? Math.max(...tools.map(t => t.order || 0)) : 0;
+  const maxOrder = tools.length > 0 ? Math.max.apply(null, tools.map(function(t){ return t.order || 0; })) : 0;
 
-    try {
-      await addDoc(toolsCol, { emoji, title, desc, tag, file, order: maxOrder + 1, createdAt: Date.now() });
-      // Reset form
-      ['inEmoji','inTitle','inDesc','inTag','inFile'].forEach(id => document.getElementById(id).value = '');
+  DB.collection('hub-tools').add({ emoji: emoji, title: title, desc: desc, tag: tag, file: file, order: maxOrder + 1, createdAt: Date.now() })
+    .then(function() {
+      ['inEmoji','inTitle','inDesc','inTag','inFile'].forEach(function(id){ document.getElementById(id).value = ''; });
       setStatus('✓ Outil ajouté', 'ok');
-    } catch(e) { setStatus('Erreur: ' + e.message, 'err'); }
-  };
+    })
+    .catch(function(e){ setStatus('Erreur: ' + e.message, 'err'); });
+};
 
-  // Entrée clavier sur le dernier champ
-  document.getElementById('inFile').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('btnAdd').click();
-  });
+document.getElementById('inFile').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('btnAdd').click();
+});
 
-  // ── FIRESTORE LISTENER ────────────────────────────────────────
-  const q = query(toolsCol, orderBy('order'));
-  onSnapshot(q, (snap) => {
-    tools = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    render();
-  }, (err) => {
-    setStatus('Erreur Firebase: ' + err.message, 'err');
-  });
+// ── BOOT ──────────────────────────────────────────────────────
+// Affichage immédiat (lecture publique)
+render();
 
+// Écoute Firestore en temps réel
+DB.collection('hub-tools').orderBy('order').onSnapshot(function(snap) {
+  tools = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+  render();
+}, function(err) {
+  setStatus('Erreur Firebase: ' + err.message, 'err');
+});
+
+// Auth — affiche le bouton Gérer uniquement si connecté
+auth.onAuthStateChanged(function(user) {
+  isAuth = !!user;
+  document.getElementById('btnAdmin').style.display = isAuth ? 'block' : 'none';
+  render();
+});
 </script>
 </body>
 </html>
