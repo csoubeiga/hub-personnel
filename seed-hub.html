@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Seed Hub Tools</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 60px auto; padding: 0 20px; background: #f8fafc; color: #0f172a; }
+    h1 { font-size: 1.3rem; margin-bottom: 0.5rem; }
+    p { font-size: 0.9rem; color: #64748b; margin-bottom: 1.5rem; }
+    button { padding: 10px 24px; background: #C8602A; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #log { margin-top: 1.5rem; font-size: 0.85rem; line-height: 1.8; }
+    .ok { color: #16a34a; }
+    .err { color: #dc2626; }
+    .info { color: #64748b; }
+  </style>
+</head>
+<body>
+
+<h1>🌱 Seed Hub Tools</h1>
+<p>Ce script ajoute tous tes outils existants dans Firebase en une seule fois.<br/>
+À utiliser <strong>une seule fois</strong>, puis supprimer du repo.</p>
+
+<button id="btnSeed">Lancer le seed</button>
+<div id="log"></div>
+
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+  authDomain: "hub-personnel-firebase.firebaseapp.com",
+  projectId: "hub-personnel-firebase",
+  storageBucket: "hub-personnel-firebase.firebasestorage.app",
+  messagingSenderId: "394129070920",
+  appId: "1:394129070920:web:10f3303c22adcda47cf17d"
+});
+const DB = firebase.firestore();
+
+const TOOLS = [
+  { emoji: '📋', title: 'Tableau de Bord CGP',   desc: 'Pipeline, CA, objectifs et suivi prospects',                          tag: 'CGP',          file: 'cgp-tracker-firebase.html' },
+  { emoji: '📅', title: 'Calendrier Timeline',    desc: 'Vue annuelle timeline · zoom mensuel · synchronisé partout.',         tag: 'Agenda',       file: 'calendar-timeline.html' },
+  { emoji: '🔄', title: '12 Week Year',           desc: 'Pilotage par cycles de 12 semaines — actions, scores, bilan.',        tag: 'Productivité', file: '12-week-year-firebase.html' },
+  { emoji: '🗒',  title: 'Calendrier classique',  desc: 'Vue mensuelle · grille simple · données Firebase.',                   tag: 'Agenda',       file: 'calendrier.html' },
+  { emoji: '🗓',  title: 'Week Logger',           desc: 'Gantt 7j×24h · catégorisation de ton temps · stats auto.',            tag: 'Énergie',      file: 'week-logger-firebase.html' },
+  { emoji: '🎯', title: 'Focus Allocator',        desc: 'Répartition d\'énergie par cycle · vases communicants · calibrage.',  tag: 'Productivité', file: 'focus-allocator-firebase.html' },
+  { emoji: '⏳', title: 'Life in Weeks',          desc: 'Visualise ta vie semaine par semaine.',                               tag: 'Vie',          file: 'life-in-weeks-firebase.html' },
+  { emoji: '⏱',  title: 'Time Keeper',           desc: 'Tracker de temps par type · Split · Stats · Historique.',             tag: 'Productivité', file: 'time-keeper-firebase.html' },
+  { emoji: '⏱',  title: 'Time Tracker',          desc: 'Chronomètre les activités, ajout manuel, export CSV.',                tag: 'Productivité', file: 'time-tracker-firebase.html' },
+];
+
+function log(msg, type) {
+  const el = document.getElementById('log');
+  el.innerHTML += '<div class="' + (type||'info') + '">' + msg + '</div>';
+}
+
+document.getElementById('btnSeed').onclick = async function() {
+  const btn = document.getElementById('btnSeed');
+  btn.disabled = true;
+  btn.textContent = 'En cours…';
+  log('Démarrage du seed…');
+
+  // Vérifier si la collection est déjà peuplée
+  const existing = await DB.collection('hub-tools').limit(1).get();
+  if (!existing.empty) {
+    log('⚠️ La collection hub-tools contient déjà des données.', 'err');
+    log('Supprime les entrées existantes dans Firebase avant de relancer.', 'err');
+    btn.disabled = false;
+    btn.textContent = 'Relancer';
+    return;
+  }
+
+  let success = 0;
+  for (let i = 0; i < TOOLS.length; i++) {
+    const tool = TOOLS[i];
+    try {
+      await DB.collection('hub-tools').add(Object.assign({}, tool, { order: i + 1, createdAt: Date.now() }));
+      log('✓ ' + tool.emoji + ' ' + tool.title, 'ok');
+      success++;
+    } catch(e) {
+      log('✗ ' + tool.title + ' — ' + e.message, 'err');
+    }
+  }
+
+  log('');
+  log('✅ ' + success + '/' + TOOLS.length + ' outils ajoutés.', 'ok');
+  log('Tu peux fermer cette page et supprimer seed-hub.html de ton repo.', 'info');
+  btn.textContent = 'Terminé';
+};
+</script>
+</body>
+</html>
