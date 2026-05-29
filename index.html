@@ -1,27 +1,22 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Hub — Cédric</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --cream: #FAF8F4;
       --ink: #1A1814;
       --accent: #C8602A;
-      --accent-light: #F5EDE6;
       --muted: #8A8580;
       --card: #FFFFFF;
       --border: #E8E4DC;
-      --danger: #DC2626;
-      --danger-light: #FEE2E2;
     }
-    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; padding: 0; }
 
     header {
       padding: 3rem 4rem 2rem;
@@ -31,28 +26,19 @@
     .header-left h1 { font-family: 'DM Serif Display', serif; font-size: clamp(2.2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.02em; }
     .header-left h1 em { font-style: italic; color: var(--accent); }
     .header-left p { margin-top: 0.6rem; color: var(--muted); font-size: 0.95rem; font-weight: 300; }
-    .header-right { display: flex; align-items: center; gap: 1rem; }
-    .header-date { text-align: right; font-size: 0.85rem; color: var(--muted); font-weight: 300; line-height: 1.6; }
-    .btn-admin {
-      padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
-      background: var(--card); font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
-      font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.15s;
-      white-space: nowrap; display: none;
-    }
-    .btn-admin:hover { border-color: var(--accent); color: var(--accent); }
-    .btn-admin.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .header-date { font-size: 0.85rem; color: var(--muted); font-weight: 300; }
 
     main { padding: 3rem 4rem; max-width: 1100px; }
     .section-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 1.4rem; }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.2rem; margin-bottom: 3.5rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.2rem; margin-bottom: 3.5rem; }
 
     .card {
       background: var(--card); border: 1px solid var(--border); border-radius: 12px;
       padding: 1.6rem; text-decoration: none; color: inherit;
       display: flex; flex-direction: column; gap: 0.8rem;
       transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-      position: relative; overflow: hidden; cursor: pointer;
+      position: relative; overflow: hidden;
     }
     .card::before {
       content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
@@ -69,59 +55,11 @@
       background: var(--cream); color: var(--muted); border: 1px solid var(--border); align-self: flex-start;
     }
 
-    .card.admin-mode { cursor: default; padding-right: 3rem; }
-    .card.admin-mode:hover { transform: none; box-shadow: none; }
-    .card.admin-mode::before { display: none; }
-    .card-admin-controls { display: none; position: absolute; top: 0.6rem; right: 0.6rem; gap: 0.3rem; flex-direction: column; }
-    .admin-mode .card-admin-controls { display: flex; }
-    .ctrl-btn {
-      width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border);
-      background: white; cursor: pointer; font-size: 0.75rem; display: flex;
-      align-items: center; justify-content: center; transition: all 0.12s;
-    }
-    .ctrl-btn:hover { border-color: var(--accent); background: var(--accent-light); }
-    .ctrl-btn.del:hover { border-color: var(--danger); background: var(--danger-light); }
-
-    .admin-panel {
-      display: none; background: var(--card); border: 1px solid var(--border);
-      border-radius: 14px; padding: 2rem; margin-bottom: 2rem;
-    }
-    .admin-panel.open { display: block; }
-    .admin-panel h3 { font-family: 'DM Serif Display', serif; font-size: 1.2rem; margin-bottom: 1.2rem; }
-    .admin-panel h3 em { font-style: italic; color: var(--accent); }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 0.8rem; }
-    .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
-    .form-group label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-    .form-group input {
-      padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: 8px;
-      font-family: 'DM Sans', sans-serif; font-size: 0.88rem; background: var(--cream);
-      color: var(--ink); outline: none; transition: border-color 0.15s;
-    }
-    .form-group input:focus { border-color: var(--accent); }
-    .form-actions { display: flex; gap: 0.7rem; margin-top: 1rem; }
-    .btn {
-      padding: 0.6rem 1.2rem; border-radius: 8px; font-family: 'DM Sans', sans-serif;
-      font-size: 0.88rem; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
-    }
-    .btn-primary { background: var(--accent); color: white; }
-    .btn-primary:hover { opacity: 0.88; }
-    .btn-ghost { background: var(--cream); color: var(--muted); border: 1px solid var(--border); }
-    .btn-ghost:hover { background: var(--border); }
-
-    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--muted); font-weight: 300; }
-    .empty-state p { margin-bottom: 0.5rem; }
-
-    #statusBar { text-align: center; padding: 0.5rem; font-size: 0.78rem; color: var(--muted); min-height: 24px; }
-    #statusBar.ok { color: #16a34a; }
-    #statusBar.err { color: var(--danger); }
-
     footer { padding: 2rem 4rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); font-weight: 300; }
 
     @media (max-width: 640px) {
       header, main, footer { padding-left: 1.4rem; padding-right: 1.4rem; }
       header { flex-direction: column; align-items: flex-start; }
-      .header-date { text-align: left; }
-      .form-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -132,218 +70,94 @@
     <h1>Mon <em>Hub</em><br>personnel</h1>
     <p>Outils synchronisés · Accessibles partout</p>
   </div>
-  <div class="header-right">
-    <div class="header-date" id="dateDisplay"></div>
-    <button class="btn-admin" id="btnAdmin">⚙️ Gérer</button>
-  </div>
+  <div class="header-date" id="dateDisplay"></div>
 </header>
 
 <main>
-  <div class="admin-panel" id="adminPanel">
-    <h3>Ajouter un <em>outil</em></h3>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Emoji</label>
-        <input type="text" id="inEmoji" placeholder="📅" maxlength="4"/>
-      </div>
-      <div class="form-group">
-        <label>Titre</label>
-        <input type="text" id="inTitle" placeholder="Calendrier"/>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Description</label>
-        <input type="text" id="inDesc" placeholder="Événements synchronisés…"/>
-      </div>
-      <div class="form-group">
-        <label>Catégorie</label>
-        <input type="text" id="inTag" placeholder="Agenda"/>
-      </div>
-    </div>
-    <div class="form-group">
-      <label>Fichier HTML (ex: calendrier.html)</label>
-      <input type="text" id="inFile" placeholder="mon-outil.html"/>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="btnAdd">Ajouter l'outil</button>
-      <button class="btn btn-ghost" id="btnCancelAdmin">Annuler</button>
-    </div>
-  </div>
+  <p class="section-label">Outils</p>
+  <div class="grid">
 
-  <p class="section-label" id="sectionLabel">Chargement…</p>
-  <div class="grid" id="toolsGrid"></div>
-  <div id="statusBar"></div>
+    <a href="12-week-year-firebase.html" class="card">
+      <div class="card-icon">🔄</div>
+      <div class="card-title">12 Week Year</div>
+      <div class="card-desc">Pilotage par cycles de 12 semaines — actions, scores, bilan.</div>
+      <span class="card-tag">Productivité</span>
+    </a>
+
+    <a href="cgp-tracker-firebase.html" class="card">
+      <div class="card-icon">📋</div>
+      <div class="card-title">Tableau de Bord CGP</div>
+      <div class="card-desc">Pipeline, CA, objectifs et suivi prospects.</div>
+      <span class="card-tag">CGP</span>
+    </a>
+
+    <a href="calendar-timeline.html" class="card">
+      <div class="card-icon">📅</div>
+      <div class="card-title">Calendrier Timeline</div>
+      <div class="card-desc">Vue annuelle timeline · zoom mensuel · synchronisé partout.</div>
+      <span class="card-tag">Agenda</span>
+    </a>
+
+    <a href="time-keeper-firebase.html" class="card">
+      <div class="card-icon">⏱</div>
+      <div class="card-title">Time Keeper</div>
+      <div class="card-desc">Tracker de temps par type · Split · Stats · Historique.</div>
+      <span class="card-tag">Productivité</span>
+    </a>
+
+    <a href="week-logger-firebase.html" class="card">
+      <div class="card-icon">🗓</div>
+      <div class="card-title">Week Logger</div>
+      <div class="card-desc">Gantt 7j×24h · catégorisation de ton temps · stats auto.</div>
+      <span class="card-tag">Énergie</span>
+    </a>
+
+    <a href="life-in-weeks-firebase.html" class="card">
+      <div class="card-icon">⏳</div>
+      <div class="card-title">Life in Weeks</div>
+      <div class="card-desc">Visualise ta vie semaine par semaine.</div>
+      <span class="card-tag">Vie</span>
+    </a>
+
+    <a href="calendrier.html" class="card">
+      <div class="card-icon">🗒</div>
+      <div class="card-title">Calendrier classique</div>
+      <div class="card-desc">Vue mensuelle · grille simple · données Firebase.</div>
+      <span class="card-tag">Agenda</span>
+    </a>
+
+    <a href="focus-allocator-firebase.html" class="card">
+      <div class="card-icon">🎯</div>
+      <div class="card-title">Focus Allocator</div>
+      <div class="card-desc">Répartition d'énergie par cycle · vases communicants · calibrage.</div>
+      <span class="card-tag">Productivité</span>
+    </a>
+
+    <a href="time-tracker-firebase.html" class="card">
+      <div class="card-icon">⏱</div>
+      <div class="card-title">Time Tracker</div>
+      <div class="card-desc">Chronomètre les activités, ajout manuel, export CSV.</div>
+      <span class="card-tag">Productivité</span>
+    </a>
+
+    <a href="invoice-generator-firebase.html" class="card">
+      <div class="card-icon">🧾</div>
+      <div class="card-title">Factures & Devis</div>
+      <div class="card-desc">Factures et devis PDF, carnet clients, export un clic.</div>
+      <span class="card-tag">Gestion</span>
+    </a>
+
+  </div>
 </main>
 
-<footer>Hub personnel · GitHub Pages · Firebase Firestore</footer>
+<footer>Hub personnel · GitHub Pages</footer>
 
 <script>
-const FB_CONFIG = {
-  apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
-  authDomain: "hub-personnel-firebase.firebaseapp.com",
-  projectId: "hub-personnel-firebase",
-  storageBucket: "hub-personnel-firebase.firebasestorage.app",
-  messagingSenderId: "394129070920",
-  appId: "1:394129070920:web:10f3303c22adcda47cf17d"
-};
-
-firebase.initializeApp(FB_CONFIG);
-const auth = firebase.auth();
-const DB   = firebase.firestore();
-
-// ── DATE ──────────────────────────────────────────────────────
-const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-document.getElementById('dateDisplay').textContent =
-  new Date().toLocaleDateString('fr-FR', opts).replace(/^\w/, function(c){ return c.toUpperCase(); });
-
-// ── STATUS ────────────────────────────────────────────────────
-function setStatus(msg, type) {
-  const el = document.getElementById('statusBar');
-  el.textContent = msg;
-  el.className = type || '';
-  if (type === 'ok') setTimeout(function(){ el.textContent = ''; el.className = ''; }, 2000);
-}
-
-// ── STATE ─────────────────────────────────────────────────────
-let tools = [];
-let adminMode = false;
-let isAuth = false;
-
-// ── RENDER ────────────────────────────────────────────────────
-function render() {
-  const grid  = document.getElementById('toolsGrid');
-  const label = document.getElementById('sectionLabel');
-  grid.innerHTML = '';
-
-  if (tools.length === 0) {
-    label.textContent = 'Aucun outil';
-    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Aucun outil pour l\'instant.</p>' +
-      (isAuth ? '<p>Clique sur <strong>⚙️ Gérer</strong> pour ajouter ton premier outil.</p>' : '') +
-      '</div>';
-    return;
-  }
-
-  label.textContent = tools.length + ' outil' + (tools.length > 1 ? 's' : '');
-
-  tools.forEach(function(tool, idx) {
-    const card = document.createElement('div');
-    card.className = 'card' + (adminMode ? ' admin-mode' : '');
-
-    if (!adminMode) {
-      card.onclick = function(){ window.location.href = tool.file; };
-    }
-
-    card.innerHTML =
-      '<div class="card-icon">' + (tool.emoji || '🔧') + '</div>' +
-      '<div class="card-title">' + tool.title + '</div>' +
-      '<div class="card-desc">' + (tool.desc || '') + '</div>' +
-      '<span class="card-tag">' + (tool.tag || '') + '</span>' +
-      (isAuth ? '<div class="card-admin-controls">' +
-        '<button class="ctrl-btn" data-action="up" data-id="' + tool.id + '" data-idx="' + idx + '">↑</button>' +
-        '<button class="ctrl-btn" data-action="down" data-id="' + tool.id + '" data-idx="' + idx + '">↓</button>' +
-        '<button class="ctrl-btn del" data-action="del" data-id="' + tool.id + '" data-idx="' + idx + '">✕</button>' +
-        '</div>' : '');
-
-    grid.appendChild(card);
-  });
-
-  // Wire controls
-  grid.querySelectorAll('.ctrl-btn').forEach(function(btn) {
-    btn.onclick = function(e) { e.stopPropagation(); handleControl(btn); };
-  });
-}
-
-// ── ADMIN CONTROLS ────────────────────────────────────────────
-function handleControl(btn) {
-  const action = btn.dataset.action;
-  const id     = btn.dataset.id;
-  const idx    = parseInt(btn.dataset.idx);
-
-  if (action === 'del') {
-    if (!confirm('Supprimer "' + tools[idx].title + '" du hub ?')) return;
-    DB.collection('hub-tools').doc(id).delete()
-      .then(function(){ setStatus('Outil supprimé', 'ok'); })
-      .catch(function(e){ setStatus('Erreur: ' + e.message, 'err'); });
-  }
-
-  if (action === 'up' && idx > 0) {
-    const a = tools[idx], b = tools[idx - 1];
-    const batch = DB.batch();
-    batch.update(DB.collection('hub-tools').doc(a.id), { order: b.order });
-    batch.update(DB.collection('hub-tools').doc(b.id), { order: a.order });
-    batch.commit().catch(function(e){ setStatus('Erreur: ' + e.message, 'err'); });
-  }
-
-  if (action === 'down' && idx < tools.length - 1) {
-    const a = tools[idx], b = tools[idx + 1];
-    const batch = DB.batch();
-    batch.update(DB.collection('hub-tools').doc(a.id), { order: b.order });
-    batch.update(DB.collection('hub-tools').doc(b.id), { order: a.order });
-    batch.commit().catch(function(e){ setStatus('Erreur: ' + e.message, 'err'); });
-  }
-}
-
-// ── TOGGLE ADMIN ──────────────────────────────────────────────
-document.getElementById('btnAdmin').onclick = function() {
-  adminMode = !adminMode;
-  const btn = document.getElementById('btnAdmin');
-  btn.textContent = adminMode ? '✕ Terminer' : '⚙️ Gérer';
-  btn.classList.toggle('active', adminMode);
-  document.getElementById('adminPanel').classList.toggle('open', adminMode);
-  render();
-};
-
-document.getElementById('btnCancelAdmin').onclick = function() {
-  adminMode = false;
-  document.getElementById('btnAdmin').textContent = '⚙️ Gérer';
-  document.getElementById('btnAdmin').classList.remove('active');
-  document.getElementById('adminPanel').classList.remove('open');
-  render();
-};
-
-// ── ADD TOOL ──────────────────────────────────────────────────
-document.getElementById('btnAdd').onclick = function() {
-  const emoji = document.getElementById('inEmoji').value.trim();
-  const title = document.getElementById('inTitle').value.trim();
-  const desc  = document.getElementById('inDesc').value.trim();
-  const tag   = document.getElementById('inTag').value.trim();
-  const file  = document.getElementById('inFile').value.trim();
-
-  if (!title || !file) { setStatus('Titre et fichier sont obligatoires', 'err'); return; }
-
-  const maxOrder = tools.length > 0 ? Math.max.apply(null, tools.map(function(t){ return t.order || 0; })) : 0;
-
-  DB.collection('hub-tools').add({ emoji: emoji, title: title, desc: desc, tag: tag, file: file, order: maxOrder + 1, createdAt: Date.now() })
-    .then(function() {
-      ['inEmoji','inTitle','inDesc','inTag','inFile'].forEach(function(id){ document.getElementById(id).value = ''; });
-      setStatus('✓ Outil ajouté', 'ok');
-    })
-    .catch(function(e){ setStatus('Erreur: ' + e.message, 'err'); });
-};
-
-document.getElementById('inFile').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') document.getElementById('btnAdd').click();
-});
-
-// ── BOOT ──────────────────────────────────────────────────────
-// Affichage immédiat (lecture publique)
-render();
-
-// Écoute Firestore en temps réel
-DB.collection('hub-tools').orderBy('order').onSnapshot(function(snap) {
-  tools = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
-  render();
-}, function(err) {
-  setStatus('Erreur Firebase: ' + err.message, 'err');
-});
-
-// Auth — affiche le bouton Gérer uniquement si connecté
-auth.onAuthStateChanged(function(user) {
-  isAuth = !!user;
-  document.getElementById('btnAdmin').style.display = isAuth ? 'block' : 'none';
-  render();
-});
+  const d = new Date();
+  const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+  document.getElementById('dateDisplay').textContent =
+    d.toLocaleDateString('fr-FR', opts).replace(/^\w/, function(c){ return c.toUpperCase(); });
 </script>
+
 </body>
 </html>
