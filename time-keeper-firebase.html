@@ -507,6 +507,8 @@ function tsToTI(ts){const d=new Date(ts);return pad(d.getHours())+':'+pad(d.getM
 function tiToTs(val,ref){
   const p=val.split(':'),d=new Date(ref||Date.now());
   d.setHours(parseInt(p[0],10),parseInt(p[1],10),0,0);
+  // Passage minuit : si résultat < référence, l'heure est sur le jour suivant
+  if(ref && d.getTime() < ref) d.setDate(d.getDate()+1);
   return d.getTime();
 }
 function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -795,7 +797,8 @@ document.getElementById('splitConfirm').onclick=function(){
   const val=document.getElementById('splitTime').value;
   if(!val){alert('Saisissez une heure de coupure.');return;}
   const cutTs=tiToTs(val,live.startTs);
-  if(cutTs<=live.startTs||cutTs>=Date.now()){alert('Heure de coupure invalide.');return;}
+  // Valide si : après le début ET pas plus de 24h dans le futur
+  if(cutTs<=live.startTs||cutTs>Date.now()+86400000){alert('Heure de coupure invalide.');return;}
   splitCutTs=cutTs;splitPart=1;
   closeOv('ovSplit');
   openSplitPart(1,live.startTs,cutTs);
