@@ -832,8 +832,7 @@ function wireTasks(app) {
 }
 
 /* ═══════════════ BOOT ═══════════════ */
-/* V1 sans authentification (itération locale) — voir règles Firestore.
-   V2 : réactiver le pattern onAuthStateChanged + compte Florine. */
+/* Pattern standard du hub : render() immédiat → onAuthStateChanged → boot(). */
 window.addEventListener('hashchange', function() { expandedTaskId = null; render(); });
 document.addEventListener('focusout', function() {
   if (pendingRemoteRender) setTimeout(function() {
@@ -847,8 +846,14 @@ window.addEventListener('beforeunload', function() {
 
 try {
   loadBackup();
-  render();
-  if (DOCREF) listen();
+  render(); // UI immédiate avec les données locales/backup pendant que l'auth se confirme
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (!user) {
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+    if (DOCREF) listen();
+  });
 } catch (e) {
   showFatalError(e.message || 'Erreur au démarrage');
 }
