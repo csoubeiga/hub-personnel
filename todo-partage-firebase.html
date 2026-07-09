@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>To-do partagée</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef0f4; --card:#ffffff; --ink:#16181d; --ink2:#7a7f8a;
+  --line:#e3e6ec; --ok:#5aa35f; --warn:#c9542e; --accent:#c8d94e;
+  --radius:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:'DM Sans',system-ui,sans-serif; background:var(--bg); color:var(--ink);
+  font-size:16px; line-height:1.4; padding-bottom:64px;
+}
+button{font-family:inherit;font-size:inherit;border:none;background:none;cursor:pointer;color:inherit}
+input,textarea,select{font-family:inherit;font-size:16px;color:inherit}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ── Layout ─────────────────────────── */
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 32px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.hub-link{color:var(--ink2);text-decoration:none;font-weight:500;font-size:14px}
+.hub-link:active{opacity:.6}
+.icon-btn{width:40px;height:40px;border-radius:12px;background:var(--card);display:flex;
+  align-items:center;justify-content:center;font-size:17px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.icon-btn:active{transform:scale(.94)}
+
+h1{font-size:28px;font-weight:700;letter-spacing:-.3px;margin-bottom:16px}
+
+/* ── Cartes biens ───────────────────── */
+.bien-card{
+  display:flex;align-items:center;gap:12px;background:var(--card);border-radius:var(--radius);
+  padding:18px 16px;margin-bottom:10px;width:100%;text-align:left;position:relative;overflow:hidden;
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+.bien-card:active{transform:scale(.985)}
+.bien-bar{position:absolute;left:0;top:14px;bottom:14px;width:5px;border-radius:0 4px 4px 0}
+.bien-name{font-weight:600;font-size:17px;flex:1;padding-left:8px}
+.bien-count{color:var(--ink2);font-size:14px;white-space:nowrap}
+.bien-edit-btns{display:flex;gap:6px;padding-left:6px}
+.mini-btn{width:34px;height:34px;border-radius:10px;background:var(--bg);font-size:14px;
+  display:flex;align-items:center;justify-content:center}
+.mini-btn:active{background:var(--line)}
+.home-actions{display:flex;gap:10px;margin:16px 0}
+.pill-btn{flex:1;padding:12px;border-radius:14px;background:var(--card);font-weight:600;font-size:14px;
+  color:var(--ink2);box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.pill-btn:active{transform:scale(.97)}
+
+/* ── Vue bien ───────────────────────── */
+.bien-header{border-radius:var(--radius);padding:26px 20px 22px;margin-bottom:14px;position:relative}
+.bien-header .back{position:absolute;top:14px;left:14px;width:38px;height:38px;border-radius:50%;
+  background:rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;font-size:17px}
+.bien-header h2{text-align:center;font-size:26px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.08)}
+.bien-header .sub{text-align:center;color:rgba(255,255,255,.85);font-size:14px;margin-top:2px}
+
+.addbar{display:flex;gap:8px;margin-bottom:14px}
+.addbar input{flex:1;padding:13px 16px;border-radius:14px;border:none;background:var(--card);
+  box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.addbar button{width:50px;border-radius:14px;background:var(--ink);color:#fff;font-size:22px;font-weight:500}
+.addbar button:active{transform:scale(.94)}
+
+/* ── Tâches ─────────────────────────── */
+.task{background:var(--card);border-radius:16px;margin-bottom:8px;overflow:hidden;
+  box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.task-row{display:flex;align-items:center;gap:12px;padding:13px 14px;width:100%;text-align:left}
+.chk{width:26px;height:26px;min-width:26px;border-radius:50%;border:2px solid #c9cdd6;background:none;
+  display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}
+.chk.done{background:var(--accent);border-color:var(--accent)}
+.task-main{flex:1;min-width:0}
+.task-title{font-weight:500;word-break:break-word}
+.task.is-done .task-title{color:var(--ink2);text-decoration:line-through}
+.task-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+.badge{font-size:12px;color:var(--ink2);background:var(--bg);border-radius:7px;padding:1px 7px;font-weight:500}
+.badge.late{color:var(--warn);background:#fbeae3}
+.badge.resp{background:#eef3e0}
+
+/* ── Panneau détail ─────────────────── */
+.detail{padding:4px 14px 16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.detail label{font-size:12px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.4px}
+.detail input[type=text],.detail textarea,.detail input[type=date]{
+  width:100%;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:var(--bg)}
+.detail textarea{resize:vertical;min-height:56px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:8px 14px;border-radius:20px;background:var(--bg);font-weight:600;font-size:14px;color:var(--ink2)}
+.chip.on{background:var(--ink);color:#fff}
+.row2{display:flex;gap:10px;align-items:center}
+.row2 input[type=date]{flex:1}
+.sub-item{display:flex;align-items:center;gap:10px;padding:5px 0}
+.sub-chk{width:21px;height:21px;min-width:21px;border-radius:6px;border:2px solid #c9cdd6;background:none;
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
+.sub-chk.done{background:var(--accent);border-color:var(--accent)}
+.sub-txt{flex:1;word-break:break-word;font-size:15px}
+.sub-txt.done{color:var(--ink2);text-decoration:line-through}
+.sub-del{color:#c9cdd6;font-size:15px;padding:4px 6px}
+.sub-add{display:flex;gap:8px}
+.sub-add input{flex:1;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.sub-add button{padding:0 14px;border-radius:10px;background:var(--bg);font-weight:700;font-size:17px;color:var(--ink2)}
+.danger-btn{color:var(--warn);font-weight:600;font-size:14px;align-self:flex-start;padding:6px 0}
+
+.section-toggle{width:100%;text-align:left;color:var(--ink2);font-weight:600;font-size:14px;
+  padding:14px 4px 8px;display:flex;align-items:center;gap:6px}
+.empty{color:var(--ink2);text-align:center;padding:30px 10px;font-size:15px}
+
+/* ── Modal ajout global ─────────────── */
+.sheet-bg{position:fixed;inset:0;background:rgba(20,22,28,.35);display:flex;align-items:flex-end;z-index:40}
+.sheet{background:var(--card);border-radius:22px 22px 0 0;padding:22px 18px calc(24px + env(safe-area-inset-bottom));
+  width:100%;max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.sheet h3{font-size:18px;font-weight:700}
+.sheet input[type=text],.sheet select{width:100%;padding:13px 14px;border-radius:13px;border:1px solid var(--line);background:var(--bg)}
+.sheet .main-btn{padding:14px;border-radius:14px;background:var(--ink);color:#fff;font-weight:600;font-size:16px}
+.fab{position:fixed;right:18px;bottom:56px;width:58px;height:58px;border-radius:50%;background:var(--ink);
+  color:#fff;font-size:28px;box-shadow:0 6px 16px rgba(0,0,0,.22);z-index:30;
+  display:flex;align-items:center;justify-content:center}
+.fab:active{transform:scale(.93)}
+
+/* ── Barre de sync ──────────────────── */
+#syncbar{position:fixed;left:0;right:0;bottom:0;padding:9px 16px calc(9px + env(safe-area-inset-bottom));
+  background:var(--card);border-top:1px solid var(--line);font-size:13px;color:var(--ink2);
+  text-align:center;z-index:50}
+#syncbar.ok{color:var(--ok)}
+#syncbar.err{color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="syncbar">Chargement…</div>
+
+<script>
+/* ═══════════════ CONFIG ═══════════════ */
+const FB_CONFIG = {
+  apiKey: "AIzaSyC9qSli9HAWsM5mcEMjW5fEhgTQmrdR3TA",
+  authDomain: "hub-personnel-firebase.firebaseapp.com",
+  projectId: "hub-personnel-firebase",
+  storageBucket: "hub-personnel-firebase.firebasestorage.app",
+  messagingSenderId: "394129070920",
+  appId: "1:394129070920:web:10f3303c22adcda47cf17d"
+};
+firebase.initializeApp(FB_CONFIG);
+const DB = firebase.firestore();
+const DOCREF = DB.collection('todo-partage').doc('data');
+const BACKUP_KEY = 'todo-partage-backup';
+const PEOPLE = ['Cédric', 'Florine'];
+const COLORS = ['#c8d94e','#7cb8e8','#e8a06b','#e07a7a','#a58fd4','#6cc2b5','#e8c95a','#9aa66b'];
+const INBOX = 'inbox';
+
+/* ═══════════════ ÉTAT ═══════════════ */
+let state = {};                 // clés plates : 'bien:<id>' / 'task:<id>'
+let dirtyKeys = new Set();
+let deletedKeys = new Set();
+let saveTimer = null;
+let retryTimer = null;
+let expandedTaskId = null;
+let editBiens = false;
+let showDoneMap = {};
+let pendingRemoteRender = false;
+
+/* ═══════════════ HELPERS ═══════════════ */
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function esc(s) {
+  return String(s || '').replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+function fmtDate(iso) {
+  if (!iso) return '';
+  const p = iso.split('-');
+  return p[2] + '/' + p[1] + '/' + p[0].slice(2);
+}
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function nowISO() { return new Date().toISOString(); }
+
+function getBiens() {
+  const out = [];
+  Object.keys(state).forEach(function(k) {
+    if (k.indexOf('bien:') === 0) out.push(Object.assign({ id: k.slice(5) }, state[k]));
+  });
+  out.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+  return out;
+}
+function getBien(id) {
+  if (id === INBOX) return { id: INBOX, name: 'Non classé', color: '#9aa0ad' };
+  return state['bien:' + id] ? Object.assign({ id: id }, state['bien:' + id]) : null;
+}
+function getTasks(bienId) {
+  const out = [];
+  Object.keys(state).forEach(function(k) {
+    if (k.indexOf('task:') === 0 && state[k].bien === bienId) {
+      out.push(Object.assign({ id: k.slice(5) }, state[k]));
+    }
+  });
+  out.sort(function(a, b) { return (a.created || '').localeCompare(b.created || ''); });
+  return out;
+}
+function openCount(bienId) {
+  return getTasks(bienId).filter(function(t) { return !t.done; }).length;
+}
+
+/* ═══════════════ PERSISTANCE ═══════════════ */
+function backupLocal() {
+  try { localStorage.setItem(BACKUP_KEY, JSON.stringify(state)); } catch (e) {}
+}
+function loadBackup() {
+  try {
+    const raw = localStorage.getItem(BACKUP_KEY);
+    if (raw) state = JSON.parse(raw) || {};
+  } catch (e) {}
+}
+function markDirty(key) {
+  dirtyKeys.add(key);
+  deletedKeys.delete(key);
+  backupLocal();
+  scheduleSave();
+}
+function removeKey(key) {
+  delete state[key];
+  dirtyKeys.delete(key);
+  deletedKeys.add(key);
+  backupLocal();
+  scheduleSave();
+}
+function scheduleSave() {
+  setStatus('save', 'Enregistrement…');
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 1200);
+}
+function saveNow() {
+  if (dirtyKeys.size === 0 && deletedKeys.size === 0) return;
+  const payload = {};
+  dirtyKeys.forEach(function(k) { if (state[k] !== undefined) payload[k] = state[k]; });
+  deletedKeys.forEach(function(k) { payload[k] = firebase.firestore.FieldValue.delete(); });
+  const savedDirty = new Set(dirtyKeys);
+  const savedDeleted = new Set(deletedKeys);
+  DOCREF.set(payload, { merge: true }).then(function() {
+    savedDirty.forEach(function(k) { dirtyKeys.delete(k); });
+    savedDeleted.forEach(function(k) { deletedKeys.delete(k); });
+    if (dirtyKeys.size === 0 && deletedKeys.size === 0) setStatus('ok', '✓ Synchronisé');
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  }).catch(function() {
+    setStatus('err', '⚠ Erreur de sauvegarde — nouvel essai dans 5s');
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = setTimeout(saveNow, 5000);
+  });
+}
+function listen() {
+  DOCREF.onSnapshot(function(snap) {
+    if (snap.metadata.hasPendingWrites) return;
+    const remote = snap.exists ? (snap.data() || {}) : {};
+    const next = {};
+    Object.keys(remote).forEach(function(k) { next[k] = remote[k]; });
+    dirtyKeys.forEach(function(k) { if (state[k] !== undefined) next[k] = state[k]; });
+    deletedKeys.forEach(function(k) { delete next[k]; });
+    state = next;
+    backupLocal();
+    if (dirtyKeys.size === 0 && deletedKeys.size === 0) setStatus('ok', '✓ Synchronisé');
+    safeRender();
+  }, function() {
+    setStatus('err', '⚠ Hors ligne — données locales affichées');
+  });
+}
+function setStatus(kind, txt) {
+  const bar = document.getElementById('syncbar');
+  bar.textContent = txt;
+  bar.className = kind === 'ok' ? 'ok' : (kind === 'err' ? 'err' : '');
+}
+
+/* ═══════════════ ACTIONS BIENS ═══════════════ */
+function addBien() {
+  const name = prompt('Nom du bien / projet :');
+  if (!name || !name.trim()) return;
+  const id = uid();
+  const biens = getBiens();
+  state['bien:' + id] = {
+    name: name.trim(),
+    color: COLORS[biens.length % COLORS.length],
+    order: biens.length ? (biens[biens.length - 1].order || 0) + 1 : 0
+  };
+  markDirty('bien:' + id);
+  render();
+}
+function renameBien(id) {
+  const b = state['bien:' + id];
+  if (!b) return;
+  const name = prompt('Nouveau nom :', b.name);
+  if (!name || !name.trim()) return;
+  b.name = name.trim();
+  markDirty('bien:' + id);
+  render();
+}
+function deleteBien(id) {
+  const b = state['bien:' + id];
+  if (!b) return;
+  const n = getTasks(id).length;
+  if (!confirm('Supprimer « ' + b.name + ' » ?' + (n ? '\n' + n + ' tâche(s) seront déplacées dans Non classé.' : ''))) return;
+  getTasks(id).forEach(function(t) {
+    state['task:' + t.id].bien = INBOX;
+    markDirty('task:' + t.id);
+  });
+  removeKey('bien:' + id);
+  render();
+}
+function moveBien(id, dir) {
+  const biens = getBiens();
+  const i = biens.findIndex(function(b) { return b.id === id; });
+  const j = i + dir;
+  if (j < 0 || j >= biens.length) return;
+  const a = biens[i], b = biens[j];
+  const tmp = a.order; 
+  state['bien:' + a.id].order = b.order;
+  state['bien:' + b.id].order = tmp;
+  markDirty('bien:' + a.id);
+  markDirty('bien:' + b.id);
+  render();
+}
+
+/* ═══════════════ ACTIONS TÂCHES ═══════════════ */
+function addTask(bienId, title) {
+  if (!title || !title.trim()) return null;
+  const id = uid();
+  state['task:' + id] = {
+    bien: bienId, title: title.trim(), details: '', resp: [],
+    due: '', shop: false, done: false, created: nowISO(), doneAt: '', subs: []
+  };
+  markDirty('task:' + id);
+  return id;
+}
+function toggleTask(id) {
+  const t = state['task:' + id];
+  if (!t) return;
+  t.done = !t.done;
+  t.doneAt = t.done ? nowISO() : '';
+  markDirty('task:' + id);
+  render();
+}
+function patchTask(id, field, value) {
+  const t = state['task:' + id];
+  if (!t) return;
+  t[field] = value;
+  markDirty('task:' + id);
+}
+function toggleResp(id, person) {
+  const t = state['task:' + id];
+  if (!t) return;
+  const r = (t.resp || []).slice();
+  const i = r.indexOf(person);
+  if (i >= 0) r.splice(i, 1); else r.push(person);
+  t.resp = r;
+  markDirty('task:' + id);
+  render();
+}
+function deleteTask(id) {
+  if (!confirm('Supprimer cette tâche ?')) return;
+  expandedTaskId = null;
+  removeKey('task:' + id);
+  render();
+}
+function addSub(taskId, txt) {
+  const t = state['task:' + taskId];
+  if (!t || !txt || !txt.trim()) return;
+  t.subs = (t.subs || []).concat([{ t: txt.trim(), d: false }]);
+  markDirty('task:' + taskId);
+  render();
+}
+function toggleSub(taskId, idx) {
+  const t = state['task:' + taskId];
+  if (!t || !t.subs || !t.subs[idx]) return;
+  t.subs[idx].d = !t.subs[idx].d;
+  markDirty('task:' + taskId);
+  render();
+}
+function deleteSub(taskId, idx) {
+  const t = state['task:' + taskId];
+  if (!t || !t.subs) return;
+  t.subs.splice(idx, 1);
+  markDirty('task:' + taskId);
+  render();
+}
+
+/* ═══════════════ EXPORT CSV ═══════════════ */
+function exportCSV() {
+  const rows = [['date_creation','bien','tache','details','sous_taches','responsable','echeance','achats','statut','date_completion']];
+  Object.keys(state).forEach(function(k) {
+    if (k.indexOf('task:') !== 0) return;
+    const t = state[k];
+    const bien = getBien(t.bien);
+    const subs = (t.subs || []).map(function(s) { return (s.d ? '[x] ' : '[ ] ') + s.t; }).join(' | ');
+    rows.push([
+      t.created || '', bien ? bien.name : t.bien, t.title || '', t.details || '', subs,
+      (t.resp || []).join(', '), t.due || '', t.shop ? 'oui' : 'non',
+      t.done ? 'terminée' : 'ouverte', t.doneAt || ''
+    ]);
+  });
+  const csv = '\ufeff' + rows.map(function(r) {
+    return r.map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(';');
+  }).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'todo-partage-' + todayISO() + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ═══════════════ RENDU ═══════════════ */
+function currentView() {
+  const h = window.location.hash;
+  if (h.indexOf('#bien=') === 0) return { view: 'bien', id: h.slice(6) };
+  return { view: 'home' };
+}
+function safeRender() {
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
+    pendingRemoteRender = true;
+    return;
+  }
+  render();
+}
+function render() {
+  pendingRemoteRender = false;
+  const app = document.getElementById('app');
+  const v = currentView();
+  if (v.view === 'bien') renderBien(app, v.id);
+  else renderHome(app);
+}
+
+/* ── Accueil ── */
+function renderHome(app) {
+  const biens = getBiens();
+  let html = '';
+  html += '<div class="topbar"><a href="index.html" class="hub-link">← Hub</a>';
+  html += '<button class="icon-btn" id="btn-export" title="Exporter en CSV">⬇</button></div>';
+  html += '<h1>To-do partagée</h1>';
+
+  biens.forEach(function(b) {
+    const n = openCount(b.id);
+    html += '<button class="bien-card" data-open="' + b.id + '">';
+    html += '<span class="bien-bar" style="background:' + b.color + '"></span>';
+    html += '<span class="bien-name">' + esc(b.name) + '</span>';
+    if (editBiens) {
+      html += '<span class="bien-edit-btns">';
+      html += '<span class="mini-btn" data-up="' + b.id + '">↑</span>';
+      html += '<span class="mini-btn" data-down="' + b.id + '">↓</span>';
+      html += '<span class="mini-btn" data-rename="' + b.id + '">✎</span>';
+      html += '<span class="mini-btn" data-delbien="' + b.id + '">✕</span>';
+      html += '</span>';
+    } else {
+      html += '<span class="bien-count">' + (n ? n + ' tâche' + (n > 1 ? 's' : '') : '—') + '</span>';
+    }
+    html += '</button>';
+  });
+
+  const inboxN = openCount(INBOX);
+  html += '<button class="bien-card" data-open="' + INBOX + '">';
+  html += '<span class="bien-bar" style="background:#9aa0ad"></span>';
+  html += '<span class="bien-name">📥 Non classé</span>';
+  html += '<span class="bien-count">' + (inboxN ? inboxN + ' tâche' + (inboxN > 1 ? 's' : '') : '—') + '</span>';
+  html += '</button>';
+
+  html += '<div class="home-actions">';
+  html += '<button class="pill-btn" id="btn-addbien">＋ Bien / projet</button>';
+  html += '<button class="pill-btn" id="btn-editbiens">' + (editBiens ? '✓ Terminé' : '⇅ Réorganiser') + '</button>';
+  html += '</div>';
+
+  html += '<button class="fab" id="btn-quickadd" title="Ajouter une tâche">＋</button>';
+  app.innerHTML = html;
+
+  document.getElementById('btn-export').onclick = exportCSV;
+  document.getElementById('btn-addbien').onclick = addBien;
+  document.getElementById('btn-editbiens').onclick = function() { editBiens = !editBiens; render(); };
+  document.getElementById('btn-quickadd').onclick = openQuickAdd;
+
+  app.querySelectorAll('[data-open]').forEach(function(el) {
+    el.onclick = function(e) {
+      if (e.target.closest('[data-up],[data-down],[data-rename],[data-delbien]')) return;
+      window.location.hash = 'bien=' + el.getAttribute('data-open');
+    };
+  });
+  app.querySelectorAll('[data-up]').forEach(function(el) {
+    el.onclick = function(e) { e.stopPropagation(); moveBien(el.getAttribute('data-up'), -1); };
+  });
+  app.querySelectorAll('[data-down]').forEach(function(el) {
+    el.onclick = function(e) { e.stopPropagation(); moveBien(el.getAttribute('data-down'), 1); };
+  });
+  app.querySelectorAll('[data-rename]').forEach(function(el) {
+    el.onclick = function(e) { e.stopPropagation(); renameBien(el.getAttribute('data-rename')); };
+  });
+  app.querySelectorAll('[data-delbien]').forEach(function(el) {
+    el.onclick = function(e) { e.stopPropagation(); deleteBien(el.getAttribute('data-delbien')); };
+  });
+}
+
+/* ── Ajout rapide global ── */
+function openQuickAdd() {
+  const biens = getBiens();
+  let opts = '<option value="' + INBOX + '">📥 Non classé</option>';
+  biens.forEach(function(b) { opts += '<option value="' + b.id + '">' + esc(b.name) + '</option>'; });
+  const bg = document.createElement('div');
+  bg.className = 'sheet-bg';
+  bg.innerHTML =
+    '<div class="sheet">' +
+    '<h3>Nouvelle tâche</h3>' +
+    '<input type="text" id="qa-title" placeholder="Ex : Purger radiateurs" autocomplete="off">' +
+    '<select id="qa-bien">' + opts + '</select>' +
+    '<button class="main-btn" id="qa-ok">Ajouter</button>' +
+    '</div>';
+  document.body.appendChild(bg);
+  const titleInput = bg.querySelector('#qa-title');
+  titleInput.focus();
+  function submitQuickAdd() {
+    const t = titleInput.value;
+    const bienId = bg.querySelector('#qa-bien').value;
+    if (t.trim()) { addTask(bienId, t); render(); }
+    bg.remove();
+  }
+  bg.querySelector('#qa-ok').onclick = submitQuickAdd;
+  titleInput.onkeydown = function(e) { if (e.key === 'Enter') submitQuickAdd(); };
+  bg.onclick = function(e) { if (e.target === bg) bg.remove(); };
+}
+
+/* ── Vue bien ── */
+function renderBien(app, bienId) {
+  const bien = getBien(bienId);
+  if (!bien) { window.location.hash = ''; return; }
+  const tasks = getTasks(bienId);
+  const open = tasks.filter(function(t) { return !t.done; });
+  const done = tasks.filter(function(t) { return t.done; });
+  const showDone = !!showDoneMap[bienId];
+
+  let html = '';
+  html += '<div class="bien-header" style="background:' + bien.color + '">';
+  html += '<button class="back" id="btn-back">✕</button>';
+  html += '<h2>' + esc(bien.name) + '</h2>';
+  html += '<div class="sub">' + open.length + ' à faire · ' + done.length + ' terminée' + (done.length > 1 ? 's' : '') + '</div>';
+  html += '</div>';
+
+  html += '<div class="addbar"><input type="text" id="new-task" placeholder="Nouvelle tâche…" autocomplete="off">';
+  html += '<button id="btn-newtask">＋</button></div>';
+
+  if (!open.length && !done.length) html += '<div class="empty">Aucune tâche pour l’instant.<br>Ajoute la première ci-dessus.</div>';
+
+  open.forEach(function(t) { html += taskHTML(t); });
+
+  if (done.length) {
+    html += '<button class="section-toggle" id="btn-toggledone">' + (showDone ? '▾' : '▸') + ' Terminées (' + done.length + ')</button>';
+    if (showDone) done.forEach(function(t) { html += taskHTML(t); });
+  }
+  app.innerHTML = html;
+
+  document.getElementById('btn-back').onclick = function() { expandedTaskId = null; window.location.hash = ''; };
+  const inp = document.getElementById('new-task');
+  function submitNewTask() {
+    if (!inp.value.trim()) return;
+    addTask(bienId, inp.value);
+    inp.value = '';
+    render();
+    const again = document.getElementById('new-task');
+    if (again) again.focus();
+  }
+  document.getElementById('btn-newtask').onclick = submitNewTask;
+  inp.onkeydown = function(e) { if (e.key === 'Enter') submitNewTask(); };
+  const td = document.getElementById('btn-toggledone');
+  if (td) td.onclick = function() { showDoneMap[bienId] = !showDone; render(); };
+
+  wireTasks(app);
+}
+
+function taskHTML(t) {
+  const subs = t.subs || [];
+  const subsDone = subs.filter(function(s) { return s.d; }).length;
+  const late = t.due && !t.done && t.due < todayISO();
+  let meta = '';
+  if (t.resp && t.resp.length) meta += '<span class="badge resp">👤 ' + esc(t.resp.map(function(p){return p[0];}).join('+')) + '</span>';
+  if (t.due) meta += '<span class="badge' + (late ? ' late' : '') + '">📅 ' + fmtDate(t.due) + '</span>';
+  if (t.shop) meta += '<span class="badge">🛒</span>';
+  if (subs.length) meta += '<span class="badge">' + subsDone + '/' + subs.length + '</span>';
+  if (t.details) meta += '<span class="badge">📝</span>';
+
+  let html = '<div class="task' + (t.done ? ' is-done' : '') + '" id="task-' + t.id + '">';
+  html += '<div class="task-row">';
+  html += '<button class="chk' + (t.done ? ' done' : '') + '" data-toggle="' + t.id + '">' + (t.done ? '✓' : '') + '</button>';
+  html += '<button class="task-main" data-expand="' + t.id + '">';
+  html += '<div class="task-title">' + esc(t.title) + '</div>';
+  if (meta) html += '<div class="task-meta">' + meta + '</div>';
+  html += '</button></div>';
+
+  if (expandedTaskId === t.id) html += detailHTML(t);
+  html += '</div>';
+  return html;
+}
+
+function detailHTML(t) {
+  const subs = t.subs || [];
+  let html = '<div class="detail">';
+  html += '<div><label>Tâche</label><input type="text" data-field="title" data-task="' + t.id + '" value="' + esc(t.title) + '"></div>';
+
+  html += '<div><label>Sous-tâches</label>';
+  subs.forEach(function(s, i) {
+    html += '<div class="sub-item">';
+    html += '<button class="sub-chk' + (s.d ? ' done' : '') + '" data-subtoggle="' + t.id + '|' + i + '">' + (s.d ? '✓' : '') + '</button>';
+    html += '<span class="sub-txt' + (s.d ? ' done' : '') + '">' + esc(s.t) + '</span>';
+    html += '<button class="sub-del" data-subdel="' + t.id + '|' + i + '">✕</button>';
+    html += '</div>';
+  });
+  html += '<div class="sub-add"><input type="text" id="sub-input-' + t.id + '" placeholder="Ajouter une sous-tâche…" autocomplete="off">';
+  html += '<button data-subadd="' + t.id + '">＋</button></div></div>';
+
+  html += '<div><label>Responsable</label><div class="chips">';
+  PEOPLE.forEach(function(p) {
+    const on = (t.resp || []).indexOf(p) >= 0;
+    html += '<button class="chip' + (on ? ' on' : '') + '" data-resp="' + t.id + '|' + p + '">' + esc(p) + '</button>';
+  });
+  html += '<button class="chip' + (t.shop ? ' on' : '') + '" data-shop="' + t.id + '">🛒 Achats</button>';
+  html += '</div></div>';
+
+  html += '<div><label>Échéance</label><div class="row2">';
+  html += '<input type="date" data-field="due" data-task="' + t.id + '" value="' + esc(t.due || '') + '">';
+  if (t.due) html += '<button class="mini-btn" data-cleardue="' + t.id + '">✕</button>';
+  html += '</div></div>';
+
+  html += '<div><label>Commentaires</label><textarea data-field="details" data-task="' + t.id + '" placeholder="Détails, références, notes…">' + esc(t.details || '') + '</textarea></div>';
+
+  html += '<button class="danger-btn" data-deltask="' + t.id + '">Supprimer la tâche</button>';
+  html += '</div>';
+  return html;
+}
+
+function wireTasks(app) {
+  app.querySelectorAll('[data-toggle]').forEach(function(el) {
+    el.onclick = function() { toggleTask(el.getAttribute('data-toggle')); };
+  });
+  app.querySelectorAll('[data-expand]').forEach(function(el) {
+    el.onclick = function() {
+      const id = el.getAttribute('data-expand');
+      expandedTaskId = (expandedTaskId === id) ? null : id;
+      render();
+    };
+  });
+  app.querySelectorAll('[data-field]').forEach(function(el) {
+    const id = el.getAttribute('data-task');
+    const field = el.getAttribute('data-field');
+    if (field === 'due') {
+      el.onchange = function() { patchTask(id, 'due', el.value); render(); };
+    } else {
+      el.oninput = function() { patchTask(id, field, el.value); };
+    }
+  });
+  app.querySelectorAll('[data-cleardue]').forEach(function(el) {
+    el.onclick = function() { patchTask(el.getAttribute('data-cleardue'), 'due', ''); render(); };
+  });
+  app.querySelectorAll('[data-resp]').forEach(function(el) {
+    const parts = el.getAttribute('data-resp').split('|');
+    el.onclick = function() { toggleResp(parts[0], parts[1]); };
+  });
+  app.querySelectorAll('[data-shop]').forEach(function(el) {
+    const id = el.getAttribute('data-shop');
+    el.onclick = function() {
+      const t = state['task:' + id];
+      if (!t) return;
+      t.shop = !t.shop;
+      markDirty('task:' + id);
+      render();
+    };
+  });
+  app.querySelectorAll('[data-subtoggle]').forEach(function(el) {
+    const parts = el.getAttribute('data-subtoggle').split('|');
+    el.onclick = function() { toggleSub(parts[0], parseInt(parts[1], 10)); };
+  });
+  app.querySelectorAll('[data-subdel]').forEach(function(el) {
+    const parts = el.getAttribute('data-subdel').split('|');
+    el.onclick = function() { deleteSub(parts[0], parseInt(parts[1], 10)); };
+  });
+  app.querySelectorAll('[data-subadd]').forEach(function(el) {
+    const id = el.getAttribute('data-subadd');
+    const inp = document.getElementById('sub-input-' + id);
+    function submitSub() { if (inp.value.trim()) { addSub(id, inp.value); } }
+    el.onclick = submitSub;
+    if (inp) inp.onkeydown = function(e) { if (e.key === 'Enter') submitSub(); };
+  });
+  app.querySelectorAll('[data-deltask]').forEach(function(el) {
+    el.onclick = function() { deleteTask(el.getAttribute('data-deltask')); };
+  });
+}
+
+/* ═══════════════ BOOT ═══════════════ */
+/* V1 sans authentification (itération locale) — voir règles Firestore.
+   V2 : réactiver le pattern onAuthStateChanged + compte Florine. */
+window.addEventListener('hashchange', function() { expandedTaskId = null; render(); });
+document.addEventListener('focusout', function() {
+  if (pendingRemoteRender) setTimeout(function() {
+    const ae = document.activeElement;
+    if (!ae || (ae.tagName !== 'INPUT' && ae.tagName !== 'TEXTAREA')) render();
+  }, 100);
+});
+window.addEventListener('beforeunload', function() {
+  if (dirtyKeys.size || deletedKeys.size) saveNow();
+});
+
+loadBackup();
+render();
+listen();
+</script>
+</body>
+</html>
