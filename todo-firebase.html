@@ -193,6 +193,9 @@ try {
 const BACKUP_KEY = 'todo-partage-backup';
 const PEOPLE = ['Cédric', 'Florine', 'Autre'];
 const OWNER_COLORS = { 'Cédric': '#4a90d9', 'Florine': '#9b6bd4', 'Autre': '#5aa35f', both: '#e8c33a' };
+// TODO (prochaine version) : si resp contient "Autre" + Cédric OU Florine (C+A / F+A),
+// forcer la couleur verte de "Autre" plutôt que le jaune "both" actuel.
+// Actuellement ownerColor() applique "both" (jaune) dès que resp.length >= 2, sans distinction.
 function ownerColor(resp) {
   if (!resp || !resp.length) return '';
   if (resp.length >= 2) return OWNER_COLORS.both;
@@ -304,6 +307,7 @@ function scheduleSave() {
 }
 function saveNow() {
   if (dirtyKeys.size === 0 && deletedKeys.size === 0) return;
+  if (!DOCREF) { setStatus('err', '⚠ Firebase non initialisé — données gardées en local'); return; }
   const payload = {};
   dirtyKeys.forEach(function(k) { if (state[k] !== undefined) payload[k] = state[k]; });
   deletedKeys.forEach(function(k) { payload[k] = firebase.firestore.FieldValue.delete(); });
@@ -313,9 +317,13 @@ function saveNow() {
     savedDirty.forEach(function(k) { dirtyKeys.delete(k); });
     savedDeleted.forEach(function(k) { deletedKeys.delete(k); });
     if (dirtyKeys.size === 0 && deletedKeys.size === 0) setStatus('ok', '✓ Synchronisé');
+    else scheduleSave();
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-  }).catch(function() {
-    setStatus('err', '⚠ Erreur de sauvegarde — nouvel essai dans 5s');
+  }).catch(function(err) {
+    const detail = (err && (err.code || err.message)) ? (err.code || err.message) : 'inconnue';
+    const n = dirtyKeys.size + deletedKeys.size;
+    setStatus('err', '⚠ NON SAUVEGARDÉ (' + detail + ') · ' + n + ' modif. en attente — réessai 5s');
+    console.error('Erreur de sauvegarde Firestore :', err);
     if (retryTimer) clearTimeout(retryTimer);
     retryTimer = setTimeout(saveNow, 5000);
   });
@@ -471,6 +479,7 @@ function deleteSub(taskId, idx) {
 /* ═══════════════ EXPORT CSV ═══════════════ */
 function exportCSV() {
   const rows = [['date_creation','bien','tache','details','sous_taches','responsable','echeance','achats','a_apporter','priorite','statut','date_completion']];
+  function dateOnly(iso) { return iso ? iso.slice(0, 10) : ''; }
   Object.keys(state).forEach(function(k) {
     if (k.indexOf('task:') !== 0) return;
     const t = state[k];
@@ -478,9 +487,9 @@ function exportCSV() {
     const subs = (t.subs || []).map(function(s) { return (s.d ? '[x] ' : '[ ] ') + s.t; }).join(' | ');
     const prioTxt = (t.prio === 1) ? 'importante' : ((t.prio === -1) ? 'secondaire' : 'normale');
     rows.push([
-      t.created || '', bien ? bien.name : t.bien, t.title || '', t.details || '', subs,
+      dateOnly(t.created), bien ? bien.name : t.bien, t.title || '', t.details || '', subs,
       (t.resp || []).join(', '), t.due || '', t.shop ? 'oui' : 'non', t.carry ? 'oui' : 'non', prioTxt,
-      t.done ? 'terminée' : 'ouverte', t.doneAt || ''
+      t.done ? 'terminée' : 'ouverte', dateOnly(t.doneAt)
     ]);
   });
   const csv = '\ufeff' + rows.map(function(r) {
@@ -910,8 +919,9 @@ function wireTasks(app) {
 }
 
 /* ═══════════════ BOOT ═══════════════ */
-/* V1 sans authentification (itération locale) — voir règles Firestore.
-   V2 : réactiver le pattern onAuthStateChanged + compte Florine. */
+/* Sans authentification (outil partagé, pas de confidentialité requise).
+   La sauvegarde Firestore exige une règle ouverte sur la collection todo-partage :
+     match /todo-partage/{doc} { allow read, write: if true; } */
 window.addEventListener('hashchange', function() { expandedTaskId = null; bienOrderCache = {}; render(); });
 document.addEventListener('focusout', function() {
   if (pendingRemoteRender) setTimeout(function() {
