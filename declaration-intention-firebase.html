@@ -62,6 +62,7 @@ a{color:inherit}
 .bar-cap{font-size:12px;color:var(--muted);margin-top:8px}
 .rev-left{font-size:13px;font-weight:600;color:var(--terra);margin-top:9px}
 .rev-left.done{color:var(--good)}
+.rev-pace{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);margin-left:8px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
 .legend .dot{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:middle}
 .legend b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
@@ -109,6 +110,9 @@ input:focus,select:focus{border-color:var(--terra-soft)}
 .acc-body{margin-top:16px}
 .add-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:14px}
 .add-row input,.add-row select{font-size:15px;padding:10px}
+.add-row.eq-line1{grid-template-columns:1fr 1fr;margin-bottom:8px}
+.eq-comment{font-size:14px;padding:10px;margin-bottom:8px}
+.add-row.eq-line2{grid-template-columns:1fr auto}
 .btn{background:var(--terra);color:#fff;border:none;border-radius:10px;font-weight:600;
   font-size:14px;padding:0 14px;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif}
 .btn:active{opacity:.85}
@@ -119,6 +123,7 @@ input:focus,select:focus{border-color:var(--terra-soft)}
 .row .main{flex:1;min-width:0}
 .row .name{font-weight:600;font-size:14px}
 .row .meta{font-size:12px;color:var(--muted);margin-top:2px}
+.row .comment{font-size:12px;color:#8a7a6b;margin-top:3px;font-style:italic;line-height:1.4}
 .row .pv{font-family:'DM Mono',monospace;font-size:13px;font-weight:500}
 .row .pv.pos{color:var(--good)} .row .pv.neg{color:var(--terra)}
 .del{background:none;border:none;color:var(--muted);font-size:17px;cursor:pointer;padding:2px 4px;line-height:1}
@@ -134,6 +139,10 @@ input:focus,select:focus{border-color:var(--terra-soft)}
 .chart-cap b{color:var(--ink);font-weight:600}
 
 .cfg-sub{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin:6px 0 10px}
+.notes-area{width:100%;min-height:140px;resize:vertical;font-family:'DM Sans',sans-serif;font-size:14px;
+  line-height:1.5;color:var(--ink);background:#FBF6EF;border:1.5px solid var(--line);border-radius:10px;
+  padding:12px 14px;outline:none}
+.notes-area:focus{border-color:var(--terra-soft)}
 
 .syncbar{position:fixed;left:0;right:0;bottom:0;text-align:center;font-size:13px;
   font-family:'DM Mono',monospace;padding:10px;background:#fff;border-top:1px solid var(--line);color:var(--muted);z-index:10}
@@ -166,7 +175,7 @@ input:focus,select:focus{border-color:var(--terra-soft)}
 <!-- 01 REVENUS -->
 <section class="card">
   <div class="card-head"><span class="pill">01</span><h2>Revenus de l'année</h2></div>
-  <div class="bar-val"><span id="rev-total">0 €</span><span class="bar-obj" id="rev-pct">—</span></div>
+  <div class="bar-val"><span id="rev-total">0 €</span><span class="rev-pace" id="rev-pace"></span><span class="bar-obj" id="rev-pct">—</span></div>
   <div class="track">
     <div class="seg salaire" id="seg-salaire"></div>
     <div class="seg cgp" id="seg-cgp"></div>
@@ -213,11 +222,14 @@ input:focus,select:focus{border-color:var(--terra-soft)}
 <section class="card">
   <button class="acc-head" id="eqToggle"><span class="pill">03</span><h2>Équipe d'invest</h2><span class="chev">▾</span></button>
   <div class="acc-body" id="eqBody" hidden>
-    <div class="add-row">
+    <div class="add-row eq-line1">
       <input id="eq-nom" placeholder="Nom">
       <input id="eq-fonction" placeholder="Fonction">
+    </div>
+    <input id="eq-commentaire" placeholder="Contexte (optionnel)" class="eq-comment">
+    <div class="add-row eq-line2">
       <select id="eq-groupe"><option value="fiables">Fiable</option><option value="info">Pour info</option></select>
-      <button id="eq-add" class="btn">+</button>
+      <button id="eq-add" class="btn">+ Ajouter</button>
     </div>
     <div class="group"><h3>Fiables / récurrents</h3><div id="eq-list-fiables" class="member-list"></div></div>
     <div class="group"><h3>Moins fiables / pour info</h3><div id="eq-list-info" class="member-list"></div></div>
@@ -247,6 +259,12 @@ input:focus,select:focus{border-color:var(--terra-soft)}
   <div class="card-head"><span class="pill">📈</span><h2>Projection bourse · 7 %/an</h2></div>
   <div class="chart-wrap" id="chart"></div>
   <div class="chart-cap" id="chart-cap">—</div>
+  <button class="acc-head" id="projToggle" style="margin-top:14px"><span class="pill">⚙</span><h2 style="font-size:14px">Paramètres de simulation</h2><span class="chev">▾</span></button>
+  <div class="acc-body" id="projBody" hidden>
+    <label class="full">Capital de départ (€)<input id="param-depart" type="number" inputmode="decimal"></label>
+    <label class="full">Versement annuel (€)<input id="param-vers" type="number" inputmode="decimal"></label>
+    <label class="full">Rendement annuel (%)<input id="param-rdt" type="number" inputmode="decimal"></label>
+  </div>
 </section>
 
 <!-- REGLAGES -->
@@ -263,11 +281,14 @@ input:focus,select:focus{border-color:var(--terra-soft)}
     <label class="full">Taux URSSAF (% du CA)<input id="param-urssaf" type="number" inputmode="decimal"></label>
     <label class="full">TMI — taux marginal IR (%)<input id="param-tmi" type="number" inputmode="decimal"></label>
     <label class="full">Abattement micro-BNC (%)<input id="param-abat" type="number" inputmode="decimal"></label>
-    <div class="cfg-sub">Projection bourse</div>
-    <label class="full">Capital de départ (€)<input id="param-depart" type="number" inputmode="decimal"></label>
-    <label class="full">Versement annuel (€)<input id="param-vers" type="number" inputmode="decimal"></label>
-    <label class="full">Rendement annuel (%)<input id="param-rdt" type="number" inputmode="decimal"></label>
   </div>
+</section>
+
+
+<!-- NOTES -->
+<section class="card">
+  <div class="card-head"><span class="pill">📝</span><h2>Notes</h2></div>
+  <textarea id="notes-libres" class="notes-area" placeholder="Notes en vrac…"></textarea>
 </section>
 
 <div class="syncbar" id="syncbar">Chargement…</div>
@@ -390,6 +411,7 @@ function hydrateInputs(){
   setVal('obj-revmensuel','obj:revmensuel',5000);
   setVal('param-urssaf','param:urssaf',25.6); setVal('param-tmi','param:tmi',30); setVal('param-abat','param:abattement',34);
   setVal('param-depart','param:capitalDepart',0); setVal('param-vers','param:versementAnnuel',g('obj:pea',18000)); setVal('param-rdt','param:rendement',7);
+  setVal('notes-libres','notes:libres','');
 }
 
 /* ===== Recompute ===== */
@@ -406,10 +428,13 @@ function recompute(){
   setSeg('seg-cgp', obj>0?cgp.net/obj*100:0);
   setSeg('seg-autres', obj>0?aut/obj*100:0);
   el('rev-total').textContent=fmt(tot);
+  const moisEcoules=Math.min(12,new Date().getMonth()+1);
+  const pace=tot/moisEcoules;
+  el('rev-pace').textContent=fmt(pace)+'/mois';
   el('rev-pct').textContent=Math.round(obj>0?tot/obj*100:0)+' % de '+fmt(obj);
   el('lg-sal').textContent=fmt(sal); el('lg-cgp').textContent=fmt(cgp.net); el('lg-aut').textContent=fmt(aut);
   const ultMois=g('obj:revmensuel',5000);
-  el('rev-cap').textContent='soit '+fmt(tot/12)+'/mois · horizon 2035 : '+fmt(ultMois*12)+'/an ('+fmt(ultMois)+'/mois)';
+  el('rev-cap').textContent='horizon 2035 : '+fmt(ultMois*12)+'/an ('+fmt(ultMois)+'/mois)';
   const left=obj-tot;
   const rl=el('rev-left'); rl.classList.toggle('done',left<=0);
   rl.textContent = left>0 ? 'Reste '+fmt(left)+' pour atteindre l\u2019objectif' : 'Objectif dépassé de '+fmt(-left)+' 🎯';
@@ -493,6 +518,7 @@ function memberRow(m,index){
   const name=document.createElement('div'); name.className='name'; name.textContent=m.nom||'—';
   main.appendChild(name);
   if(m.fonction){ const meta=document.createElement('div'); meta.className='meta'; meta.textContent=m.fonction; main.appendChild(meta); }
+  if(m.commentaire){ const com=document.createElement('div'); com.className='comment'; com.textContent=m.commentaire; main.appendChild(com); }
   const del=document.createElement('button'); del.className='del'; del.textContent='✕'; del.onclick=function(){ delEquipe(index); };
   row.appendChild(main); row.appendChild(del); return row;
 }
@@ -505,11 +531,12 @@ function renderEquipe(){
   if(ni===0){ const e=document.createElement('div'); e.className='empty'; e.textContent="Personne pour l'instant."; i.appendChild(e); }
 }
 function addEquipe(){
-  const nom=el('eq-nom').value.trim(), fonction=el('eq-fonction').value.trim(), groupe=el('eq-groupe').value;
+  const nom=el('eq-nom').value.trim(), fonction=el('eq-fonction').value.trim(),
+    commentaire=el('eq-commentaire').value.trim(), groupe=el('eq-groupe').value;
   if(!nom){ el('eq-nom').focus(); return; }
   if(!Array.isArray(DATA['equipe'])) DATA['equipe']=[];
-  DATA['equipe'].push({nom:nom,fonction:fonction,groupe:groupe});
-  el('eq-nom').value=''; el('eq-fonction').value=''; scheduleSave(); renderEquipe();
+  DATA['equipe'].push({nom:nom,fonction:fonction,commentaire:commentaire,groupe:groupe});
+  el('eq-nom').value=''; el('eq-fonction').value=''; el('eq-commentaire').value=''; scheduleSave(); renderEquipe();
 }
 function delEquipe(index){ if(!Array.isArray(DATA['equipe'])) return; DATA['equipe'].splice(index,1); scheduleSave(); renderEquipe(); }
 
@@ -555,6 +582,11 @@ function bind(id,key){
   node.oninput=function(){ const v=parseField(node.value);
     if(v===null) delete DATA[key]; else DATA[key]=v; scheduleSave(); recompute(); };
 }
+function bindText(id,key){
+  const node=el(id);
+  node.oninput=function(){ const v=node.value;
+    if(v==='') delete DATA[key]; else DATA[key]=v; scheduleSave(); };
+}
 function toggleHidden(btn,body){ const hid=body.hasAttribute('hidden');
   if(hid) body.removeAttribute('hidden'); else body.setAttribute('hidden',''); btn.classList.toggle('open',hid); return hid; }
 function wire(){
@@ -564,12 +596,14 @@ function wire(){
   bind('obj-capital','obj:capital'); bind('obj-revmensuel','obj:revmensuel');
   bind('param-urssaf','param:urssaf'); bind('param-tmi','param:tmi'); bind('param-abat','param:abattement');
   bind('param-depart','param:capitalDepart'); bind('param-vers','param:versementAnnuel'); bind('param-rdt','param:rendement');
+  bindText('notes-libres','notes:libres');
   el('eq-add').onclick=addEquipe; el('bien-add').onclick=addBien;
   /* toggles saisie (barre toujours visible, inputs repliés) */
   const toggles=document.querySelectorAll('.saisie-toggle');
   toggles.forEach(function(t){ t.onclick=function(){ const body=el(t.getAttribute('data-target')); const hid=toggleHidden(t,body); t.textContent=hid?'Masquer ▴':'Saisie ▾'; }; });
   /* accordéons équipe / réglages */
   const eqB=el('eqBody'), eqT=el('eqToggle'); eqT.onclick=function(){ toggleHidden(eqT,eqB); };
+  const prB=el('projBody'), prT=el('projToggle'); prT.onclick=function(){ toggleHidden(prT,prB); };
   const cfB=el('cfgBody'), cfT=el('cfgToggle'); cfT.onclick=function(){ toggleHidden(cfT,cfB); };
   /* manifeste */
   const mt=el('manifesteToggle'), man=el('manifeste');
