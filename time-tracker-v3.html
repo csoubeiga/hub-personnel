@@ -308,6 +308,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
   <div class="hist-tab-header">
     <div class="hist-tab-title">Historique</div>
     <button class="export-btn" id="btnExportAll">📄 Export CSV global</button>
+    <button class="export-btn" id="btnRepairDays">🔧 Réparer les jours</button>
   </div>
   <div id="histTableContainer"></div>
 </div>
@@ -453,7 +454,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 
 <script>
 // ─────────────────────────────────────────────────────────────────────────
-// ⏱ Time Tracker — v3.0.0
+// ⏱ Time Tracker — v3.1.0
 // Architecture : archivage immédiat par commitEntry(), startTs = clé du jour
 // Auth         : Firebase Email/Password, UID YFXOziOajjRoNE9i9GocvrEIsqB3
 // Firestore    : time-tracker-archive/YYYY-MM-DD · time-tracker-current/live
@@ -462,6 +463,16 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 // v3 : cat PRO CGP→PERSO REM (CGP+Locatif), types Immo RP + IA/Outils,
 //      couper en 3, onglet Bilan IA, target pondéré aux jours écoulés,
 //      table historique portrait mobile, suppr. ajout manuel + exports Aujourd'hui
+// v3.1 CORRECTIFS CRITIQUES :
+//      - Clés de jour en heure LOCALE (étaient en UTC via toISOString) :
+//        toute activité entre minuit et 02h était classée la veille, et
+//        l'édition déplaçait l'entrée de jour. Voir dateKeyLocal().
+//      - openEdit : arguments buildTypeChips décalés => type et catégorie
+//        non présélectionnés et non modifiables. Corrigé.
+//      - Entrées identifiées par startTs et non par index (le tri inverse
+//        de l'historique faisait pointer l'index sur la mauvaise ligne).
+//      - Garde début==fin (créait des entrées de 24h00) et alerte > 18h.
+//      - Bouton 'Réparer les jours' pour re-classer les données existantes.
 // ─────────────────────────────────────────────────────────────────────────
 
 const FB_CONFIG = {
@@ -530,7 +541,13 @@ const LS_ARCHIVE = 'tk_v2_archive';  // {YYYY-MM-DD: {entries:[], comment:''}}
 
 let db = null;
 let saveTimer = null, retryQ = [];
-let editDk = '', editEi = -1;
+// ⚠ Une entrée est identifiée par son startTs, JAMAIS par son index :
+// l'index change selon le tri d'affichage et pointe alors sur la mauvaise ligne.
+let editDk = '', editEts = 0;
+function findEntryIdx(dk,ets){
+  if(!allDays[dk])return -1;
+  return allDays[dk].entries.findIndex(function(e){return e.startTs===ets;});
+}
 let splitCutTs = 0, splitPart = 0, splitEntry1 = null;
 let live = {startTs: Date.now()};  // chrono actif uniquement
 let isPaused = false;
@@ -543,8 +560,12 @@ let statsInitDone = false;
 
 // ── HELPERS ──────────────────────────────────────────────────
 function pad(n){return('0'+n).slice(-2);}
-function todayStr(){return new Date().toISOString().slice(0,10);}
-function tsToDateStr(ts){return new Date(ts).toISOString().slice(0,10);}
+// ⚠ RÈGLE ABSOLUE : une clé de jour est TOUJOURS calculée en heure LOCALE.
+// toISOString() est en UTC : en France (UTC+1/+2) toute activité entre minuit
+// et 02h était classée la veille. Ne JAMAIS réintroduire toISOString() ici.
+function dateKeyLocal(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function todayStr(){return dateKeyLocal(new Date());}
+function tsToDateStr(ts){return dateKeyLocal(new Date(ts));}
 function fmtDur(s){
   if(s<0)s=0;
   const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
@@ -955,15 +976,16 @@ document.getElementById('stopPartConfirm').onclick=async function(){
 // ── MANUAL ───────────────────────────────────────────────────
 
 // ── EDIT (aujourd'hui et historique — même modal) ─────────────
-function openEdit(dk,ei){
-  editDk=dk;editEi=ei;
-  const entries=allDays[dk]?allDays[dk].entries:[];
-  const h=entries[ei];
-  if(!h)return;
+function openEdit(dk,ets){
+  const idx=findEntryIdx(dk,ets);
+  if(idx<0){alert('Entrée introuvable — rafraîchis la page.');return;}
+  editDk=dk;editEts=ets;
+  const h=allDays[dk].entries[idx];
   document.getElementById('editSub').textContent=
     fmtTime(h.startTs)+' → '+fmtTime(h.endTs)+'  ('+fmtDur(h.duration)+')';
-  buildTypeChips('editTypes','editCustom','editCats',h.type||'');
-  buildCatChips('editCats',h.cat||'');
+  // signature = (gridId, catRowId, selType) — 3 args, pas 4
+  buildTypeChips('editTypes','editCats',mapType(h.type)||'');
+  buildCatChips('editCats',mapCat(h.cat)||'');
   document.getElementById('editDetail').value=h.detail||'';
   document.getElementById('editNote').value=h.note||'';
 
@@ -972,7 +994,11 @@ function openEdit(dk,ei){
   openOv('ovEdit');
 }
 document.getElementById('editConfirm').onclick=async function(){
-  if(!editDk||editEi<0)return;
+  if(!editDk||!editEts)return;
+  const idx=findEntryIdx(editDk,editEts);
+  if(idx<0){alert('Entrée introuvable — rafraîchis la page.');closeOv('ovEdit');return;}
+  const orig=allDays[editDk].entries[idx];
+
   const type=getSelType('editTypes');
   const cat=getSelCat('editCats');
   const detail=document.getElementById('editDetail').value.trim();
@@ -980,37 +1006,43 @@ document.getElementById('editConfirm').onclick=async function(){
   const sv=document.getElementById('editStart').value;
   const ev=document.getElementById('editEnd').value;
   if(!sv||!ev){alert('Veuillez saisir les deux horaires.');return;}
-  const entries=allDays[editDk]?allDays[editDk].entries:[];
-  const refTs=entries[editEi].startTs;
+
+  const refTs=orig.startTs;
   let startTs=tiToTs(sv,refTs),endTs=tiToTs(ev,refTs);
-  if(endTs<=startTs)endTs+=86400000;
+  // Garde : début = fin → refuser (évitait un +24h silencieux = entrée de 24h00)
+  if(endTs===startTs){alert('Début et fin identiques : saisis une durée réelle.');return;}
+  if(endTs<startTs)endTs+=86400000; // franchissement de minuit
   const dur=Math.floor((endTs-startTs)/1000);
   if(dur<60){alert('Durée minimum : 1 minute.');return;}
-  // Si startTs change de jour, on retire de l'ancien et on commitEntry dans le nouveau
-  const newDk=tsToDateStr(startTs);
-  if(newDk!==editDk){
-    // Retirer de l'ancien jour
-    allDays[editDk].entries.splice(editEi,1);
+  if(dur>18*3600&&!confirm('Durée de '+fmtDur(dur)+'. C\'est volontaire ?'))return;
+
+  const updated={type,cat,detail,note,startTs,endTs,duration:dur,manual:true};
+
+  // ⚠ On ne déplace l'entrée QUE si l'heure de début a réellement changé de jour.
+  // Modifier type/catégorie/détail ne doit JAMAIS la déplacer.
+  const dayChanged=(startTs!==refTs)&&(tsToDateStr(startTs)!==tsToDateStr(refTs));
+
+  if(dayChanged){
+    allDays[editDk].entries.splice(idx,1);
     lsSaveArchive();
     await writeDayToFirestore(editDk);
-  } else {
-    entries[editEi]={type,cat,detail,note,startTs,endTs,duration:dur,manual:true};
-    entries.sort(function(a,b){return a.startTs-b.startTs;});
+    await commitEntry(updated);
+  }else{
+    allDays[editDk].entries[idx]=updated;
+    allDays[editDk].entries.sort(function(a,b){return a.startTs-b.startTs;});
     lsSaveArchive();
     await writeDayToFirestore(editDk);
-    closeOv('ovEdit');editDk='';editEi=-1;
-    renderToday();if(document.getElementById('panelHistory').classList.contains('active'))renderHistory();
-    return;
   }
-  await commitEntry({type,cat,detail,note,startTs,endTs,duration:dur,manual:true});
-  closeOv('ovEdit');editDk='';editEi=-1;
-  renderToday();if(document.getElementById('panelHistory').classList.contains('active'))renderHistory();
+  closeOv('ovEdit');editDk='';editEts=0;
+  renderToday();
+  if(document.getElementById('panelHistory').classList.contains('active'))renderHistory();
 };
 
-async function doDelete(dk,ei){
+async function doDelete(dk,ets){
+  const idx=findEntryIdx(dk,ets);
+  if(idx<0)return;
   if(!confirm('Supprimer cette entrée ?'))return;
-  if(!allDays[dk])return;
-  allDays[dk].entries.splice(ei,1);
+  allDays[dk].entries.splice(idx,1);
   lsSaveArchive();
   await writeDayToFirestore(dk);
   renderToday();
@@ -1052,8 +1084,8 @@ function renderToday(){
         '</div>'+
         '<div class="hist-dur">'+fmtDur(h.duration)+'</div>'+
         '<div class="hist-actions">'+
-          '<button class="hbtn" data-dk="'+tk+'" data-ei="'+k+'" data-a="edit">✏️</button>'+
-          '<button class="hbtn del" data-dk="'+tk+'" data-ei="'+k+'" data-a="del">✕</button>'+
+          '<button class="hbtn" data-dk="'+tk+'" data-ets="'+h.startTs+'" data-a="edit">✏️</button>'+
+          '<button class="hbtn del" data-dk="'+tk+'" data-ets="'+h.startTs+'" data-a="del">✕</button>'+
         '</div>'+
       '</div>';
   }
@@ -1061,9 +1093,9 @@ function renderToday(){
   list.querySelectorAll('[data-a]').forEach(function(btn){
     btn.addEventListener('click',function(){
       const dk=this.getAttribute('data-dk');
-      const ei=parseInt(this.getAttribute('data-ei'),10);
-      if(this.getAttribute('data-a')==='edit')openEdit(dk,ei);
-      else doDelete(dk,ei);
+      const ets=parseInt(this.getAttribute('data-ets'),10);
+      if(this.getAttribute('data-a')==='edit')openEdit(dk,ets);
+      else doDelete(dk,ets);
     });
   });
   // Stats strip
@@ -1167,6 +1199,41 @@ const CSV_HEADER='Date,Nom journée,Exclu,Type,Catégorie,Détail,Note,Début,Fi
 
 
 // ── HISTORIQUE ────────────────────────────────────────────────
+// ── RÉPARATION : re-classe les entrées mal filées ────────────
+// Corrige les données créées quand les clés de jour étaient calculées en UTC
+// (activités entre minuit et 02h classées la veille).
+async function repairDays(){
+  const moves=[];
+  Object.keys(allDays).forEach(function(dk){
+    (allDays[dk].entries||[]).forEach(function(h){
+      const correct=tsToDateStr(h.startTs);
+      if(correct!==dk)moves.push({from:dk,to:correct,entry:h});
+    });
+  });
+  if(!moves.length){alert('Aucune entrée mal classée. Tout est en ordre.');return;}
+  if(!confirm(moves.length+' entrée(s) à re-classer dans le bon jour.\n\nLancer la réparation ?'))return;
+  syncStatus('Réparation…');
+  const touched={};
+  moves.forEach(function(m){
+    const idx=allDays[m.from].entries.findIndex(function(e){return e.startTs===m.entry.startTs;});
+    if(idx>=0)allDays[m.from].entries.splice(idx,1);
+    if(!allDays[m.to])allDays[m.to]={entries:[],comment:'',excluded:false};
+    const dup=allDays[m.to].entries.findIndex(function(e){return e.startTs===m.entry.startTs;});
+    if(dup>=0)allDays[m.to].entries[dup]=m.entry;
+    else allDays[m.to].entries.push(m.entry);
+    touched[m.from]=true;touched[m.to]=true;
+  });
+  Object.keys(touched).forEach(function(dk){
+    allDays[dk].entries.sort(function(a,b){return a.startTs-b.startTs;});
+  });
+  lsSaveArchive();
+  const keys=Object.keys(touched);
+  for(let i=0;i<keys.length;i++){await writeDayToFirestore(keys[i]);}
+  renderHistory();renderToday();
+  alert('Réparation terminée : '+moves.length+' entrée(s) re-classée(s).');
+}
+document.getElementById('btnRepairDays').onclick=repairDays;
+
 document.getElementById('btnExportAll').onclick=function(){
   const all=getAllEntries(true);
   if(!all.length){alert('Aucune donnée à exporter.');return;}
@@ -1199,8 +1266,6 @@ function renderHistory(){
           '<thead><tr><th>Type</th><th>Détail</th><th>Début</th><th>Fin</th><th>Durée</th><th></th></tr></thead><tbody>';
     entries.forEach(function(h){
       const col=catColor(h.cat);
-      // index réel dans le tableau stocké (non trié) pour edit/delete stables
-      const realIdx=allDays[dk].entries.findIndex(function(e){return e.startTs===h.startTs;});
       html+='<tr>'+
         '<td class="td-type" style="color:'+col+'">'+escH(mapType(h.type)||'—')+'</td>'+
         '<td class="td-detail">'+(h.detail?escH(h.detail):(h.note?escH(h.note):''))+'</td>'+
@@ -1208,8 +1273,8 @@ function renderHistory(){
         '<td class="td-time">'+fmtTime(h.endTs)+'</td>'+
         '<td class="td-dur">'+fmtDur(h.duration)+'</td>'+
         '<td class="td-acts">'+
-          '<button class="hbtn" data-dk="'+escH(dk)+'" data-ei="'+realIdx+'" data-a="edit">✏️</button>'+
-          '<button class="hbtn del" data-dk="'+escH(dk)+'" data-ei="'+realIdx+'" data-a="del">✕</button>'+
+          '<button class="hbtn" data-dk="'+escH(dk)+'" data-ets="'+h.startTs+'" data-a="edit">✏️</button>'+
+          '<button class="hbtn del" data-dk="'+escH(dk)+'" data-ets="'+h.startTs+'" data-a="del">✕</button>'+
         '</td>'+
       '</tr>';
     });
@@ -1242,9 +1307,9 @@ function renderHistory(){
   container.querySelectorAll('[data-a]').forEach(function(btn){
     btn.addEventListener('click',function(){
       const dk=this.getAttribute('data-dk');
-      const ei=parseInt(this.getAttribute('data-ei'),10);
-      if(this.getAttribute('data-a')==='edit')openEdit(dk,ei);
-      else doDelete(dk,ei);
+      const ets=parseInt(this.getAttribute('data-ets'),10);
+      if(this.getAttribute('data-a')==='edit')openEdit(dk,ets);
+      else doDelete(dk,ets);
     });
   });
 }
@@ -1374,7 +1439,7 @@ function renderStats(){
     if(!wk){document.getElementById('stBars').innerHTML='<div class="st-empty">Aucune semaine.</div>';return;}
     const{mon,sun}=weekBounds(wk);
     const allWkDays=[];
-    for(let d=new Date(mon);d<=sun;d=new Date(d.getTime()+86400000))allWkDays.push(d.toISOString().slice(0,10));
+    for(let d=new Date(mon);d<=sun;d=new Date(d.getTime()+86400000))allWkDays.push(dateKeyLocal(d));
     dayKeys=inclWE?allWkDays:allWkDays.filter(function(dk){return!isWeekend(dk);});
     entries=allE.filter(function(e){
       const d=new Date(e.dayKey+'T12:00:00');
