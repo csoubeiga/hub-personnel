@@ -212,6 +212,13 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 /* SYNC BAR */
 .sync-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;text-align:center;background:rgba(245,242,237,.95);backdrop-filter:blur(6px);border-top:1px solid var(--border);color:var(--ink-muted);transition:color .3s}
 .sync-bar.ok{color:var(--green)}.sync-bar.err{color:var(--accent)}
+/* SYNC SHEETS */
+.digest-meta{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink-muted);background:var(--surface);border-radius:10px;padding:10px 13px;margin-bottom:16px;line-height:1.6}
+.digest-meta.ok{color:var(--green)}
+.digest-meta.warn{color:#B8860B}
+.digest-meta.err{color:var(--accent)}
+.sync-cfg{background:var(--surface);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.sync-cfg .field{margin-bottom:12px}
 /* BILAN */
 .bilan-wrap{max-width:760px;margin:0 auto;padding:24px 18px 60px}
 @media(min-width:700px){.bilan-wrap{padding:28px 28px 60px}}
@@ -254,7 +261,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
   <button class="tab-btn active" id="tabToday">Aujourd'hui</button>
   <button class="tab-btn" id="tabHistory">Historique</button>
   <button class="tab-btn" id="tabStats">Statistiques</button>
-  <button class="tab-btn" id="tabBilan">Bilan</button>
+  <button class="tab-btn" id="tabBilan">Export</button>
   <button class="tab-btn" id="tabNotes">Notes</button>
 </div>
 
@@ -349,22 +356,31 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 </div>
 </div>
 
-<!-- TAB BILAN -->
+<!-- TAB SYNC -->
 <div class="tab-panel" id="panelBilan">
 <div class="bilan-wrap">
-  <div style="font-size:15px;font-weight:700;margin-bottom:6px">🧠 Bilan IA</div>
-  <div style="font-size:13px;color:var(--ink-muted);margin-bottom:18px">Analyse automatique de ton allocation de temps sur la période choisie.</div>
-  <div class="bilan-controls">
-    <select class="bilan-period-sel" id="bilanPeriod">
-      <option value="week">Cette semaine</option>
-      <option value="lastweek">Semaine dernière</option>
-      <option value="month">Ce mois</option>
-      <option value="7days">7 derniers jours</option>
-      <option value="30days">30 derniers jours</option>
-    </select>
-    <button class="bilan-gen-btn" id="bilanGenBtn">✨ Générer mon bilan</button>
+  <div style="font-size:15px;font-weight:700;margin-bottom:6px">📤 Export Google Sheets</div>
+  <div style="font-size:13px;color:var(--ink-muted);margin-bottom:18px">Chaque lundi, l'app envoie les lignes de la semaine écoulée dans ta feuille. Aucune action de ta part.</div>
+
+  <div class="digest-meta" id="syncMeta">Non configuré.</div>
+
+  <div class="sync-cfg">
+    <label class="flbl">URL du script (…/exec)</label>
+    <input class="field" id="cfgSheetUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+    <label class="flbl">Mot de passe partagé</label>
+    <input class="field" id="cfgSheetSecret" type="text" placeholder="doit correspondre au SECRET du script" autocomplete="off">
+    <button class="bilan-gen-btn" id="cfgSaveBtn">Enregistrer</button>
   </div>
-  <div class="bilan-output empty" id="bilanOutput">Choisis une période et génère ton bilan.</div>
+
+  <div style="height:1px;background:var(--border);margin:24px 0"></div>
+
+  <div style="font-size:13px;font-weight:700;margin-bottom:10px">Renvoyer une semaine</div>
+  <div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px">À utiliser après avoir corrigé une entrée déjà envoyée. Le script remplace la semaine, jamais de doublon.</div>
+  <div class="bilan-controls">
+    <select class="bilan-period-sel" id="syncWeekSel"></select>
+    <button class="bilan-gen-btn" id="syncResendBtn">↻ Renvoyer</button>
+  </div>
+  <div class="bilan-output empty" id="syncPreview">Aperçu de la semaine sélectionnée.</div>
 </div>
 </div>
 
@@ -454,7 +470,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 
 <script>
 // ─────────────────────────────────────────────────────────────────────────
-// ⏱ Time Tracker — v3.1.0
+// ⏱ Time Tracker — v3.3.0
 // Architecture : archivage immédiat par commitEntry(), startTs = clé du jour
 // Auth         : Firebase Email/Password, UID YFXOziOajjRoNE9i9GocvrEIsqB3
 // Firestore    : time-tracker-archive/YYYY-MM-DD · time-tracker-current/live
@@ -473,6 +489,19 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 //        de l'historique faisait pointer l'index sur la mauvaise ligne).
 //      - Garde début==fin (créait des entrées de 24h00) et alerte > 18h.
 //      - Bouton 'Réparer les jours' pour re-classer les données existantes.
+// v3.3 EXPORT GOOGLE SHEETS :
+//      - Chaque lundi, envoi auto des LIGNES BRUTES de la ou des semaines
+//        terminées vers un Apps Script déployé en web app, qui écrit dans
+//        deux onglets : 'Log' (ajout continu) et 'Derniere semaine' (écrasé).
+//      - Rattrapage automatique si l'app n'a pas été ouverte pendant
+//        plusieurs semaines (curseur lastSyncedWeek).
+//      - Script idempotent : purge de la semaine avant réécriture, donc
+//        renvoyer une semaine ne crée jamais de doublon.
+//      - Réglages (URL + mot de passe partagé) dans time-tracker-current/config,
+//        protégés par la règle UID. Rien de sensible dans le repo GitHub.
+//      - REMPLACE le digest Firestore en lecture publique de la v3.2, retiré :
+//        plus de collection time-tracker-digest, plus d'URL REST publique.
+//        Claude lit désormais la feuille via le connecteur Google Drive.
 // ─────────────────────────────────────────────────────────────────────────
 
 const FB_CONFIG = {
@@ -1608,111 +1637,219 @@ document.getElementById('notesArea').addEventListener('input',function(){
   clearTimeout(notesSaveTimer);notesSaveTimer=setTimeout(saveNotes,1200);
 });
 
-// ── BILAN IA ─────────────────────────────────────────────────
-function bilanPeriodBounds(period){
-  const now=new Date();
-  const today=todayStr();
-  let start,end,label;
-  if(period==='week'||period==='lastweek'){
-    const d=new Date(now);
-    const dow=(d.getDay()||7)-1; // lundi=0
-    const monday=new Date(d.getTime()-dow*86400000);
-    monday.setHours(0,0,0,0);
-    if(period==='lastweek'){
-      start=new Date(monday.getTime()-7*86400000);
-      end=new Date(monday.getTime()-86400000);
-    }else{
-      start=monday;end=new Date();
-    }
-    label=period==='lastweek'?'la semaine dernière':'cette semaine';
-  }else if(period==='month'){
-    start=new Date(now.getFullYear(),now.getMonth(),1);
-    end=new Date();
-    label='ce mois';
-  }else if(period==='7days'){
-    start=new Date(now.getTime()-6*86400000);start.setHours(0,0,0,0);
-    end=new Date();label='les 7 derniers jours';
-  }else{ // 30days
-    start=new Date(now.getTime()-29*86400000);start.setHours(0,0,0,0);
-    end=new Date();label='les 30 derniers jours';
-  }
-  return {start:start.getTime(),end:end.getTime(),label};
+// ── SYNC GOOGLE SHEETS ───────────────────────────────────────
+// Chaque lundi, l'app envoie les lignes brutes de la ou des semaines
+// terminées à un Apps Script déployé en web app, qui écrit dans la feuille.
+// Le script est idempotent : il purge la semaine avant de la réécrire.
+const CFG_DOC='config';
+let sheetCfg={sheetUrl:'',sheetSecret:'',lastSyncedWeek:''};
+
+function prevWeekKey(){
+  const d=new Date();d.setDate(d.getDate()-7);
+  return isoWeek(d);
+}
+function weekDayKeys(wk){
+  const {mon}=weekBounds(wk);const out=[];
+  for(let i=0;i<7;i++){out.push(dateKeyLocal(new Date(mon.getTime()+i*86400000)));}
+  return out;
+}
+const JOURS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+
+// Une ligne par activité de la semaine
+function weekRows(wk){
+  const rows=[];
+  weekDayKeys(wk).forEach(function(dk){
+    const d=allDays[dk];
+    if(!d||!d.entries)return;
+    d.entries.slice().sort(function(a,b){return a.startTs-b.startTs;}).forEach(function(h){
+      const st=new Date(h.startTs);
+      rows.push([
+        dk,
+        JOURS[st.getDay()],
+        wk,
+        fmtTime(h.startTs),
+        fmtTime(h.endTs),
+        Math.round(h.duration/36)/100,       // durée décimale, pour les calculs
+        fmtDur(h.duration),                  // durée lisible
+        mapType(h.type)||'',
+        mapCat(h.cat)||'',
+        h.detail||'',
+        h.note||'',
+        d.excluded?'oui':'',
+        d.comment||''
+      ]);
+    });
+  });
+  return rows;
 }
 
-function buildBilanData(period){
-  const {start,end,label}=bilanPeriodBounds(period);
-  const all=getAllEntries(); // exclut déjà les jours 'excluded'
-  const inRange=all.filter(function(e){ return e.startTs>=start && e.startTs<=end; });
-  // Agrégats par catégorie
-  const byCat={};
-  CATEGORIES.forEach(function(c){byCat[c.key]=0;});
-  inRange.forEach(function(h){ if(h.cat){const mc=mapCat(h.cat); if(byCat[mc]!==undefined) byCat[mc]+=h.duration/3600;} });
-  // Agrégats par type
-  const byType={};
-  inRange.forEach(function(h){ const t=mapType(h.type)||'—'; byType[t]=(byType[t]||0)+h.duration/3600; });
-  // Jours couverts
-  const days=[...new Set(inRange.map(function(e){return e.dayKey;}))];
-  const total=Object.values(byCat).reduce(function(a,v){return a+v;},0);
-  // Étalon sur période écoulée
-  const etalonTotal=Object.values(etalon).reduce(function(a,v){return a+v;},0)*days.length;
-  return {label,byCat,byType,days:days.length,total,etalonTotal,etalon};
-}
-
-function fmtHb(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);if(hh===0)return mm+'min';if(mm===0)return hh+'h';return hh+'h'+String(mm).padStart(2,'0');}
-
-async function generateBilan(){
-  const period=document.getElementById('bilanPeriod').value;
-  const data=buildBilanData(period);
-  const out=document.getElementById('bilanOutput');
-  if(data.days===0){
-    out.className='bilan-output empty';
-    out.textContent='Aucune donnée sur '+data.label+'.';
+async function loadSheetCfg(){
+  if(!db){
+    const raw=localStorage.getItem('tk_sheet_cfg');
+    if(raw)sheetCfg=JSON.parse(raw);
     return;
   }
-  out.className='bilan-output';
-  out.innerHTML='<div class="bilan-loading"><div class="bilan-spinner"></div>Analyse en cours…</div>';
-  document.getElementById('bilanGenBtn').disabled=true;
-
-  // Construire le prompt
-  let catLines='';
-  CATEGORIES.forEach(function(c){
-    const h=data.byCat[c.key]||0;
-    const objH=(data.etalon[c.key]||0)*data.days;
-    catLines+='- '+c.key.replace('TEMPS ','')+' : '+fmtHb(h)+(objH>0?' (objectif '+fmtHb(objH)+')':'')+'\n';
-  });
-  const topTypes=Object.entries(data.byType).sort(function(a,b){return b[1]-a[1];}).slice(0,8)
-    .map(function(e){return '- '+e[0]+' : '+fmtHb(e[1]);}).join('\n');
-
-  const prompt='Tu es un coach en gestion du temps. Voici mes données de temps trackées sur '+data.label+' ('+data.days+' jours).\n\n'+
-    'RÉPARTITION PAR CATÉGORIE (réel vs objectif) :\n'+catLines+'\n'+
-    'TOP ACTIVITÉS :\n'+topTypes+'\n\n'+
-    'Total tracké : '+fmtHb(data.total)+' sur '+data.days+' jours.\n\n'+
-    'Fais-moi un bilan CONCIS et ACTIONNABLE (max 200 mots) : 1) ce qui va bien, 2) les écarts vs objectifs, '+
-    '3) UN conseil concret pour la semaine prochaine. Ton direct, pas de blabla, tutoie-moi.';
-
   try{
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const s=await db.collection('time-tracker-current').doc(CFG_DOC).get();
+    if(s.exists)sheetCfg=Object.assign(sheetCfg,s.data());
+  }catch(e){console.warn('loadSheetCfg',e);}
+}
+async function saveSheetCfg(){
+  localStorage.setItem('tk_sheet_cfg',JSON.stringify(sheetCfg));
+  if(!db)return;
+  try{await db.collection('time-tracker-current').doc(CFG_DOC).set(sheetCfg);}
+  catch(e){console.warn('saveSheetCfg',e);}
+}
+
+// Envoi d'une semaine. Renvoie 'ok' | 'sent' (non confirmé) | 'error'
+async function pushWeek(wk){
+  if(!sheetCfg.sheetUrl)return 'error';
+  const rows=weekRows(wk);
+  const body=JSON.stringify({secret:sheetCfg.sheetSecret,week:wk,rows:rows});
+  try{
+    // text/plain évite le préflight CORS sur les web apps Apps Script
+    const r=await fetch(sheetCfg.sheetUrl,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}]
-      })
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:body
     });
-    const result=await response.json();
-    const text=result.content.filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('\n');
-    out.className='bilan-output';
-    out.textContent=text||'Réponse vide.';
+    try{
+      const j=await r.json();
+      return j&&j.ok?'ok':'error';
+    }catch(e){
+      return 'sent'; // réponse illisible (redirection Apps Script) mais requête partie
+    }
   }catch(e){
-    out.className='bilan-output';
-    out.textContent='Erreur lors de la génération : '+e.message+'\n\nRéessaie dans un instant.';
-  }finally{
-    document.getElementById('bilanGenBtn').disabled=false;
+    console.warn('pushWeek',e);
+    return 'error';
   }
 }
 
-document.getElementById('bilanGenBtn').onclick=generateBilan;
+// Rattrapage : envoie toutes les semaines terminées depuis la dernière sync
+async function maybeSyncWeeks(){
+  if(!sheetCfg.sheetUrl)return null;
+  const target=prevWeekKey();
+  if(sheetCfg.lastSyncedWeek===target)return null;
+
+  // Liste des semaines à envoyer, de la plus ancienne à la plus récente
+  const todo=[];
+  let cursor=new Date(weekBounds(target).mon);
+  for(let i=0;i<12;i++){
+    const wk=isoWeek(cursor);
+    if(sheetCfg.lastSyncedWeek&&wk<=sheetCfg.lastSyncedWeek)break;
+    if(weekRows(wk).length)todo.unshift(wk);
+    cursor=new Date(cursor.getTime()-7*86400000);
+    if(!sheetCfg.lastSyncedWeek)break; // première sync : uniquement la semaine écoulée
+  }
+  if(!todo.length){sheetCfg.lastSyncedWeek=target;await saveSheetCfg();return null;}
+
+  let last=null;
+  for(let i=0;i<todo.length;i++){
+    const res=await pushWeek(todo[i]);
+    if(res==='error')return {week:todo[i],status:'error'};
+    last={week:todo[i],status:res};
+  }
+  sheetCfg.lastSyncedWeek=target;
+  sheetCfg.lastSyncedAt=Date.now();
+  sheetCfg.lastSyncedStatus=last?last.status:'ok';
+  await saveSheetCfg();
+  return last;
+}
+
+// ── UI ───────────────────────────────────────────────────────
+function syncStatusLine(){
+  const m=document.getElementById('syncMeta');
+  if(!sheetCfg.sheetUrl){
+    m.className='digest-meta';
+    m.textContent='Non configuré. Renseigne l\'URL du script et le mot de passe ci-dessous.';
+    return;
+  }
+  if(!sheetCfg.lastSyncedWeek){
+    m.className='digest-meta warn';
+    m.textContent='Configuré. Aucune semaine envoyée pour l\'instant.';
+    return;
+  }
+  const when=sheetCfg.lastSyncedAt?new Date(sheetCfg.lastSyncedAt).toLocaleString('fr-FR'):'—';
+  if(sheetCfg.lastSyncedStatus==='sent'){
+    m.className='digest-meta warn';
+    m.textContent='Semaine '+sheetCfg.lastSyncedWeek+' envoyée le '+when+
+      '.\nConfirmation non lisible (redirection Apps Script). Vérifie la feuille une fois.';
+  }else{
+    m.className='digest-meta ok';
+    m.textContent='✓ Semaine '+sheetCfg.lastSyncedWeek+' synchronisée le '+when+'.';
+  }
+}
+
+function renderSyncTab(){
+  document.getElementById('cfgSheetUrl').value=sheetCfg.sheetUrl||'';
+  document.getElementById('cfgSheetSecret').value=sheetCfg.sheetSecret||'';
+  syncStatusLine();
+
+  const sel=document.getElementById('syncWeekSel');
+  const wks={};
+  Object.keys(allDays).forEach(function(dk){
+    if(allDays[dk].entries&&allDays[dk].entries.length)
+      wks[isoWeek(new Date(dk+'T12:00:00'))]=true;
+  });
+  const list=Object.keys(wks).sort(function(a,b){return b.localeCompare(a);});
+  const keep=sel.value;
+  sel.innerHTML=list.map(function(w){
+    const b=weekBounds(w);
+    return '<option value="'+w+'">'+w+'  ('+dateKeyLocal(b.mon).slice(5)+' → '+dateKeyLocal(b.sun).slice(5)+')</option>';
+  }).join('');
+  if(keep&&list.indexOf(keep)>=0)sel.value=keep;
+  else if(list.indexOf(prevWeekKey())>=0)sel.value=prevWeekKey();
+  renderSyncPreview();
+}
+
+function renderSyncPreview(){
+  const wk=document.getElementById('syncWeekSel').value;
+  const out=document.getElementById('syncPreview');
+  if(!wk){out.className='bilan-output empty';out.textContent='Aucune semaine.';return;}
+  const rows=weekRows(wk);
+  if(!rows.length){out.className='bilan-output empty';out.textContent='Aucune activité sur '+wk+'.';return;}
+  let tot=0;rows.forEach(function(r){tot+=r[5];});
+  const days={};rows.forEach(function(r){days[r[0]]=true;});
+  const lines=[wk+' — '+rows.length+' lignes, '+Object.keys(days).length+' jours, '+
+               (Math.round(tot*10)/10)+'h au total',''];
+  rows.slice(0,12).forEach(function(r){
+    lines.push(r[0]+'  '+r[3]+'→'+r[4]+'  '+(r[7]||'—')+(r[9]?'  ('+r[9]+')':''));
+  });
+  if(rows.length>12)lines.push('… et '+(rows.length-12)+' autres lignes');
+  out.className='bilan-output';
+  out.textContent=lines.join('\n');
+}
+
+document.getElementById('syncWeekSel').onchange=renderSyncPreview;
+
+document.getElementById('cfgSaveBtn').onclick=async function(){
+  sheetCfg.sheetUrl=document.getElementById('cfgSheetUrl').value.trim();
+  sheetCfg.sheetSecret=document.getElementById('cfgSheetSecret').value.trim();
+  await saveSheetCfg();
+  syncStatusLine();
+  syncStatus('✓ Réglages enregistrés','ok');
+};
+
+document.getElementById('syncResendBtn').onclick=async function(){
+  const wk=document.getElementById('syncWeekSel').value;
+  if(!wk)return;
+  if(!sheetCfg.sheetUrl){alert('Configure d\'abord l\'URL du script.');return;}
+  const btn=this;btn.disabled=true;btn.textContent='…';
+  try{
+    const res=await pushWeek(wk);
+    if(res==='error'){
+      syncStatus('⚠ Échec de l\'envoi','err');
+      alert('Échec. Vérifie l\'URL du script et le mot de passe.');
+    }else{
+      sheetCfg.lastSyncedAt=Date.now();
+      sheetCfg.lastSyncedStatus=res;
+      if(!sheetCfg.lastSyncedWeek||wk>sheetCfg.lastSyncedWeek)sheetCfg.lastSyncedWeek=wk;
+      await saveSheetCfg();
+      syncStatusLine();
+      syncStatus(res==='ok'?'✓ Semaine envoyée':'✓ Envoyée (non confirmée)','ok');
+    }
+  }finally{btn.disabled=false;btn.textContent='↻ Renvoyer';}
+};
 
 // ── TABS ─────────────────────────────────────────────────────
 const ALL_TABS=['tabToday','tabHistory','tabStats','tabBilan','tabNotes'];
@@ -1726,7 +1863,7 @@ function switchTab(tab,panel){
 document.getElementById('tabToday').onclick  =function(){switchTab('tabToday','panelToday');};
 document.getElementById('tabHistory').onclick=function(){switchTab('tabHistory','panelHistory');renderHistory();};
 document.getElementById('tabStats').onclick  =function(){switchTab('tabStats','panelStats');initStats();};
-document.getElementById('tabBilan').onclick  =function(){switchTab('tabBilan','panelBilan');};
+document.getElementById('tabBilan').onclick  =function(){switchTab('tabBilan','panelBilan');renderSyncTab();};
 document.getElementById('tabNotes').onclick  =function(){switchTab('tabNotes','panelNotes');initNotes();};
 
 // ── BOOT ─────────────────────────────────────────────────────
@@ -1753,6 +1890,13 @@ firebase.auth().onAuthStateChanged(function(user){
       }
       setTimeout(flushRetryQ,3000);
       syncStatus('✓ Synchronisé','ok');
+      // Export auto vers Google Sheets (non bloquant)
+      loadSheetCfg().then(function(){
+        return maybeSyncWeeks();
+      }).then(function(res){
+        if(res&&res.status==='error')syncStatus('⚠ Export Sheets échoué','err');
+        else if(res)syncStatus('✓ Semaine '+res.week+' exportée','ok');
+      }).catch(function(e){console.warn('sync sheets',e);});
     }
   })();
 });
