@@ -470,7 +470,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 
 <script>
 // ─────────────────────────────────────────────────────────────────────────
-// ⏱ Time Tracker — v3.3.0
+// ⏱ Time Tracker — v3.3.1
 // Architecture : archivage immédiat par commitEntry(), startTs = clé du jour
 // Auth         : Firebase Email/Password, UID YFXOziOajjRoNE9i9GocvrEIsqB3
 // Firestore    : time-tracker-archive/YYYY-MM-DD · time-tracker-current/live
@@ -502,6 +502,10 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 //      - REMPLACE le digest Firestore en lecture publique de la v3.2, retiré :
 //        plus de collection time-tracker-digest, plus d'URL REST publique.
 //        Claude lit désormais la feuille via le connecteur Google Drive.
+// v3.3.1 CORRECTIF : le renvoi manuel n'avance plus lastSyncedWeek.
+//        Renvoyer la semaine EN COURS avançait le curseur sur une semaine
+//        incomplète ; la sync auto du lundi suivant la sautait et ses
+//        derniers jours ne remontaient jamais dans la feuille.
 // ─────────────────────────────────────────────────────────────────────────
 
 const FB_CONFIG = {
@@ -1841,9 +1845,13 @@ document.getElementById('syncResendBtn').onclick=async function(){
       syncStatus('⚠ Échec de l\'envoi','err');
       alert('Échec. Vérifie l\'URL du script et le mot de passe.');
     }else{
+      // ⚠ Le renvoi manuel ne touche JAMAIS lastSyncedWeek.
+      // Renvoyer la semaine EN COURS avancerait le curseur sur une semaine
+      // incomplète, et la sync auto du lundi suivant la sauterait : les
+      // derniers jours ne remonteraient jamais. Le curseur appartient
+      // exclusivement à maybeSyncWeeks().
       sheetCfg.lastSyncedAt=Date.now();
       sheetCfg.lastSyncedStatus=res;
-      if(!sheetCfg.lastSyncedWeek||wk>sheetCfg.lastSyncedWeek)sheetCfg.lastSyncedWeek=wk;
       await saveSheetCfg();
       syncStatusLine();
       syncStatus(res==='ok'?'✓ Semaine envoyée':'✓ Envoyée (non confirmée)','ok');
