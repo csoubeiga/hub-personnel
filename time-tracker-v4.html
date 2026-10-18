@@ -519,7 +519,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 
 <script>
 // ─────────────────────────────────────────────────────────────────────────
-// ⏱ Time Tracker — v4.1.0
+// ⏱ Time Tracker — v4.2.0
 // Architecture : archivage immédiat par commitEntry(), startTs = clé du jour
 // Auth         : Firebase Email/Password, UID YFXOziOajjRoNE9i9GocvrEIsqB3
 // Firestore    : time-tracker-archive/YYYY-MM-DD · time-tracker-current/live
@@ -591,6 +591,31 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);min-hei
 //        Sheet : colonne 'Parallele' ajoutee en DERNIERE position, pour ne
 //        decaler aucune colonne existante (COL_SEMAINE reste valide et les
 //        anciennes lignes restent coherentes, vide = non parallele).
+// v4.1.1 CORRECTIF couper en 2 / en 3 a cheval sur minuit.
+//        tiToTs pose l'heure saisie sur le JOUR de la reference : avec un
+//        chrono lance la veille a 22h32, saisir 00:30 visait la veille 00:30,
+//        soit avant le debut, et la coupure etait rejetee. Meme la valeur
+//        pre-remplie par openSplitModal etait rejetee, donc le bouton ne
+//        pouvait jamais fonctionner apres minuit.
+//        Regression introduite en retirant le correctif '+1 jour' de tiToTs
+//        lors de la simplification d'architecture. Il n'est PAS remis la :
+//        il casserait l'edition d'une entree passee. Nouveau helper
+//        tiToTsAfter(), utilise uniquement pour les bornes de coupure, ou
+//        la semantique « posterieur a » est vraie. La 2e coupure s'ancre
+//        sur la 1re, ce qui gere un second passage minuit.
+// v4.2.0 - Heure de demarrage (bouton modifier) : meme famille de bug. Elle
+//        etait ancree sur le JOUR du demarrage courant, donc apres minuit
+//        saisir 08:00 visait la veille 08:00, soit 25h plus tot. Nouveau
+//        helper tiToTsBefore() : occurrence la plus RECENTE <= maintenant.
+//        Trois gardes : valeur inchangee -> aucun deplacement (protege les
+//        chronos de plus de 24h) ; resultat toujours <= maintenant, donc
+//        l'ancien controle « heure dans le futur » devient inatteignable ;
+//        duree obtenue > 18h -> confirmation, ce qui rattrape les fautes
+//        de frappe que l'ancien controle rejetait.
+//        NOTE connue, non corrigee : la croix de suppression de la table
+//        Historique est rognee en portrait (colonne actions a 8%, soit 28px
+//        pour deux boutons qui en reclament 29, avec overflow:hidden). Le
+//        code de suppression est correct, c'est l'affichage qui la cache.
 // ─────────────────────────────────────────────────────────────────────────
 
 const FB_CONFIG = {
@@ -699,6 +724,24 @@ function tiToTs(val,ref){
   const p=val.split(':'),d=new Date(ref||Date.now());
   d.setHours(parseInt(p[0],10),parseInt(p[1],10),0,0);
   return d.getTime();
+}
+// Résout une heure HH:MM en un timestamp situé APRÈS `after`.
+// Indispensable pour couper une activité à cheval sur minuit : saisir 00:30
+// alors que le chrono tourne depuis la veille 22:32 doit viser le lendemain,
+// or tiToTs pose l'heure sur le jour de la référence et tomberait avant.
+// ⚠ Réservé au contexte « coupure », où la borne doit être postérieure.
+// Ne JAMAIS généraliser à tiToTs : sur l'édition d'une entrée passée, avancer
+// une heure de début dans la même journée serait projeté au lendemain.
+function tiToTsAfter(val,after){
+  let ts=tiToTs(val,after);
+  while(ts<=after)ts+=86400000;
+  return ts;
+}
+// Occurrence la plus récente <= `before`. À 09h07 : 22:30 = hier, 08:00 = ce matin.
+function tiToTsBefore(val,before){
+  let ts=tiToTs(val,before);
+  if(ts>before)ts-=86400000;
+  return ts;
 }
 function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function catColor(cat){const mc=mapCat(cat);const c=CATEGORIES.find(function(x){return x.key===mc;});return c?c.color:'#C8C4BF';}
@@ -942,8 +985,12 @@ document.getElementById('startTimeInput').addEventListener('keydown',function(e)
 function applyStartEdit(){
   const val=document.getElementById('startTimeInput').value;
   if(!val){cancelStartEdit();return;}
-  const newTs=tiToTs(val,live.startTs);
-  if(newTs>Date.now()){alert('Heure dans le futur.');return;}
+  // Inchangé : ne rien toucher (sinon un chrono >24h perdrait 24h en silence)
+  if(val===tsToTI(live.startTs)){cancelStartEdit();return;}
+  const now=Date.now();
+  const newTs=tiToTsBefore(val,now);
+  const dur=Math.floor((now-newTs)/1000);
+  if(dur>18*3600&&!confirm('Démarrage il y a '+fmtDur(dur)+'.\nC\'est volontaire ?'))return;
   live.startTs=newTs;saveLive();cancelStartEdit();renderToday();
 }
 function cancelStartEdit(){
@@ -1039,14 +1086,23 @@ document.getElementById('split3Btn').onclick=function(){ openSplitModal(3); };
 document.getElementById('splitConfirm').onclick=function(){
   const v1=document.getElementById('splitTime').value;
   if(!v1){alert('Saisissez l\'heure de coupure.');return;}
-  const cut1=tiToTs(v1,live.startTs);
-  if(cut1<=live.startTs||cut1>=Date.now()){alert('Heure de coupure 1 invalide.');return;}
+  const cut1=tiToTsAfter(v1,live.startTs);
+  if(cut1>=Date.now()){
+    alert('Coupure 1 hors de l\'activité.\nElle doit tomber entre '+
+          fmtTime(live.startTs)+' et maintenant ('+fmtTime(Date.now())+').');
+    return;
+  }
   splitCuts=[cut1];
   if(splitTargetN===3){
     const v2=document.getElementById('splitTime2').value;
     if(!v2){alert('Saisissez la 2e heure de coupure.');return;}
-    const cut2=tiToTs(v2,live.startTs);
-    if(cut2<=cut1||cut2>=Date.now()){alert('Heure de coupure 2 invalide (doit être après la 1re).');return;}
+    // ancrée sur cut1 : garantit l'ordre ET gère un second passage minuit
+    const cut2=tiToTsAfter(v2,cut1);
+    if(cut2>=Date.now()){
+      alert('Coupure 2 hors de l\'activité.\nElle doit tomber entre '+
+            fmtTime(cut1)+' et maintenant ('+fmtTime(Date.now())+').');
+      return;
+    }
     splitCuts.push(cut2);
   }
   splitParts=[];splitCurrentPart=0;
